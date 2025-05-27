@@ -1724,8 +1724,8 @@ return dateString;
      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
        {formatBoolean(ticker.extremeValuation)}
      </td>
-     <td className="px-3 py-4 text-sm text-gray-500 max-w-64">
-       <div className="truncate" title={ticker.thesis}>
+     <td className="px-3 py-4 text-sm text-gray-500">
+       <div className="break-words">
          {ticker.thesis}
        </div>
      </td>
@@ -2047,7 +2047,7 @@ const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst
                          />
                        </td>
                        <td className="px-6 py-4 text-sm text-gray-500">
-                         <div className="max-w-xs truncate">
+                         <div className="break-words">
                            {ticker.thesis}
                          </div>
                        </td>
