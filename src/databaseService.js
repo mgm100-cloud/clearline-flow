@@ -93,7 +93,7 @@ const cleanDataForDb = (obj) => {
   
   for (const [key, value] of Object.entries(obj)) {
     // Convert empty strings to null for date fields
-    if (key === 'catalystDate' || key === 'catalyst_date') {
+    if (['catalystDate', 'catalyst_date', 'earningsDate', 'earnings_date', 'qpCallDate', 'qp_call_date', 'previewDate', 'preview_date', 'callbackDate', 'callback_date'].includes(key)) {
       cleaned[key] = value === '' ? null : value;
     }
     // Convert empty strings to null for numeric fields
