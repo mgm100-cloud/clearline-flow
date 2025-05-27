@@ -144,7 +144,7 @@ const ClearlineFlow = () => {
   
   // Earnings tracking state
   const [earningsData, setEarningsData] = useState([]);
-  const [selectedCYQ, setSelectedCYQ] = useState('2024Q4');
+  const [selectedCYQ, setSelectedCYQ] = useState('2025Q2');
   const [selectedEarningsAnalyst, setSelectedEarningsAnalyst] = useState('');
 
   // Load data from Supabase on component mount
