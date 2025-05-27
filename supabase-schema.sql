@@ -44,8 +44,8 @@ CREATE TABLE IF NOT EXISTS public.tickers (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create earnings_data table
-CREATE TABLE IF NOT EXISTS public.earnings_data (
+-- Create earnings_tracking table
+CREATE TABLE IF NOT EXISTS public.earnings_tracking (
     id BIGSERIAL PRIMARY KEY,
     ticker VARCHAR(20) NOT NULL,
     cyq VARCHAR(10) NOT NULL,
@@ -60,13 +60,13 @@ CREATE TABLE IF NOT EXISTS public.earnings_data (
 
 -- Enable Row Level Security (RLS)
 ALTER TABLE public.tickers ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.earnings_data ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.earnings_tracking ENABLE ROW LEVEL SECURITY;
 
 -- Create policies to allow all operations for authenticated users
 CREATE POLICY "Allow all operations for authenticated users" ON public.tickers
     FOR ALL USING (auth.role() = 'authenticated');
 
-CREATE POLICY "Allow all operations for authenticated users" ON public.earnings_data
+CREATE POLICY "Allow all operations for authenticated users" ON public.earnings_tracking
     FOR ALL USING (auth.role() = 'authenticated');
 
 -- Create indexes for better performance
@@ -74,4 +74,4 @@ CREATE INDEX IF NOT EXISTS idx_tickers_ticker ON public.tickers(ticker);
 CREATE INDEX IF NOT EXISTS idx_tickers_status ON public.tickers(status);
 CREATE INDEX IF NOT EXISTS idx_tickers_analyst ON public.tickers(analyst);
 CREATE INDEX IF NOT EXISTS idx_tickers_created_at ON public.tickers(created_at);
-CREATE INDEX IF NOT EXISTS idx_earnings_ticker_cyq ON public.earnings_data(ticker, cyq); 
+CREATE INDEX IF NOT EXISTS idx_earnings_ticker_cyq ON public.earnings_tracking(ticker, cyq); 

@@ -106,17 +106,23 @@ const ClearlineFlow = () => {
       console.log('🔄 Starting to load data from Supabase...');
       try {
         console.log('📡 Calling DatabaseService.getTickers()...');
-        const [tickersData, earningsDataFromDB] = await Promise.all([
-          DatabaseService.getTickers(),
-          DatabaseService.getEarningsData()
-        ]);
         
-        console.log('✅ Successfully loaded data from Supabase:');
-        console.log('📊 Tickers:', tickersData);
-        console.log('📈 Earnings data:', earningsDataFromDB);
-        
+        // Load tickers first
+        const tickersData = await DatabaseService.getTickers();
+        console.log('✅ Successfully loaded tickers from Supabase:', tickersData);
         setTickers(tickersData);
-        setEarningsData(earningsDataFromDB);
+        
+        // Try to load earnings data, but don't fail if table doesn't exist
+        try {
+          console.log('📡 Calling DatabaseService.getEarningsData()...');
+          const earningsDataFromDB = await DatabaseService.getEarningsData();
+          console.log('✅ Successfully loaded earnings data from Supabase:', earningsDataFromDB);
+          setEarningsData(earningsDataFromDB);
+        } catch (earningsError) {
+          console.warn('⚠️ Could not load earnings data (table may not exist yet):', earningsError);
+          setEarningsData([]);
+        }
+        
       } catch (error) {
         console.error('❌ Error loading data from database:', error);
         // Fallback to localStorage if database fails

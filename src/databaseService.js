@@ -212,7 +212,7 @@ export const DatabaseService = {
   async getEarningsData() {
     try {
       const { data, error } = await supabase
-        .from('earnings_data')
+        .from('earnings_tracking')
         .select('*')
       
       if (error) throw error
@@ -236,7 +236,7 @@ export const DatabaseService = {
       });
       
       const { data, error } = await supabase
-        .from('earnings_data')
+        .from('earnings_tracking')
         .upsert([dbUpdates], {
           onConflict: 'ticker,cyq'
         })
