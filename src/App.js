@@ -1,5 +1,73 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Database, Users, TrendingUp, BarChart3, LogOut, Search, ChevronUp, ChevronDown } from 'lucide-react';
+import { Plus, Database, Users, TrendingUp, BarChart3, LogOut, Search, ChevronUp, ChevronDown, RefreshCw } from 'lucide-react';
+
+// Alpha Vantage API configuration - using environment variable
+const ALPHA_VANTAGE_API_KEY = process.env.REACT_APP_ALPHA_VANTAGE_API_KEY || 'YOUR_API_KEY_HERE';
+const ALPHA_VANTAGE_BASE_URL = 'https://www.alphavantage.co/query';
+
+// Quote service for Alpha Vantage integration
+const QuoteService = {
+  async getQuote(symbol) {
+    if (!ALPHA_VANTAGE_API_KEY || ALPHA_VANTAGE_API_KEY === 'YOUR_API_KEY_HERE') {
+      throw new Error('Alpha Vantage API key not configured');
+    }
+
+    try {
+      const response = await fetch(
+        `${ALPHA_VANTAGE_BASE_URL}?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${ALPHA_VANTAGE_API_KEY}`
+      );
+      const data = await response.json();
+      
+      if (data['Global Quote']) {
+        const quote = data['Global Quote'];
+        return {
+          symbol: quote['01. symbol'],
+          price: parseFloat(quote['05. price']),
+          change: parseFloat(quote['09. change']),
+          changePercent: parseFloat(quote['10. change percent'].replace('%', '')),
+          volume: parseInt(quote['06. volume']),
+          previousClose: parseFloat(quote['08. previous close']),
+          high: parseFloat(quote['03. high']),
+          low: parseFloat(quote['04. low']),
+          open: parseFloat(quote['02. open']),
+          lastUpdated: quote['07. latest trading day']
+        };
+      } else if (data['Error Message']) {
+        throw new Error(`Alpha Vantage Error: ${data['Error Message']}`);
+      } else if (data['Note']) {
+        throw new Error('API call frequency limit reached. Please try again later.');
+      } else {
+        throw new Error('Invalid response from Alpha Vantage');
+      }
+    } catch (error) {
+      console.error(`Error fetching quote for ${symbol}:`, error);
+      throw error;
+    }
+  },
+
+  async getBatchQuotes(symbols) {
+    const quotes = {};
+    const errors = {};
+    
+    // Alpha Vantage free tier has rate limits, so we'll batch with delays
+    for (let i = 0; i < symbols.length; i++) {
+      const symbol = symbols[i];
+      try {
+        // Add delay to respect rate limits (5 calls per minute for free tier)
+        if (i > 0) {
+          await new Promise(resolve => setTimeout(resolve, 12000)); // 12 second delay
+        }
+        
+        const quote = await this.getQuote(symbol);
+        quotes[symbol] = quote;
+      } catch (error) {
+        errors[symbol] = error.message;
+      }
+    }
+    
+    return { quotes, errors };
+  }
+};
 
 const ClearlineFlow = () => {
   // Authentication state
@@ -13,6 +81,12 @@ const ClearlineFlow = () => {
   const [selectedAnalyst, setSelectedAnalyst] = useState('LT');
   const [sortField, setSortField] = useState('');
   const [sortDirection, setSortDirection] = useState('asc');
+  
+  // Quote state
+  const [quotes, setQuotes] = useState({});
+  const [quoteErrors, setQuoteErrors] = useState({});
+  const [isLoadingQuotes, setIsLoadingQuotes] = useState(false);
+  const [lastQuoteUpdate, setLastQuoteUpdate] = useState(null);
   
   // Earnings tracking state
   const [earningsData, setEarningsData] = useState([]);
@@ -31,15 +105,118 @@ const ClearlineFlow = () => {
     setActiveTab('input');
   };
 
-  // Mock data fetching functions (replace with real API calls)
+  // Real-time quote functions
+  const updateQuotes = async (symbolsToUpdate = null) => {
+    if (!symbolsToUpdate) {
+      symbolsToUpdate = [...new Set(tickers.map(t => t.ticker.replace(' US', '')))];
+    }
+    
+    if (symbolsToUpdate.length === 0) return;
+
+    setIsLoadingQuotes(true);
+    setQuoteErrors({});
+
+    try {
+      const { quotes: newQuotes, errors } = await QuoteService.getBatchQuotes(symbolsToUpdate);
+      
+      setQuotes(prev => ({ ...prev, ...newQuotes }));
+      setQuoteErrors(errors);
+      setLastQuoteUpdate(new Date());
+      
+      // Update current prices in tickers
+      setTickers(prev => prev.map(ticker => {
+        const symbol = ticker.ticker.replace(' US', '');
+        const quote = newQuotes[symbol];
+        if (quote) {
+          return {
+            ...ticker,
+            currentPrice: quote.price,
+            lastQuoteUpdate: new Date().toISOString()
+          };
+        }
+        return ticker;
+      }));
+
+    } catch (error) {
+      console.error('Error updating quotes:', error);
+      setQuoteErrors({ general: error.message });
+    } finally {
+      setIsLoadingQuotes(false);
+    }
+  };
+
+  const updateSingleQuote = async (symbol) => {
+    const cleanSymbol = symbol.replace(' US', '');
+    setIsLoadingQuotes(true);
+    
+    try {
+      const quote = await QuoteService.getQuote(cleanSymbol);
+      setQuotes(prev => ({ ...prev, [cleanSymbol]: quote }));
+      
+      // Update the ticker's current price
+      setTickers(prev => prev.map(ticker => {
+        if (ticker.ticker.replace(' US', '') === cleanSymbol) {
+          return {
+            ...ticker,
+            currentPrice: quote.price,
+            lastQuoteUpdate: new Date().toISOString()
+          };
+        }
+        return ticker;
+      }));
+      
+      // Remove any previous error for this symbol
+      setQuoteErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[cleanSymbol];
+        return newErrors;
+      });
+      
+    } catch (error) {
+      setQuoteErrors(prev => ({ ...prev, [cleanSymbol]: error.message }));
+    } finally {
+      setIsLoadingQuotes(false);
+    }
+  };
+
+  // Auto-refresh quotes every 5 minutes
+  useEffect(() => {
+    if (!isAuthenticated || tickers.length === 0) return;
+
+    const interval = setInterval(() => {
+      updateQuotes();
+    }, 5 * 60 * 1000); // 5 minutes
+
+    return () => clearInterval(interval);
+  }, [isAuthenticated, tickers]);
+
+  // Mock data fetching functions (updated to use real quotes when available)
   const fetchStockData = async (ticker) => {
-    // Mock API response
-    return {
-      name: `${ticker} Company Ltd`,
-      price: Math.round((Math.random() * 200 + 50) * 100) / 100,
-      adv3Month: Math.round(Math.random() * 10000000),
-      marketCap: Math.round(Math.random() * 50000000000)
-    };
+    const cleanSymbol = ticker.replace(' US', '');
+    
+    // Try to get real quote first
+    try {
+      const quote = await QuoteService.getQuote(cleanSymbol);
+      setQuotes(prev => ({ ...prev, [cleanSymbol]: quote }));
+      
+      return {
+        name: `${ticker} Company Ltd`,
+        price: quote.price,
+        adv3Month: Math.round(Math.random() * 10000000),
+        marketCap: Math.round(Math.random() * 50000000000)
+      };
+    } catch (error) {
+      // Fallback to mock data if quote fails
+      console.warn(`Could not fetch real quote for ${ticker}, using mock data:`, error.message);
+      setQuoteErrors(prev => ({ ...prev, [cleanSymbol]: error.message }));
+      
+      return {
+        name: `${ticker} Company Ltd`,
+        price: Math.round((Math.random() * 200 + 50) * 100) / 100,
+        adv3Month: Math.round(Math.random() * 10000000),
+        marketCap: Math.round(Math.random() * 50000000000)
+      };
+    }
   };
 
   // Helper function to format price targets to 2 decimal places
@@ -172,6 +349,24 @@ const ClearlineFlow = () => {
               <h1 className="text-2xl font-bold text-gray-900">Clearline Flow</h1>
             </div>
             <div className="flex items-center space-x-4">
+              {/* Quote Update Controls */}
+              <div className="flex items-center space-x-2 text-sm text-gray-600">
+                {lastQuoteUpdate && (
+                  <span>Last updated: {lastQuoteUpdate.toLocaleTimeString()}</span>
+                )}
+                <button
+                  onClick={() => updateQuotes()}
+                  disabled={isLoadingQuotes}
+                  className={`flex items-center space-x-1 px-2 py-1 rounded text-sm ${
+                    isLoadingQuotes 
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                      : 'bg-blue-100 text-blue-600 hover:bg-blue-200'
+                  }`}
+                >
+                  <RefreshCw className={`h-4 w-4 ${isLoadingQuotes ? 'animate-spin' : ''}`} />
+                  <span>Update Quotes</span>
+                </button>
+              </div>
               <span className="text-sm text-gray-600">
                 {userRole === 'readwrite' ? 'Read/Write Access' : 'Read Only'}
               </span>
@@ -186,6 +381,29 @@ const ClearlineFlow = () => {
           </div>
         </div>
       </header>
+
+      {/* Quote Errors Banner */}
+      {Object.keys(quoteErrors).length > 0 && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex">
+              <div className="ml-3">
+                <p className="text-sm text-yellow-700">
+                  <strong>Quote Issues:</strong> {Object.keys(quoteErrors).length} symbol(s) could not be updated
+                </p>
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-xs text-yellow-600">Show details</summary>
+                  <div className="mt-1 text-xs text-yellow-600">
+                    {Object.entries(quoteErrors).map(([symbol, error]) => (
+                      <div key={symbol}>{symbol}: {error}</div>
+                    ))}
+                  </div>
+                </details>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Navigation */}
       <nav className="bg-white border-b">
@@ -287,6 +505,10 @@ const ClearlineFlow = () => {
             sortDirection={sortDirection}
             onUpdate={userRole === 'readwrite' ? updateTicker : null}
             analysts={analysts}
+            quotes={quotes}
+            onUpdateQuote={updateSingleQuote}
+            isLoadingQuotes={isLoadingQuotes}
+            quoteErrors={quoteErrors}
           />
         )}
         {activeTab === 'database-detailed' && (
@@ -297,10 +519,20 @@ const ClearlineFlow = () => {
             sortDirection={sortDirection}
             onUpdate={userRole === 'readwrite' ? updateTicker : null}
             analysts={analysts}
+            quotes={quotes}
+            onUpdateQuote={updateSingleQuote}
+            isLoadingQuotes={isLoadingQuotes}
+            quoteErrors={quoteErrors}
           />
         )}
         {activeTab === 'pm-detail' && (
-          <PMDetailPage tickers={tickers} />
+          <PMDetailPage 
+            tickers={tickers} 
+            quotes={quotes}
+            onUpdateQuote={updateSingleQuote}
+            isLoadingQuotes={isLoadingQuotes}
+            quoteErrors={quoteErrors}
+          />
         )}
         {activeTab === 'analyst-detail' && (
           <AnalystDetailPage 
@@ -308,6 +540,7 @@ const ClearlineFlow = () => {
             analysts={analysts}
             selectedAnalyst={selectedAnalyst}
             onSelectAnalyst={setSelectedAnalyst}
+            quotes={quotes}
           />
         )}
         {activeTab === 'team' && (
@@ -369,6 +602,47 @@ const LoginScreen = ({ onLogin }) => {
   );
 };
 
+// Enhanced Quote Display Component
+const QuoteDisplay = ({ ticker, quote, onUpdateQuote, isLoading, hasError }) => {
+  const cleanSymbol = ticker.replace(' US', '');
+  
+  if (!quote) {
+    return (
+      <div className="text-sm text-gray-500">
+        ${ticker?.currentPrice || '-'}
+        {hasError && (
+          <div className="text-xs text-red-500">Quote error</div>
+        )}
+      </div>
+    );
+  }
+
+  const isPositive = quote.change >= 0;
+  
+  return (
+    <div className="text-sm">
+      <div className="font-medium text-gray-900">
+        ${quote.price.toFixed(2)}
+        {onUpdateQuote && (
+          <button
+            onClick={() => onUpdateQuote(cleanSymbol)}
+            disabled={isLoading}
+            className="ml-1 text-xs text-blue-600 hover:text-blue-800 disabled:text-gray-400"
+          >
+            <RefreshCw className={`h-3 w-3 inline ${isLoading ? 'animate-spin' : ''}`} />
+          </button>
+        )}
+      </div>
+      <div className={`text-xs ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+        {isPositive ? '+' : ''}${quote.change.toFixed(2)} ({isPositive ? '+' : ''}{quote.changePercent.toFixed(2)}%)
+      </div>
+      <div className="text-xs text-gray-500">
+        Vol: {(quote.volume / 1000000).toFixed(1)}M
+      </div>
+    </div>
+  );
+};
+
 // Input Page Component
 const InputPage = ({ onAddTicker, analysts }) => {
   const [formData, setFormData] = useState({
@@ -422,26 +696,16 @@ const InputPage = ({ onAddTicker, analysts }) => {
     e.preventDefault();
     e.stopPropagation();
     
-    console.log('=== FORM SUBMISSION START ===');
-    console.log('Current form data:', formData);
-    console.log('Ticker:', formData.ticker);
-    console.log('Thesis:', formData.thesis);
-    
     if (!formData.ticker || !formData.thesis) {
-      console.log('Missing required fields!');
       setSubmitMessage('Please fill in both Ticker and Thesis fields');
       return;
     }
 
-    console.log('Required fields present, proceeding...');
     setIsSubmitting(true);
     setSubmitMessage('Adding investment idea...');
     
     try {
-      console.log('Calling onAddTicker...');
       await onAddTicker(formData);
-      console.log('onAddTicker completed successfully');
-      
       setSubmitMessage('Investment idea added successfully!');
       
       // Reset form
@@ -480,7 +744,6 @@ const InputPage = ({ onAddTicker, analysts }) => {
         extremeValuation: false
       };
       
-      console.log('Resetting form...');
       setFormData(resetData);
       
       setTimeout(() => {
@@ -491,29 +754,18 @@ const InputPage = ({ onAddTicker, analysts }) => {
       console.error('Error in handleSubmit:', error);
       setSubmitMessage('Error adding investment idea: ' + error.message);
     } finally {
-      console.log('Setting isSubmitting to false');
       setIsSubmitting(false);
-      console.log('=== FORM SUBMISSION END ===');
     }
   };
 
   const handleChange = (field, value) => {
-    // Format price targets on change
-    if (field === 'ptBear' || field === 'ptBase' || field === 'ptBull') {
-      setFormData(prev => ({
-        ...prev,
-        [field]: value // Store raw value during input
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [field]: value
-      }));
-    }
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
   };
 
   const handlePriceTargetBlur = (field, value) => {
-    // Format price targets when user leaves the field
     const formatted = formatPriceTarget(value);
     setFormData(prev => ({
       ...prev,
@@ -540,9 +792,10 @@ const InputPage = ({ onAddTicker, analysts }) => {
                 required
                 value={formData.ticker}
                 onChange={(e) => handleChange('ticker', e.target.value)}
-                placeholder="e.g., RL US"
+                placeholder="e.g., AAPL"
                 className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
               />
+              <p className="mt-1 text-xs text-gray-500">Enter symbol without exchange suffix (e.g., AAPL not AAPL US)</p>
             </div>
             
             <div>
@@ -686,11 +939,7 @@ const InputPage = ({ onAddTicker, analysts }) => {
             <button
               type="button"
               disabled={isSubmitting}
-              onClick={(e) => {
-                console.log('Button clicked!');
-                console.log('Form data:', formData);
-                handleSubmit(e);
-              }}
+              onClick={handleSubmit}
               className={`ml-3 inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white ${
                 isSubmitting 
                   ? 'bg-gray-400 cursor-not-allowed' 
@@ -796,8 +1045,8 @@ const InputPage = ({ onAddTicker, analysts }) => {
   );
 };
 
-// Database Page Component
-const DatabasePage = ({ tickers, onSort, sortField, sortDirection, onUpdate, analysts }) => {
+// Enhanced Database Page Component with quotes
+const DatabasePage = ({ tickers, onSort, sortField, sortDirection, onUpdate, analysts, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors }) => {
   const SortableHeader = ({ field, children }) => (
     <th
       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
@@ -830,17 +1079,21 @@ const DatabasePage = ({ tickers, onSort, sortField, sortDirection, onUpdate, ana
                 <SortableHeader field="priority">Priority</SortableHeader>
                 <SortableHeader field="status">Status</SortableHeader>
                 <SortableHeader field="analyst">Analyst</SortableHeader>
-                <SortableHeader field="currentPrice">Current Price</SortableHeader>
+                <SortableHeader field="currentPrice">Live Quote</SortableHeader>
                 {onUpdate && <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>}
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {tickers.map((ticker) => (
-                <TickerRow 
+                <EnhancedTickerRow 
                   key={ticker.id} 
                   ticker={ticker} 
                   onUpdate={onUpdate}
                   analysts={analysts}
+                  quotes={quotes}
+                  onUpdateQuote={onUpdateQuote}
+                  isLoadingQuotes={isLoadingQuotes}
+                  quoteErrors={quoteErrors}
                 />
               ))}
             </tbody>
@@ -857,18 +1110,14 @@ const DatabasePage = ({ tickers, onSort, sortField, sortDirection, onUpdate, ana
   );
 };
 
-// Ticker Row Component for inline editing
-const TickerRow = ({ ticker, onUpdate, analysts }) => {
+// Enhanced Ticker Row Component with quote integration
+const EnhancedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState(ticker);
 
-  // Helper function to format price targets to 2 decimal places
-  const formatPriceTarget = (value) => {
-    if (!value || value === '') return '';
-    const num = parseFloat(value);
-    if (isNaN(num)) return '';
-    return num.toFixed(2);
-  };
+  const cleanSymbol = ticker.ticker.replace(' US', '');
+  const quote = quotes[cleanSymbol];
+  const hasQuoteError = quoteErrors[cleanSymbol];
 
   const handleSave = () => {
     onUpdate(ticker.id, editData);
@@ -880,8 +1129,10 @@ const TickerRow = ({ ticker, onUpdate, analysts }) => {
     setIsEditing(false);
   };
 
-  const pnl = ticker.currentPrice && ticker.inputPrice 
-    ? ((ticker.currentPrice - ticker.inputPrice) / ticker.inputPrice * 100).toFixed(2)
+  // Calculate P&L from input price vs current quote price
+  const currentPrice = quote ? quote.price : ticker.currentPrice;
+  const pnl = currentPrice && ticker.inputPrice 
+    ? ((currentPrice - ticker.inputPrice) / ticker.inputPrice * 100).toFixed(2)
     : 0;
 
   if (isEditing && onUpdate) {
@@ -943,8 +1194,14 @@ const TickerRow = ({ ticker, onUpdate, analysts }) => {
             ))}
           </select>
         </td>
-        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-          ${ticker.currentPrice}
+        <td className="px-6 py-4 whitespace-nowrap">
+          <QuoteDisplay 
+            ticker={ticker.ticker}
+            quote={quote}
+            onUpdateQuote={onUpdateQuote}
+            isLoading={isLoadingQuotes}
+            hasError={hasQuoteError}
+          />
         </td>
         <td className="px-6 py-4 whitespace-nowrap text-sm">
           <div className="flex space-x-2">
@@ -1010,11 +1267,19 @@ const TickerRow = ({ ticker, onUpdate, analysts }) => {
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
         {ticker.analyst || '-'}
       </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-        ${ticker.currentPrice}
-        <div className={`text-xs ${pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-          {pnl >= 0 ? '+' : ''}{pnl}%
-        </div>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <QuoteDisplay 
+          ticker={ticker.ticker}
+          quote={quote}
+          onUpdateQuote={onUpdateQuote}
+          isLoading={isLoadingQuotes}
+          hasError={hasQuoteError}
+        />
+        {ticker.inputPrice && currentPrice && (
+          <div className={`text-xs mt-1 ${pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            P&L: {pnl >= 0 ? '+' : ''}{pnl}%
+          </div>
+        )}
       </td>
       {onUpdate && (
         <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -1030,8 +1295,8 @@ const TickerRow = ({ ticker, onUpdate, analysts }) => {
   );
 };
 
-// Database Detailed Page Component - Shows all fields
-const DatabaseDetailedPage = ({ tickers, onSort, sortField, sortDirection, onUpdate, analysts }) => {
+// Database Detailed Page Component - Shows all fields with quotes integration
+const DatabaseDetailedPage = ({ tickers, onSort, sortField, sortDirection, onUpdate, analysts, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors }) => {
   const SortableHeader = ({ field, children }) => (
     <th
       className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
@@ -1064,7 +1329,6 @@ const DatabaseDetailedPage = ({ tickers, onSort, sortField, sortDirection, onUpd
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                {/* Basic Info */}
                 <SortableHeader field="ticker">Ticker</SortableHeader>
                 <SortableHeader field="name">Name</SortableHeader>
                 <SortableHeader field="dateIn">Date In</SortableHeader>
@@ -1074,28 +1338,18 @@ const DatabaseDetailedPage = ({ tickers, onSort, sortField, sortDirection, onUpd
                 <SortableHeader field="status">Status</SortableHeader>
                 <SortableHeader field="analyst">Analyst</SortableHeader>
                 <SortableHeader field="source">Source</SortableHeader>
-                
-                {/* Financial Data */}
                 <SortableHeader field="inputPrice">Input Price</SortableHeader>
-                <SortableHeader field="currentPrice">Current Price</SortableHeader>
+                <SortableHeader field="currentPrice">Live Quote</SortableHeader>
                 <SortableHeader field="marketCap">Market Cap</SortableHeader>
                 <SortableHeader field="adv3Month">ADV 3M</SortableHeader>
-                
-                {/* Price Targets */}
                 <SortableHeader field="ptBear">PT Bear</SortableHeader>
                 <SortableHeader field="ptBase">PT Base</SortableHeader>
                 <SortableHeader field="ptBull">PT Bull</SortableHeader>
-                
-                {/* Additional Info */}
                 <SortableHeader field="catalystDate">Catalyst Date</SortableHeader>
                 <SortableHeader field="valueOrGrowth">Value/Growth</SortableHeader>
-                
-                {/* M&A Characteristics */}
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">M&A Target Buyer</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">M&A Target Val</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">M&A Target Seller</th>
-                
-                {/* Other Investment Characteristics */}
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Big Move Revert</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Activist</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Activist Potential</th>
@@ -1103,12 +1357,8 @@ const DatabaseDetailedPage = ({ tickers, onSort, sortField, sortDirection, onUpd
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">New Mgmt</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Spin</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Big Acq</th>
-                
-                {/* Risk Factors */}
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fraud Risk</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Regulatory Risk</th>
-                
-                {/* Market Characteristics */}
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cyclical</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Non-Cyclical</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">High Beta</th>
@@ -1117,10 +1367,7 @@ const DatabaseDetailedPage = ({ tickers, onSort, sortField, sortDirection, onUpd
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rate Exposure</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Strong Dollar</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Extreme Val</th>
-                
-                {/* Thesis */}
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thesis</th>
-                
                 {onUpdate && <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>}
               </tr>
             </thead>
@@ -1131,6 +1378,10 @@ const DatabaseDetailedPage = ({ tickers, onSort, sortField, sortDirection, onUpd
                   ticker={ticker} 
                   onUpdate={onUpdate}
                   analysts={analysts}
+                  quotes={quotes}
+                  onUpdateQuote={onUpdateQuote}
+                  isLoadingQuotes={isLoadingQuotes}
+                  quoteErrors={quoteErrors}
                 />
               ))}
             </tbody>
@@ -1147,18 +1398,14 @@ const DatabaseDetailedPage = ({ tickers, onSort, sortField, sortDirection, onUpd
   );
 };
 
-// Detailed Ticker Row Component for inline editing in detailed view
-const DetailedTickerRow = ({ ticker, onUpdate, analysts }) => {
+// Detailed Ticker Row Component for inline editing in detailed view with quotes
+const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState(ticker);
 
-  // Helper function to format price targets to 2 decimal places
-  const formatPriceTarget = (value) => {
-    if (!value || value === '') return '';
-    const num = parseFloat(value);
-    if (isNaN(num)) return '';
-    return num.toFixed(2);
-  };
+  const cleanSymbol = ticker.ticker.replace(' US', '');
+  const quote = quotes[cleanSymbol];
+  const hasQuoteError = quoteErrors[cleanSymbol];
 
   const handleSave = () => {
     onUpdate(ticker.id, editData);
@@ -1174,1296 +1421,981 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts }) => {
   
   const formatDate = (dateString) => {
     if (!dateString) return '-';
-    return dateString;
-  };
+return dateString;
+ };
 
-  const pnl = ticker.currentPrice && ticker.inputPrice 
-    ? ((ticker.currentPrice - ticker.inputPrice) / ticker.inputPrice * 100).toFixed(2)
-    : 0;
+ const currentPrice = quote ? quote.price : ticker.currentPrice;
+ const pnl = currentPrice && ticker.inputPrice 
+   ? ((currentPrice - ticker.inputPrice) / ticker.inputPrice * 100).toFixed(2)
+   : 0;
 
-  if (isEditing && onUpdate) {
-    return (
-      <tr className="bg-blue-50">
-        {/* Basic Info - mostly non-editable */}
-        <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-          {ticker.ticker}
-        </td>
-        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 max-w-32 truncate">
-          {ticker.name}
-        </td>
-        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
-          {formatDate(ticker.dateIn)}
-        </td>
-        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
-          {formatDate(ticker.pokeDate)}
-        </td>
-        
-        {/* Editable Fields */}
-        <td className="px-3 py-4 whitespace-nowrap">
-          <select
-            value={editData.lsPosition}
-            onChange={(e) => setEditData({...editData, lsPosition: e.target.value})}
-            className="text-xs border border-gray-300 rounded px-1 py-1 w-16"
-          >
-            <option value="Long">Long</option>
-            <option value="Short">Short</option>
-          </select>
-        </td>
-        <td className="px-3 py-4 whitespace-nowrap">
-          <select
-            value={editData.priority}
-            onChange={(e) => setEditData({...editData, priority: e.target.value})}
-            className="text-xs border border-gray-300 rounded px-1 py-1 w-12"
-          >
-            <option value="A">A</option>
-            <option value="B">B</option>
-            <option value="C">C</option>
-            <option value="F">F</option>
-          </select>
-        </td>
-        <td className="px-3 py-4 whitespace-nowrap">
-          <select
-            value={editData.status}
-            onChange={(e) => setEditData({...editData, status: e.target.value})}
-            className="text-xs border border-gray-300 rounded px-1 py-1 w-20"
-          >
-            <option value="New">New</option>
-            <option value="Portfolio">Portfolio</option>
-            <option value="Current">Current</option>
-            <option value="On-Deck">On-Deck</option>
-            <option value="Old">Old</option>
-          </select>
-        </td>
-        <td className="px-3 py-4 whitespace-nowrap">
-          <select
-            value={editData.analyst}
-            onChange={(e) => setEditData({...editData, analyst: e.target.value})}
-            className="text-xs border border-gray-300 rounded px-1 py-1 w-16"
-          >
-            <option value="">-</option>
-            {analysts.map(analyst => (
-              <option key={analyst} value={analyst}>{analyst}</option>
-            ))}
-          </select>
-        </td>
-        
-        {/* Source */}
-        <td className="px-3 py-4 whitespace-nowrap">
-          <input
-            type="text"
-            value={editData.source || ''}
-            onChange={(e) => setEditData({...editData, source: e.target.value})}
-            className="text-xs border border-gray-300 rounded px-1 py-1 w-20"
-          />
-        </td>
-        
-        {/* Financial Data - mostly read-only */}
-        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-          ${ticker.inputPrice || '-'}
-        </td>
-        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-          ${ticker.currentPrice || '-'}
-        </td>
-        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
-          {ticker.marketCap ? `${(ticker.marketCap / 1000000).toFixed(0)}M` : '-'}
-        </td>
-        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
-          {ticker.adv3Month ? `${(ticker.adv3Month / 1000000).toFixed(1)}M` : '-'}
-        </td>
-        
-        {/* Price Targets - Editable */}
-        <td className="px-3 py-4 whitespace-nowrap">
-          <input
-            type="number"
-            step="0.01"
-            value={editData.ptBear || ''}
-            onChange={(e) => setEditData({...editData, ptBear: e.target.value})}
-            onBlur={(e) => setEditData({...editData, ptBear: formatPriceTarget(e.target.value)})}
-            className="text-xs border border-gray-300 rounded px-1 py-1 w-16"
-          />
-        </td>
-        <td className="px-3 py-4 whitespace-nowrap">
-          <input
-            type="number"
-            step="0.01"
-            value={editData.ptBase || ''}
-            onChange={(e) => setEditData({...editData, ptBase: e.target.value})}
-            onBlur={(e) => setEditData({...editData, ptBase: formatPriceTarget(e.target.value)})}
-            className="text-xs border border-gray-300 rounded px-1 py-1 w-16"
-          />
-        </td>
-        <td className="px-3 py-4 whitespace-nowrap">
-          <input
-            type="number"
-            step="0.01"
-            value={editData.ptBull || ''}
-            onChange={(e) => setEditData({...editData, ptBull: e.target.value})}
-            onBlur={(e) => setEditData({...editData, ptBull: formatPriceTarget(e.target.value)})}
-            className="text-xs border border-gray-300 rounded px-1 py-1 w-16"
-          />
-        </td>
-        
-        {/* Catalyst Date */}
-        <td className="px-3 py-4 whitespace-nowrap">
-          <input
-            type="date"
-            value={editData.catalystDate || ''}
-            onChange={(e) => setEditData({...editData, catalystDate: e.target.value})}
-            className="text-xs border border-gray-300 rounded px-1 py-1 w-24"
-          />
-        </td>
-        
-        {/* Value or Growth */}
-        <td className="px-3 py-4 whitespace-nowrap">
-          <select
-            value={editData.valueOrGrowth || ''}
-            onChange={(e) => setEditData({...editData, valueOrGrowth: e.target.value})}
-            className="text-xs border border-gray-300 rounded px-1 py-1 w-16"
-          >
-            <option value="">-</option>
-            <option value="Value">Value</option>
-            <option value="Growth">Growth</option>
-          </select>
-        </td>
-        
-        {/* Boolean Fields - Checkboxes */}
-        <td className="px-3 py-4 whitespace-nowrap text-center">
-          <input
-            type="checkbox"
-            checked={editData.maTargetBuyer || false}
-            onChange={(e) => setEditData({...editData, maTargetBuyer: e.target.checked})}
-            className="h-3 w-3"
-          />
-        </td>
-        <td className="px-3 py-4 whitespace-nowrap text-center">
-          <input
-            type="checkbox"
-            checked={editData.maTargetValuation || false}
-            onChange={(e) => setEditData({...editData, maTargetValuation: e.target.checked})}
-            className="h-3 w-3"
-          />
-        </td>
-        <td className="px-3 py-4 whitespace-nowrap text-center">
-          <input
-            type="checkbox"
-            checked={editData.maTargetSeller || false}
-            onChange={(e) => setEditData({...editData, maTargetSeller: e.target.checked})}
-            className="h-3 w-3"
-          />
-        </td>
-        <td className="px-3 py-4 whitespace-nowrap text-center">
-          <input
-            type="checkbox"
-            checked={editData.bigMoveRevert || false}
-            onChange={(e) => setEditData({...editData, bigMoveRevert: e.target.checked})}
-            className="h-3 w-3"
-          />
-        </td>
-        <td className="px-3 py-4 whitespace-nowrap text-center">
-          <input
-            type="checkbox"
-            checked={editData.activist || false}
-            onChange={(e) => setEditData({...editData, activist: e.target.checked})}
-            className="h-3 w-3"
-          />
-        </td>
-        <td className="px-3 py-4 whitespace-nowrap text-center">
-          <input
-            type="checkbox"
-            checked={editData.activistPotential || false}
-            onChange={(e) => setEditData({...editData, activistPotential: e.target.checked})}
-            className="h-3 w-3"
-          />
-        </td>
-        <td className="px-3 py-4 whitespace-nowrap text-center">
-          <input
-            type="checkbox"
-            checked={editData.insiderTradeSignal || false}
-            onChange={(e) => setEditData({...editData, insiderTradeSignal: e.target.checked})}
-            className="h-3 w-3"
-          />
-        </td>
-        <td className="px-3 py-4 whitespace-nowrap text-center">
-          <input
-            type="checkbox"
-            checked={editData.newMgmt || false}
-            onChange={(e) => setEditData({...editData, newMgmt: e.target.checked})}
-            className="h-3 w-3"
-          />
-        </td>
-        <td className="px-3 py-4 whitespace-nowrap text-center">
-          <input
-            type="checkbox"
-            checked={editData.spin || false}
-            onChange={(e) => setEditData({...editData, spin: e.target.checked})}
-            className="h-3 w-3"
-          />
-        </td>
-        <td className="px-3 py-4 whitespace-nowrap text-center">
-          <input
-            type="checkbox"
-            checked={editData.bigAcq || false}
-            onChange={(e) => setEditData({...editData, bigAcq: e.target.checked})}
-            className="h-3 w-3"
-          />
-        </td>
-        <td className="px-3 py-4 whitespace-nowrap text-center">
-          <input
-            type="checkbox"
-            checked={editData.fraudRisk || false}
-            onChange={(e) => setEditData({...editData, fraudRisk: e.target.checked})}
-            className="h-3 w-3"
-          />
-        </td>
-        <td className="px-3 py-4 whitespace-nowrap text-center">
-          <input
-            type="checkbox"
-            checked={editData.regulatoryRisk || false}
-            onChange={(e) => setEditData({...editData, regulatoryRisk: e.target.checked})}
-            className="h-3 w-3"
-          />
-        </td>
-        <td className="px-3 py-4 whitespace-nowrap text-center">
-          <input
-            type="checkbox"
-            checked={editData.cyclical || false}
-            onChange={(e) => setEditData({...editData, cyclical: e.target.checked})}
-            className="h-3 w-3"
-          />
-        </td>
-        <td className="px-3 py-4 whitespace-nowrap text-center">
-          <input
-            type="checkbox"
-            checked={editData.nonCyclical || false}
-            onChange={(e) => setEditData({...editData, nonCyclical: e.target.checked})}
-            className="h-3 w-3"
-          />
-        </td>
-        <td className="px-3 py-4 whitespace-nowrap text-center">
-          <input
-            type="checkbox"
-            checked={editData.highBeta || false}
-            onChange={(e) => setEditData({...editData, highBeta: e.target.checked})}
-            className="h-3 w-3"
-          />
-        </td>
-        <td className="px-3 py-4 whitespace-nowrap text-center">
-          <input
-            type="checkbox"
-            checked={editData.momo || false}
-            onChange={(e) => setEditData({...editData, momo: e.target.checked})}
-            className="h-3 w-3"
-          />
-        </td>
-        <td className="px-3 py-4 whitespace-nowrap text-center">
-          <input
-            type="checkbox"
-            checked={editData.selfHelp || false}
-            onChange={(e) => setEditData({...editData, selfHelp: e.target.checked})}
-            className="h-3 w-3"
-          />
-        </td>
-        <td className="px-3 py-4 whitespace-nowrap text-center">
-          <input
-            type="checkbox"
-            checked={editData.rateExposure || false}
-            onChange={(e) => setEditData({...editData, rateExposure: e.target.checked})}
-            className="h-3 w-3"
-          />
-        </td>
-        <td className="px-3 py-4 whitespace-nowrap text-center">
-          <input
-            type="checkbox"
-            checked={editData.strongDollar || false}
-            onChange={(e) => setEditData({...editData, strongDollar: e.target.checked})}
-            className="h-3 w-3"
-          />
-        </td>
-        <td className="px-3 py-4 whitespace-nowrap text-center">
-          <input
-            type="checkbox"
-            checked={editData.extremeValuation || false}
-            onChange={(e) => setEditData({...editData, extremeValuation: e.target.checked})}
-            className="h-3 w-3"
-          />
-        </td>
-        
-        {/* Thesis - Editable */}
-        <td className="px-3 py-4">
-          <textarea
-            value={editData.thesis || ''}
-            onChange={(e) => setEditData({...editData, thesis: e.target.value})}
-            className="text-xs border border-gray-300 rounded px-1 py-1 w-48 h-16 resize-none"
-            rows={3}
-          />
-        </td>
-        
-        <td className="px-3 py-4 whitespace-nowrap text-sm">
-          <div className="flex space-x-2">
-            <button
-              onClick={handleSave}
-              className="text-green-600 hover:text-green-900 text-xs font-medium"
-            >
-              Save
-            </button>
-            <button
-              onClick={handleCancel}
-              className="text-red-600 hover:text-red-900 text-xs font-medium"
-            >
-              Cancel
-            </button>
-          </div>
-        </td>
-      </tr>
-    );
-  }
+ if (isEditing && onUpdate) {
+   return (
+     <tr className="bg-blue-50">
+       <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+         {ticker.ticker}
+       </td>
+       <td colSpan="20" className="px-3 py-4 text-center">
+         <div className="flex space-x-2 justify-center">
+           <button
+             onClick={handleSave}
+             className="text-green-600 hover:text-green-900 text-xs font-medium"
+           >
+             Save
+           </button>
+           <button
+             onClick={handleCancel}
+             className="text-red-600 hover:text-red-900 text-xs font-medium"
+           >
+             Cancel
+           </button>
+         </div>
+       </td>
+     </tr>
+   );
+ }
 
-  return (
-    <tr className="hover:bg-gray-50">
-      {/* Basic Info */}
-      <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-        {ticker.ticker}
-      </td>
-      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 max-w-32 truncate">
-        {ticker.name}
-      </td>
-      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
-        {formatDate(ticker.dateIn)}
-      </td>
-      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
-        {formatDate(ticker.pokeDate)}
-      </td>
-      <td className="px-3 py-4 whitespace-nowrap">
-        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-          ticker.lsPosition === 'Long' 
-            ? 'bg-green-100 text-green-800' 
-            : 'bg-red-100 text-red-800'
-        }`}>
-          {ticker.lsPosition}
-        </span>
-      </td>
-      <td className="px-3 py-4 whitespace-nowrap">
-        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-          ticker.priority === 'A' ? 'bg-red-100 text-red-800' :
-          ticker.priority === 'B' ? 'bg-yellow-100 text-yellow-800' :
-          ticker.priority === 'C' ? 'bg-blue-100 text-blue-800' :
-          'bg-gray-100 text-gray-800'
-        }`}>
-          {ticker.priority}
-        </span>
-      </td>
-      <td className="px-3 py-4 whitespace-nowrap">
-        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-          ticker.status === 'Current' ? 'bg-green-100 text-green-800' :
-          ticker.status === 'Portfolio' ? 'bg-blue-100 text-blue-800' :
-          ticker.status === 'On-Deck' ? 'bg-yellow-100 text-yellow-800' :
-          ticker.status === 'New' ? 'bg-purple-100 text-purple-800' :
-          'bg-gray-100 text-gray-800'
-        }`}>
-          {ticker.status}
-        </span>
-      </td>
-      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-        {ticker.analyst || '-'}
-      </td>
-      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
-        {ticker.source || '-'}
-      </td>
-      
-      {/* Financial Data */}
-      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-        ${ticker.inputPrice || '-'}
-      </td>
-      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-        ${ticker.currentPrice || '-'}
-        {ticker.currentPrice && ticker.inputPrice && (
-          <div className={`text-xs ${pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-            {pnl >= 0 ? '+' : ''}{pnl}%
-          </div>
-        )}
-      </td>
-      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
-        {ticker.marketCap ? `${(ticker.marketCap / 1000000).toFixed(0)}M` : '-'}
-      </td>
-      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
-        {ticker.adv3Month ? `${(ticker.adv3Month / 1000000).toFixed(1)}M` : '-'}
-      </td>
-      
-      {/* Price Targets */}
-      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
-        {ticker.ptBear ? `${parseFloat(ticker.ptBear).toFixed(2)}` : '-'}
-      </td>
-      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
-        {ticker.ptBase ? `${parseFloat(ticker.ptBase).toFixed(2)}` : '-'}
-      </td>
-      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
-        {ticker.ptBull ? `${parseFloat(ticker.ptBull).toFixed(2)}` : '-'}
-      </td>
-      
-      {/* Additional Info */}
-      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
-        {ticker.catalystDate || '-'}
-      </td>
-      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
-        {ticker.valueOrGrowth || '-'}
-      </td>
-      
-      {/* Boolean Fields */}
-      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-        {formatBoolean(ticker.maTargetBuyer)}
-      </td>
-      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-        {formatBoolean(ticker.maTargetValuation)}
-      </td>
-      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-        {formatBoolean(ticker.maTargetSeller)}
-      </td>
-      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-        {formatBoolean(ticker.bigMoveRevert)}
-      </td>
-      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-        {formatBoolean(ticker.activist)}
-      </td>
-      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-        {formatBoolean(ticker.activistPotential)}
-      </td>
-      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-        {formatBoolean(ticker.insiderTradeSignal)}
-      </td>
-      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-        {formatBoolean(ticker.newMgmt)}
-      </td>
-      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-        {formatBoolean(ticker.spin)}
-      </td>
-      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-        {formatBoolean(ticker.bigAcq)}
-      </td>
-      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-        {formatBoolean(ticker.fraudRisk)}
-      </td>
-      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-        {formatBoolean(ticker.regulatoryRisk)}
-      </td>
-      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-        {formatBoolean(ticker.cyclical)}
-      </td>
-      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-        {formatBoolean(ticker.nonCyclical)}
-      </td>
-      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-        {formatBoolean(ticker.highBeta)}
-      </td>
-      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-        {formatBoolean(ticker.momo)}
-      </td>
-      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-        {formatBoolean(ticker.selfHelp)}
-      </td>
-      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-        {formatBoolean(ticker.rateExposure)}
-      </td>
-      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-        {formatBoolean(ticker.strongDollar)}
-      </td>
-      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-        {formatBoolean(ticker.extremeValuation)}
-      </td>
-      
-      {/* Thesis */}
-      <td className="px-3 py-4 text-sm text-gray-500 max-w-64">
-        <div className="truncate" title={ticker.thesis}>
-          {ticker.thesis}
-        </div>
-      </td>
-      
-      {onUpdate && (
-        <td className="px-3 py-4 whitespace-nowrap text-sm">
-          <button
-            onClick={() => setIsEditing(true)}
-            className="text-blue-600 hover:text-blue-900 text-xs"
-          >
-            Edit
-          </button>
-        </td>
-      )}
-    </tr>
-  );
+ return (
+   <tr className="hover:bg-gray-50">
+     <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+       {ticker.ticker}
+     </td>
+     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 max-w-32 truncate">
+       {ticker.name}
+     </td>
+     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
+       {formatDate(ticker.dateIn)}
+     </td>
+     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
+       {formatDate(ticker.pokeDate)}
+     </td>
+     <td className="px-3 py-4 whitespace-nowrap">
+       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+         ticker.lsPosition === 'Long' 
+           ? 'bg-green-100 text-green-800' 
+           : 'bg-red-100 text-red-800'
+       }`}>
+         {ticker.lsPosition}
+       </span>
+     </td>
+     <td className="px-3 py-4 whitespace-nowrap">
+       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+         ticker.priority === 'A' ? 'bg-red-100 text-red-800' :
+         ticker.priority === 'B' ? 'bg-yellow-100 text-yellow-800' :
+         ticker.priority === 'C' ? 'bg-blue-100 text-blue-800' :
+         'bg-gray-100 text-gray-800'
+       }`}>
+         {ticker.priority}
+       </span>
+     </td>
+     <td className="px-3 py-4 whitespace-nowrap">
+       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+         ticker.status === 'Current' ? 'bg-green-100 text-green-800' :
+         ticker.status === 'Portfolio' ? 'bg-blue-100 text-blue-800' :
+         ticker.status === 'On-Deck' ? 'bg-yellow-100 text-yellow-800' :
+         ticker.status === 'New' ? 'bg-purple-100 text-purple-800' :
+         'bg-gray-100 text-gray-800'
+       }`}>
+         {ticker.status}
+       </span>
+     </td>
+     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+       {ticker.analyst || '-'}
+     </td>
+     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
+       {ticker.source || '-'}
+     </td>
+     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+       ${ticker.inputPrice || '-'}
+     </td>
+     <td className="px-3 py-4 whitespace-nowrap">
+       <QuoteDisplay 
+         ticker={ticker.ticker}
+         quote={quote}
+         onUpdateQuote={onUpdateQuote}
+         isLoading={isLoadingQuotes}
+         hasError={hasQuoteError}
+       />
+       {ticker.inputPrice && currentPrice && (
+         <div className={`text-xs mt-1 ${pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+           P&L: {pnl >= 0 ? '+' : ''}{pnl}%
+         </div>
+       )}
+     </td>
+     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
+       {ticker.marketCap ? `${(ticker.marketCap / 1000000).toFixed(0)}M` : '-'}
+     </td>
+     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
+       {ticker.adv3Month ? `${(ticker.adv3Month / 1000000).toFixed(1)}M` : '-'}
+     </td>
+     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
+       {ticker.ptBear ? `${parseFloat(ticker.ptBear).toFixed(2)}` : '-'}
+     </td>
+     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
+       {ticker.ptBase ? `${parseFloat(ticker.ptBase).toFixed(2)}` : '-'}
+     </td>
+     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
+       {ticker.ptBull ? `${parseFloat(ticker.ptBull).toFixed(2)}` : '-'}
+     </td>
+     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
+       {ticker.catalystDate || '-'}
+     </td>
+     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
+       {ticker.valueOrGrowth || '-'}
+     </td>
+     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+       {formatBoolean(ticker.maTargetBuyer)}
+     </td>
+     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+       {formatBoolean(ticker.maTargetValuation)}
+     </td>
+     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+       {formatBoolean(ticker.maTargetSeller)}
+     </td>
+     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+       {formatBoolean(ticker.bigMoveRevert)}
+     </td>
+     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+       {formatBoolean(ticker.activist)}
+     </td>
+     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+       {formatBoolean(ticker.activistPotential)}
+     </td>
+     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+       {formatBoolean(ticker.insiderTradeSignal)}
+     </td>
+     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+       {formatBoolean(ticker.newMgmt)}
+     </td>
+     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+       {formatBoolean(ticker.spin)}
+     </td>
+     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+       {formatBoolean(ticker.bigAcq)}
+     </td>
+     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+       {formatBoolean(ticker.fraudRisk)}
+     </td>
+     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+       {formatBoolean(ticker.regulatoryRisk)}
+     </td>
+     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+       {formatBoolean(ticker.cyclical)}
+     </td>
+     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+       {formatBoolean(ticker.nonCyclical)}
+     </td>
+     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+       {formatBoolean(ticker.highBeta)}
+     </td>
+     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+       {formatBoolean(ticker.momo)}
+     </td>
+     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+       {formatBoolean(ticker.selfHelp)}
+     </td>
+     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+       {formatBoolean(ticker.rateExposure)}
+     </td>
+     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+       {formatBoolean(ticker.strongDollar)}
+     </td>
+     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+       {formatBoolean(ticker.extremeValuation)}
+     </td>
+     <td className="px-3 py-4 text-sm text-gray-500 max-w-64">
+       <div className="truncate" title={ticker.thesis}>
+         {ticker.thesis}
+       </div>
+     </td>
+     {onUpdate && (
+       <td className="px-3 py-4 whitespace-nowrap text-sm">
+         <button
+           onClick={() => setIsEditing(true)}
+           className="text-blue-600 hover:text-blue-900 text-xs"
+         >
+           Edit
+         </button>
+       </td>
+     )}
+   </tr>
+ );
 };
 
-// PM Detail Page Component
-const PMDetailPage = ({ tickers }) => {
-  const [sortField, setSortField] = useState('');
-  const [sortDirection, setSortDirection] = useState('asc');
-  
-  const statusOrder = ['Current', 'On-Deck', 'Portfolio', 'New', 'Old'];
-  
-  const handleSort = (field) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
-    }
-  };
+// PM Detail Page Component with quotes integration
+const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors }) => {
+ const [sortField, setSortField] = useState('');
+ const [sortDirection, setSortDirection] = useState('asc');
+ 
+ const statusOrder = ['Current', 'On-Deck', 'Portfolio', 'New', 'Old'];
+ 
+ const handleSort = (field) => {
+   if (sortField === field) {
+     setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+   } else {
+     setSortField(field);
+     setSortDirection('asc');
+   }
+ };
 
-  const sortData = (data, field) => {
-    if (!field) return data;
-    
-    return [...data].sort((a, b) => {
-      let aVal = a[field];
-      let bVal = b[field];
-      
-      // Handle numeric fields
-      if (field === 'currentPrice' || field === 'ptBear' || field === 'ptBase' || field === 'ptBull') {
-        aVal = parseFloat(aVal) || 0;
-        bVal = parseFloat(bVal) || 0;
-      } else if (typeof aVal === 'string') {
-        aVal = aVal.toLowerCase();
-        bVal = bVal.toLowerCase();
-      }
-      
-      if (sortDirection === 'asc') {
-        return aVal > bVal ? 1 : -1;
-      } else {
-        return aVal < bVal ? 1 : -1;
-      }
-    });
-  };
+ const sortData = (data, field) => {
+   if (!field) return data;
+   
+   return [...data].sort((a, b) => {
+     let aVal = a[field];
+     let bVal = b[field];
+     
+     if (field === 'currentPrice' || field === 'ptBear' || field === 'ptBase' || field === 'ptBull') {
+       aVal = parseFloat(aVal) || 0;
+       bVal = parseFloat(bVal) || 0;
+     } else if (typeof aVal === 'string') {
+       aVal = aVal.toLowerCase();
+       bVal = bVal.toLowerCase();
+     }
+     
+     if (sortDirection === 'asc') {
+       return aVal > bVal ? 1 : -1;
+     } else {
+       return aVal < bVal ? 1 : -1;
+     }
+   });
+ };
 
-  const SortableHeader = ({ field, children }) => (
-    <th 
-      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-      onClick={() => handleSort(field)}
-    >
-      <div className="flex items-center space-x-1">
-        <span>{children}</span>
-        {sortField === field && (
-          sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
-        )}
-      </div>
-    </th>
-  );
+ const SortableHeader = ({ field, children }) => (
+   <th 
+     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+     onClick={() => handleSort(field)}
+   >
+     <div className="flex items-center space-x-1">
+       <span>{children}</span>
+       {sortField === field && (
+         sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+       )}
+     </div>
+   </th>
+ );
 
-  const calculatePercentChange = (priceTarget, currentPrice) => {
-    if (!priceTarget || !currentPrice || currentPrice === 0) return '';
-    const change = (parseFloat(priceTarget) / parseFloat(currentPrice) - 1) * 100;
-    return `${change >= 0 ? '+' : ''}${Math.round(change)}%`;
-  };
+ const calculatePercentChange = (priceTarget, currentPrice) => {
+   if (!priceTarget || !currentPrice || currentPrice === 0) return '';
+   const change = (parseFloat(priceTarget) / parseFloat(currentPrice) - 1) * 100;
+   return `${change >= 0 ? '+' : ''}${Math.round(change)}%`;
+ };
 
-  const getPercentChangeValue = (priceTarget, currentPrice) => {
-    if (!priceTarget || !currentPrice || currentPrice === 0) return 0;
-    return (parseFloat(priceTarget) / parseFloat(currentPrice) - 1) * 100;
-  };
+ const groupedTickers = statusOrder.reduce((acc, status) => {
+   const statusTickers = tickers.filter(ticker => ticker.status === status);
+   if (statusTickers.length > 0) {
+     acc[status] = sortData(statusTickers, sortField);
+   }
+   return acc;
+ }, {});
 
-  const shouldHighlightRow = (ticker) => {
-    const bearPercent = getPercentChangeValue(ticker.ptBear, ticker.currentPrice);
-    const basePercent = getPercentChangeValue(ticker.ptBase, ticker.currentPrice);
-    
-    const shouldHighlight = bearPercent > -15 && basePercent > 50;
-    
-    // More visible debug - this should definitely show
-    if (shouldHighlight) {
-      console.log(`🟢 HIGHLIGHTING: ${ticker.ticker} - Bear: ${bearPercent.toFixed(1)}% (>${-15}), Base: ${basePercent.toFixed(1)}% (>50)`);
-    } else {
-      console.log(`⚪ Not highlighting: ${ticker.ticker} - Bear: ${bearPercent.toFixed(1)}%, Base: ${basePercent.toFixed(1)}%`);
-    }
-    
-    return shouldHighlight;
-  };
-
-  const groupedTickers = statusOrder.reduce((acc, status) => {
-    const statusTickers = tickers.filter(ticker => ticker.status === status);
-    if (statusTickers.length > 0) {
-      acc[status] = sortData(statusTickers, sortField);
-    }
-    return acc;
-  }, {});
-
-  return (
-    <div className="space-y-6">
-      <h3 className="text-lg leading-6 font-medium text-gray-900">
-        PM Detail Output
-      </h3>
-      
-      {statusOrder.map(status => {
-        const statusTickers = groupedTickers[status];
-        if (!statusTickers || statusTickers.length === 0) return null;
-        
-        return (
-          <div key={status} className="bg-white shadow rounded-lg">
-            <div className="px-4 py-3 border-b border-gray-200">
-              <h4 className="text-md font-medium text-gray-900">
-                {status} ({statusTickers.length})
-              </h4>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <SortableHeader field="ticker">Ticker</SortableHeader>
-                    <SortableHeader field="lsPosition">L/S</SortableHeader>
-                    <SortableHeader field="currentPrice">Current Price</SortableHeader>
-                    <SortableHeader field="priority">Priority</SortableHeader>
-                    <SortableHeader field="analyst">Analyst</SortableHeader>
-                    <SortableHeader field="ptBear">PT Bear</SortableHeader>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bear %</th>
-                    <SortableHeader field="ptBase">PT Base</SortableHeader>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Base %</th>
-                    <SortableHeader field="ptBull">PT Bull</SortableHeader>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bull %</th>
-                    <SortableHeader field="thesis">Thesis</SortableHeader>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {statusTickers.map((ticker) => (
-                    <tr key={ticker.id}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {ticker.ticker}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          ticker.lsPosition === 'Long' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-red-100 text-red-800'
-                        }`}>
-                          {ticker.lsPosition}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        ${ticker.currentPrice}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          ticker.priority === 'A' ? 'bg-red-100 text-red-800' :
-                          ticker.priority === 'B' ? 'bg-yellow-100 text-yellow-800' :
-                          ticker.priority === 'C' ? 'bg-blue-100 text-blue-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {ticker.priority}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {ticker.analyst || '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {ticker.ptBear ? `${ticker.ptBear}` : '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <span className={`${
-                          calculatePercentChange(ticker.ptBear, ticker.currentPrice).startsWith('+') 
-                            ? 'text-green-600' 
-                            : calculatePercentChange(ticker.ptBear, ticker.currentPrice).startsWith('-')
-                            ? 'text-red-600'
-                            : 'text-gray-500'
-                        }`}>
-                          {calculatePercentChange(ticker.ptBear, ticker.currentPrice) || '-'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {ticker.ptBase ? `${ticker.ptBase}` : '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <span className={`${
-                          calculatePercentChange(ticker.ptBase, ticker.currentPrice).startsWith('+') 
-                            ? 'text-green-600' 
-                            : calculatePercentChange(ticker.ptBase, ticker.currentPrice).startsWith('-')
-                            ? 'text-red-600'
-                            : 'text-gray-500'
-                        }`}>
-                          {calculatePercentChange(ticker.ptBase, ticker.currentPrice) || '-'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {ticker.ptBull ? `${ticker.ptBull}` : '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <span className={`${
-                          calculatePercentChange(ticker.ptBull, ticker.currentPrice).startsWith('+') 
-                            ? 'text-green-600' 
-                            : calculatePercentChange(ticker.ptBull, ticker.currentPrice).startsWith('-')
-                            ? 'text-red-600'
-                            : 'text-gray-500'
-                        }`}>
-                          {calculatePercentChange(ticker.ptBull, ticker.currentPrice) || '-'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        <div className="max-w-xs truncate">
-                          {ticker.thesis}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
+ return (
+   <div className="space-y-6">
+     <h3 className="text-lg leading-6 font-medium text-gray-900">
+       PM Detail Output
+     </h3>
+     
+     {statusOrder.map(status => {
+       const statusTickers = groupedTickers[status];
+       if (!statusTickers || statusTickers.length === 0) return null;
+       
+       return (
+         <div key={status} className="bg-white shadow rounded-lg">
+           <div className="px-4 py-3 border-b border-gray-200">
+             <h4 className="text-md font-medium text-gray-900">
+               {status} ({statusTickers.length})
+             </h4>
+           </div>
+           <div className="overflow-x-auto">
+             <table className="min-w-full divide-y divide-gray-200">
+               <thead className="bg-gray-50">
+                 <tr>
+                   <SortableHeader field="ticker">Ticker</SortableHeader>
+                   <SortableHeader field="lsPosition">L/S</SortableHeader>
+                   <SortableHeader field="currentPrice">Live Quote</SortableHeader>
+                   <SortableHeader field="priority">Priority</SortableHeader>
+                   <SortableHeader field="analyst">Analyst</SortableHeader>
+                   <SortableHeader field="ptBear">PT Bear</SortableHeader>
+                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bear %</th>
+                   <SortableHeader field="ptBase">PT Base</SortableHeader>
+                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Base %</th>
+                   <SortableHeader field="ptBull">PT Bull</SortableHeader>
+                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bull %</th>
+                   <SortableHeader field="thesis">Thesis</SortableHeader>
+                 </tr>
+               </thead>
+               <tbody className="bg-white divide-y divide-gray-200">
+                 {statusTickers.map((ticker) => {
+                   const cleanSymbol = ticker.ticker.replace(' US', '');
+                   const quote = quotes[cleanSymbol];
+                   const currentPrice = quote ? quote.price : ticker.currentPrice;
+                   
+                   return (
+                     <tr key={ticker.id}>
+                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                         {ticker.ticker}
+                       </td>
+                       <td className="px-6 py-4 whitespace-nowrap">
+                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                           ticker.lsPosition === 'Long' 
+                             ? 'bg-green-100 text-green-800' 
+                             : 'bg-red-100 text-red-800'
+                         }`}>
+                           {ticker.lsPosition}
+                         </span>
+                       </td>
+                       <td className="px-6 py-4 whitespace-nowrap">
+                         <QuoteDisplay 
+                           ticker={ticker.ticker}
+                           quote={quote}
+                           onUpdateQuote={onUpdateQuote}
+                           isLoading={isLoadingQuotes}
+                           hasError={quoteErrors[cleanSymbol]}
+                         />
+                       </td>
+                       <td className="px-6 py-4 whitespace-nowrap">
+                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                           ticker.priority === 'A' ? 'bg-red-100 text-red-800' :
+                           ticker.priority === 'B' ? 'bg-yellow-100 text-yellow-800' :
+                           ticker.priority === 'C' ? 'bg-blue-100 text-blue-800' :
+                           'bg-gray-100 text-gray-800'
+                         }`}>
+                           {ticker.priority}
+                         </span>
+                       </td>
+                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                         {ticker.analyst || '-'}
+                       </td>
+                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                         {ticker.ptBear ? `${ticker.ptBear}` : '-'}
+                       </td>
+                       <td className="px-6 py-4 whitespace-nowrap text-sm">
+                         <span className={`${
+                           calculatePercentChange(ticker.ptBear, currentPrice).startsWith('+') 
+                             ? 'text-green-600' 
+                             : calculatePercentChange(ticker.ptBear, currentPrice).startsWith('-')
+                             ? 'text-red-600'
+                             : 'text-gray-500'
+                         }`}>
+                           {calculatePercentChange(ticker.ptBear, currentPrice) || '-'}
+                         </span>
+                       </td>
+                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                         {ticker.ptBase ? `${ticker.ptBase}` : '-'}
+                       </td>
+                       <td className="px-6 py-4 whitespace-nowrap text-sm">
+                         <span className={`${
+                           calculatePercentChange(ticker.ptBase, currentPrice).startsWith('+') 
+                             ? 'text-green-600' 
+                             : calculatePercentChange(ticker.ptBase, currentPrice).startsWith('-')
+                             ? 'text-red-600'
+                             : 'text-gray-500'
+                         }`}>
+                           {calculatePercentChange(ticker.ptBase, currentPrice) || '-'}
+                         </span>
+                       </td>
+                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                         {ticker.ptBull ? `${ticker.ptBull}` : '-'}
+                       </td>
+                       <td className="px-6 py-4 whitespace-nowrap text-sm">
+                         <span className={`${
+                           calculatePercentChange(ticker.ptBull, currentPrice).startsWith('+') 
+                             ? 'text-green-600' 
+                             : calculatePercentChange(ticker.ptBull, currentPrice).startsWith('-')
+                             ? 'text-red-600'
+                             : 'text-gray-500'
+                         }`}>
+                           {calculatePercentChange(ticker.ptBull, currentPrice) || '-'}
+                         </span>
+                       </td>
+                       <td className="px-6 py-4 text-sm text-gray-500">
+                         <div className="max-w-xs truncate">
+                           {ticker.thesis}
+                         </div>
+                       </td>
+                     </tr>
+                   );
+                 })}
+               </tbody>
+             </table>
+           </div>
+         </div>
+       );
+     })}
+   </div>
+ );
 };
 
-// Analyst Detail Page Component
-const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst }) => {
-  const statusOrder = ['Current', 'On-Deck', 'Portfolio', 'New', 'Old'];
-  
-  const analystTickers = tickers.filter(ticker => ticker.analyst === selectedAnalyst);
-  const groupedTickers = statusOrder.reduce((acc, status) => {
-    acc[status] = analystTickers.filter(ticker => ticker.status === status);
-    return acc;
-  }, {});
+// Analyst Detail Page Component with quotes integration
+const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst, quotes }) => {
+ const statusOrder = ['Current', 'On-Deck', 'Portfolio', 'New', 'Old'];
+ 
+ const analystTickers = tickers.filter(ticker => ticker.analyst === selectedAnalyst);
+ const groupedTickers = statusOrder.reduce((acc, status) => {
+   acc[status] = analystTickers.filter(ticker => ticker.status === status);
+   return acc;
+ }, {});
 
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg leading-6 font-medium text-gray-900">
-          Analyst Detail Output
-        </h3>
-        <div className="flex items-center space-x-2">
-          <label className="text-sm font-medium text-gray-700">Select Analyst:</label>
-          <select
-            value={selectedAnalyst}
-            onChange={(e) => onSelectAnalyst(e.target.value)}
-            className="border border-gray-300 rounded-md px-3 py-1 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-          >
-            {analysts.map(analyst => (
-              <option key={analyst} value={analyst}>{analyst}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-      
-      <div className="bg-gray-100 px-4 py-2 rounded">
-        <p className="text-sm text-gray-600">
-          Showing {analystTickers.length} ideas for analyst {selectedAnalyst}
-        </p>
-      </div>
-      
-      {statusOrder.map(status => {
-        const statusTickers = groupedTickers[status];
-        if (statusTickers.length === 0) return null;
-        
-        return (
-          <div key={status} className="bg-white shadow rounded-lg">
-            <div className="px-4 py-3 border-b border-gray-200">
-              <h4 className="text-md font-medium text-gray-900">
-                {status} ({statusTickers.length})
-              </h4>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="w-24 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ticker</th>
-                    <th className="w-48 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                    <th className="w-20 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">L/S</th>
-                    <th className="w-20 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
-                    <th className="w-28 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Current Price</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thesis</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {statusTickers.map((ticker) => (
-                    <tr key={ticker.id}>
-                      <td className="w-24 px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {ticker.ticker}
-                      </td>
-                      <td className="w-48 px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {ticker.name}
-                      </td>
-                      <td className="w-20 px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          ticker.lsPosition === 'Long' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-red-100 text-red-800'
-                        }`}>
-                          {ticker.lsPosition}
-                        </span>
-                      </td>
-                      <td className="w-20 px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          ticker.priority === 'A' ? 'bg-red-100 text-red-800' :
-                          ticker.priority === 'B' ? 'bg-yellow-100 text-yellow-800' :
-                          ticker.priority === 'C' ? 'bg-blue-100 text-blue-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {ticker.priority}
-                        </span>
-                      </td>
-                      <td className="w-28 px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        ${ticker.currentPrice ? parseFloat(ticker.currentPrice).toFixed(2) : '-'}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        <div className="max-w-xs truncate">
-                          {ticker.thesis}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        );
-      })}
-      
-      {analystTickers.length === 0 && (
-        <div className="bg-white shadow rounded-lg p-6">
-          <p className="text-center text-gray-500">No ideas assigned to analyst {selectedAnalyst}</p>
-        </div>
-      )}
-    </div>
-  );
+ return (
+   <div className="space-y-6">
+     <div className="flex items-center justify-between">
+       <h3 className="text-lg leading-6 font-medium text-gray-900">
+         Analyst Detail Output
+       </h3>
+       <div className="flex items-center space-x-2">
+         <label className="text-sm font-medium text-gray-700">Select Analyst:</label>
+         <select
+           value={selectedAnalyst}
+           onChange={(e) => onSelectAnalyst(e.target.value)}
+           className="border border-gray-300 rounded-md px-3 py-1 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+         >
+           {analysts.map(analyst => (
+             <option key={analyst} value={analyst}>{analyst}</option>
+           ))}
+         </select>
+       </div>
+     </div>
+     
+     <div className="bg-gray-100 px-4 py-2 rounded">
+       <p className="text-sm text-gray-600">
+         Showing {analystTickers.length} ideas for analyst {selectedAnalyst}
+       </p>
+     </div>
+     
+     {statusOrder.map(status => {
+       const statusTickers = groupedTickers[status];
+       if (statusTickers.length === 0) return null;
+       
+       return (
+         <div key={status} className="bg-white shadow rounded-lg">
+           <div className="px-4 py-3 border-b border-gray-200">
+             <h4 className="text-md font-medium text-gray-900">
+               {status} ({statusTickers.length})
+             </h4>
+           </div>
+           <div className="overflow-x-auto">
+             <table className="min-w-full divide-y divide-gray-200">
+               <thead className="bg-gray-50">
+                 <tr>
+                   <th className="w-24 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ticker</th>
+                   <th className="w-48 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                   <th className="w-20 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">L/S</th>
+                   <th className="w-20 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
+                   <th className="w-28 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Live Quote</th>
+                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thesis</th>
+                 </tr>
+               </thead>
+               <tbody className="bg-white divide-y divide-gray-200">
+                 {statusTickers.map((ticker) => {
+                   const cleanSymbol = ticker.ticker.replace(' US', '');
+                   const quote = quotes[cleanSymbol];
+                   
+                   return (
+                     <tr key={ticker.id}>
+                       <td className="w-24 px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                         {ticker.ticker}
+                       </td>
+                       <td className="w-48 px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                         {ticker.name}
+                       </td>
+                       <td className="w-20 px-6 py-4 whitespace-nowrap">
+                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                           ticker.lsPosition === 'Long' 
+                             ? 'bg-green-100 text-green-800' 
+                             : 'bg-red-100 text-red-800'
+                         }`}>
+                           {ticker.lsPosition}
+                         </span>
+                       </td>
+                       <td className="w-20 px-6 py-4 whitespace-nowrap">
+                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                           ticker.priority === 'A' ? 'bg-red-100 text-red-800' :
+                           ticker.priority === 'B' ? 'bg-yellow-100 text-yellow-800' :
+                           ticker.priority === 'C' ? 'bg-blue-100 text-blue-800' :
+                           'bg-gray-100 text-gray-800'
+                         }`}>
+                           {ticker.priority}
+                         </span>
+                       </td>
+                       <td className="w-28 px-6 py-4 whitespace-nowrap">
+                         <QuoteDisplay 
+                           ticker={ticker.ticker}
+                           quote={quote}
+                           isLoading={false}
+                           hasError={false}
+                         />
+                       </td>
+                       <td className="px-6 py-4 text-sm text-gray-500">
+                         <div className="max-w-xs truncate">
+                           {ticker.thesis}
+                         </div>
+                       </td>
+                     </tr>
+                   );
+                 })}
+               </tbody>
+             </table>
+           </div>
+         </div>
+       );
+     })}
+     
+     {analystTickers.length === 0 && (
+       <div className="bg-white shadow rounded-lg p-6">
+         <p className="text-center text-gray-500">No ideas assigned to analyst {selectedAnalyst}</p>
+       </div>
+     )}
+   </div>
+ );
 };
 
 // Team Output Page Component
 const TeamOutputPage = ({ tickers, analysts }) => {
-  const getTickersForCell = (analyst, status, lsPosition) => {
-    return tickers.filter(ticker => 
-      ticker.analyst === analyst && 
-      ticker.status === status && 
-      ticker.lsPosition === lsPosition
-    );
-  };
+ const getTickersForCell = (analyst, status, lsPosition) => {
+   return tickers.filter(ticker => 
+     ticker.analyst === analyst && 
+     ticker.status === status && 
+     ticker.lsPosition === lsPosition
+   );
+ };
 
-  const getUnassignedTickersForCell = (status, lsPosition) => {
-    return tickers.filter(ticker => 
-      (!ticker.analyst || ticker.analyst === '') && 
-      ticker.status === status && 
-      ticker.lsPosition === lsPosition &&
-      ['Current', 'On-Deck', 'Portfolio'].includes(ticker.status)
-    );
-  };
+ const getUnassignedTickersForCell = (status, lsPosition) => {
+   return tickers.filter(ticker => 
+     (!ticker.analyst || ticker.analyst === '') && 
+     ticker.status === status && 
+     ticker.lsPosition === lsPosition &&
+     ['Current', 'On-Deck', 'Portfolio'].includes(ticker.status)
+   );
+ };
 
-  return (
-    <div className="bg-white shadow rounded-lg">
-      <div className="px-4 py-5 sm:p-6">
-        <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-          Team Output Matrix
-        </h3>
-        
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Analyst
-                </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Current-Long
-                </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Current-Short
-                </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  OnDeck-Long
-                </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  OnDeck-Short
-                </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Portfolio-Long
-                </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Portfolio-Short
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {analysts.map((analyst) => (
-                <tr key={analyst}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {analyst}
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <div className="space-y-1">
-                      {getTickersForCell(analyst, 'Current', 'Long').map(ticker => (
-                        <div key={ticker.id} className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
-                          {ticker.ticker}
-                        </div>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <div className="space-y-1">
-                      {getTickersForCell(analyst, 'Current', 'Short').map(ticker => (
-                        <div key={ticker.id} className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
-                          {ticker.ticker}
-                        </div>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <div className="space-y-1">
-                      {getTickersForCell(analyst, 'On-Deck', 'Long').map(ticker => (
-                        <div key={ticker.id} className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
-                          {ticker.ticker}
-                        </div>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <div className="space-y-1">
-                      {getTickersForCell(analyst, 'On-Deck', 'Short').map(ticker => (
-                        <div key={ticker.id} className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
-                          {ticker.ticker}
-                        </div>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <div className="space-y-1">
-                      {getTickersForCell(analyst, 'Portfolio', 'Long').map(ticker => (
-                        <div key={ticker.id} className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
-                          {ticker.ticker}
-                        </div>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <div className="space-y-1">
-                      {getTickersForCell(analyst, 'Portfolio', 'Short').map(ticker => (
-                        <div key={ticker.id} className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
-                          {ticker.ticker}
-                        </div>
-                      ))}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              
-              {/* To Assign Row */}
-              <tr className="bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  To Assign
-                </td>
-                <td className="px-6 py-4 text-center">
-                  <div className="space-y-1">
-                    {getUnassignedTickersForCell('Current', 'Long').map(ticker => (
-                      <div key={ticker.id} className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">
-                        {ticker.ticker}
-                      </div>
-                    ))}
-                  </div>
-                </td>
-                <td className="px-6 py-4 text-center">
-                  <div className="space-y-1">
-                    {getUnassignedTickersForCell('Current', 'Short').map(ticker => (
-                      <div key={ticker.id} className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">
-                        {ticker.ticker}
-                      </div>
-                    ))}
-                  </div>
-                </td>
-                <td className="px-6 py-4 text-center">
-                  <div className="space-y-1">
-                    {getUnassignedTickersForCell('On-Deck', 'Long').map(ticker => (
-                      <div key={ticker.id} className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">
-                        {ticker.ticker}
-                      </div>
-                    ))}
-                  </div>
-                </td>
-                <td className="px-6 py-4 text-center">
-                  <div className="space-y-1">
-                    {getUnassignedTickersForCell('On-Deck', 'Short').map(ticker => (
-                      <div key={ticker.id} className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">
-                        {ticker.ticker}
-                      </div>
-                    ))}
-                  </div>
-                </td>
-                <td className="px-6 py-4 text-center">
-                  <div className="space-y-1">
-                    {getUnassignedTickersForCell('Portfolio', 'Long').map(ticker => (
-                      <div key={ticker.id} className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">
-                        {ticker.ticker}
-                      </div>
-                    ))}
-                  </div>
-                </td>
-                <td className="px-6 py-4 text-center">
-                  <div className="space-y-1">
-                    {getUnassignedTickersForCell('Portfolio', 'Short').map(ticker => (
-                      <div key={ticker.id} className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">
-                        {ticker.ticker}
-                      </div>
-                    ))}
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
+ return (
+   <div className="bg-white shadow rounded-lg">
+     <div className="px-4 py-5 sm:p-6">
+       <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+         Team Output Matrix
+       </h3>
+       
+       <div className="overflow-x-auto">
+         <table className="min-w-full divide-y divide-gray-200">
+           <thead className="bg-gray-50">
+             <tr>
+               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                 Analyst
+               </th>
+               <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                 Current-Long
+               </th>
+               <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                 Current-Short
+               </th>
+               <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                 OnDeck-Long
+               </th>
+               <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                 OnDeck-Short
+               </th>
+               <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                 Portfolio-Long
+               </th>
+               <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                 Portfolio-Short
+               </th>
+             </tr>
+           </thead>
+           <tbody className="bg-white divide-y divide-gray-200">
+             {analysts.map((analyst) => (
+               <tr key={analyst}>
+                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                   {analyst}
+                 </td>
+                 <td className="px-6 py-4 text-center">
+                   <div className="space-y-1">
+                     {getTickersForCell(analyst, 'Current', 'Long').map(ticker => (
+                       <div key={ticker.id} className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                         {ticker.ticker}
+                       </div>
+                     ))}
+                   </div>
+                 </td>
+                 <td className="px-6 py-4 text-center">
+                   <div className="space-y-1">
+                     {getTickersForCell(analyst, 'Current', 'Short').map(ticker => (
+                       <div key={ticker.id} className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
+                         {ticker.ticker}
+                       </div>
+                     ))}
+                   </div>
+                 </td>
+                 <td className="px-6 py-4 text-center">
+                   <div className="space-y-1">
+                     {getTickersForCell(analyst, 'On-Deck', 'Long').map(ticker => (
+                       <div key={ticker.id} className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                         {ticker.ticker}
+                       </div>
+                     ))}
+                   </div>
+                 </td>
+                 <td className="px-6 py-4 text-center">
+                   <div className="space-y-1">
+                     {getTickersForCell(analyst, 'On-Deck', 'Short').map(ticker => (
+                       <div key={ticker.id} className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
+                         {ticker.ticker}
+                       </div>
+                     ))}
+                   </div>
+                 </td>
+                 <td className="px-6 py-4 text-center">
+                   <div className="space-y-1">
+                     {getTickersForCell(analyst, 'Portfolio', 'Long').map(ticker => (
+                       <div key={ticker.id} className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                         {ticker.ticker}
+                       </div>
+                     ))}
+                   </div>
+                 </td>
+                 <td className="px-6 py-4 text-center">
+                   <div className="space-y-1">
+                     {getTickersForCell(analyst, 'Portfolio', 'Short').map(ticker => (
+                       <div key={ticker.id} className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
+                         {ticker.ticker}
+                       </div>
+                     ))}
+                   </div>
+                 </td>
+               </tr>
+             ))}
+             
+             {/* To Assign Row */}
+             <tr className="bg-gray-50">
+               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                 To Assign
+               </td>
+               <td className="px-6 py-4 text-center">
+                 <div className="space-y-1">
+                   {getUnassignedTickersForCell('Current', 'Long').map(ticker => (
+                     <div key={ticker.id} className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">
+                       {ticker.ticker}
+                     </div>
+                   ))}
+                 </div>
+               </td>
+               <td className="px-6 py-4 text-center">
+                 <div className="space-y-1">
+                   {getUnassignedTickersForCell('Current', 'Short').map(ticker => (
+                     <div key={ticker.id} className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">
+                       {ticker.ticker}
+                     </div>
+                   ))}
+                 </div>
+               </td>
+               <td className="px-6 py-4 text-center">
+                 <div className="space-y-1">
+                   {getUnassignedTickersForCell('On-Deck', 'Long').map(ticker => (
+                     <div key={ticker.id} className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">
+                       {ticker.ticker}
+                     </div>
+                   ))}
+                 </div>
+               </td>
+               <td className="px-6 py-4 text-center">
+                 <div className="space-y-1">
+                   {getUnassignedTickersForCell('On-Deck', 'Short').map(ticker => (
+                     <div key={ticker.id} className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">
+                       {ticker.ticker}
+                     </div>
+                   ))}
+                 </div>
+               </td>
+               <td className="px-6 py-4 text-center">
+                 <div className="space-y-1">
+                   {getUnassignedTickersForCell('Portfolio', 'Long').map(ticker => (
+                     <div key={ticker.id} className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">
+                       {ticker.ticker}
+                     </div>
+                   ))}
+                 </div>
+               </td>
+               <td className="px-6 py-4 text-center">
+                 <div className="space-y-1">
+                   {getUnassignedTickersForCell('Portfolio', 'Short').map(ticker => (
+                     <div key={ticker.id} className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">
+                       {ticker.ticker}
+                     </div>
+                   ))}
+                 </div>
+               </td>
+             </tr>
+           </tbody>
+         </table>
+       </div>
+     </div>
+   </div>
+ );
 };
 
 // Earnings Tracking Page Component
 const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarningsAnalyst, onSelectEarningsAnalyst, earningsData, onUpdateEarnings, getEarningsData, analysts }) => {
-  // Filter tickers to only show Portfolio status
-  let portfolioTickers = tickers.filter(ticker => ticker.status === 'Portfolio');
-  
-  // Apply analyst filter if selected
-  if (selectedEarningsAnalyst) {
-    portfolioTickers = portfolioTickers.filter(ticker => ticker.analyst === selectedEarningsAnalyst);
-  }
-  
-  // Generate CYQ options (current year and next year, all quarters)
-  const currentYear = new Date().getFullYear();
-  const cyqOptions = [];
-  for (let year of [currentYear - 1, currentYear, currentYear + 1]) {
-    for (let quarter of ['Q1', 'Q2', 'Q3', 'Q4']) {
-      cyqOptions.push(`${year}${quarter}`);
-    }
-  }
+ // Filter tickers to only show Portfolio status
+ let portfolioTickers = tickers.filter(ticker => ticker.status === 'Portfolio');
+ 
+ // Apply analyst filter if selected
+ if (selectedEarningsAnalyst) {
+   portfolioTickers = portfolioTickers.filter(ticker => ticker.analyst === selectedEarningsAnalyst);
+ }
+ 
+ // Generate CYQ options (current year and next year, all quarters)
+ const currentYear = new Date().getFullYear();
+ const cyqOptions = [];
+ for (let year of [currentYear - 1, currentYear, currentYear + 1]) {
+   for (let quarter of ['Q1', 'Q2', 'Q3', 'Q4']) {
+     cyqOptions.push(`${year}${quarter}`);
+   }
+ }
 
-  // Calculate days until earnings
-  const calculateDaysUntilEarnings = (earningsDate) => {
-    if (!earningsDate) return 999999; // Put items without dates at the bottom
-    const today = new Date();
-    const earnings = new Date(earningsDate);
-    const diffTime = earnings - today;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
-  };
+ // Calculate days until earnings
+ const calculateDaysUntilEarnings = (earningsDate) => {
+   if (!earningsDate) return 999999; // Put items without dates at the bottom
+   const today = new Date();
+   const earnings = new Date(earningsDate);
+   const diffTime = earnings - today;
+   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+   return diffDays;
+ };
 
-  // Sort tickers by Days Until Earnings (smallest first)
-  const sortedTickers = [...portfolioTickers].sort((a, b) => {
-    const aEarningsData = getEarningsData(a.ticker, selectedCYQ);
-    const bEarningsData = getEarningsData(b.ticker, selectedCYQ);
-    const aDays = calculateDaysUntilEarnings(aEarningsData.earningsDate);
-    const bDays = calculateDaysUntilEarnings(bEarningsData.earningsDate);
-    return aDays - bDays;
-  });
+ // Sort tickers by Days Until Earnings (smallest first)
+ const sortedTickers = [...portfolioTickers].sort((a, b) => {
+   const aEarningsData = getEarningsData(a.ticker, selectedCYQ);
+   const bEarningsData = getEarningsData(b.ticker, selectedCYQ);
+   const aDays = calculateDaysUntilEarnings(aEarningsData.earningsDate);
+   const bDays = calculateDaysUntilEarnings(bEarningsData.earningsDate);
+   return aDays - bDays;
+ });
 
-  // Format days for display
-  const formatDaysUntilEarnings = (earningsDate) => {
-    if (!earningsDate) return '-';
-    const days = calculateDaysUntilEarnings(earningsDate);
-    if (days === 999999) return '-';
-    return days;
-  };
+ // Format days for display
+ const formatDaysUntilEarnings = (earningsDate) => {
+   if (!earningsDate) return '-';
+   const days = calculateDaysUntilEarnings(earningsDate);
+   if (days === 999999) return '-';
+   return days;
+ };
 
-  return (
-    <div className="bg-white shadow rounded-lg">
-      <div className="px-4 py-5 sm:p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg leading-6 font-medium text-gray-900">
-            Earnings Tracking ({sortedTickers.length} Portfolio tickers)
-          </h3>
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <label className="text-sm font-medium text-gray-700">Analyst:</label>
-              <select
-                value={selectedEarningsAnalyst}
-                onChange={(e) => onSelectEarningsAnalyst(e.target.value)}
-                className="border border-gray-300 rounded-md px-3 py-1 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              >
-                <option value="">All Analysts</option>
-                {analysts.map(analyst => (
-                  <option key={analyst} value={analyst}>{analyst}</option>
-                ))}
-              </select>
-            </div>
-            <div className="flex items-center space-x-2">
-              <label className="text-sm font-medium text-gray-700">CYQ:</label>
-              <select
-                value={selectedCYQ}
-                onChange={(e) => onSelectCYQ(e.target.value)}
-                className="border border-gray-300 rounded-md px-3 py-1 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              >
-                {cyqOptions.map(cyq => (
-                  <option key={cyq} value={cyq}>{cyq}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </div>
-        
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ticker</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Analyst</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CYQ</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Days Until Earnings</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Earnings Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">QP Call Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Preview Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Callback Date</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {sortedTickers.map((ticker) => (
-                <EarningsTrackingRow 
-                  key={`${ticker.ticker}-${selectedCYQ}`}
-                  ticker={ticker}
-                  cyq={selectedCYQ}
-                  earningsData={getEarningsData(ticker.ticker, selectedCYQ)}
-                  onUpdateEarnings={onUpdateEarnings}
-                  formatDaysUntilEarnings={formatDaysUntilEarnings}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
-        
-        {sortedTickers.length === 0 && (
-          <div className="text-center py-8">
-            <p className="text-gray-500">
-              {selectedEarningsAnalyst 
-                ? `No Portfolio tickers found for analyst ${selectedEarningsAnalyst}.`
-                : 'No Portfolio tickers found.'
-              }
-            </p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
+ return (
+   <div className="bg-white shadow rounded-lg">
+     <div className="px-4 py-5 sm:p-6">
+       <div className="flex items-center justify-between mb-4">
+         <h3 className="text-lg leading-6 font-medium text-gray-900">
+           Earnings Tracking ({sortedTickers.length} Portfolio tickers)
+         </h3>
+         <div className="flex items-center space-x-4">
+           <div className="flex items-center space-x-2">
+             <label className="text-sm font-medium text-gray-700">Analyst:</label>
+             <select
+               value={selectedEarningsAnalyst}
+               onChange={(e) => onSelectEarningsAnalyst(e.target.value)}
+               className="border border-gray-300 rounded-md px-3 py-1 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+             >
+               <option value="">All Analysts</option>
+               {analysts.map(analyst => (
+                 <option key={analyst} value={analyst}>{analyst}</option>
+               ))}
+             </select>
+           </div>
+           <div className="flex items-center space-x-2">
+             <label className="text-sm font-medium text-gray-700">CYQ:</label>
+             <select
+               value={selectedCYQ}
+               onChange={(e) => onSelectCYQ(e.target.value)}
+               className="border border-gray-300 rounded-md px-3 py-1 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+             >
+               {cyqOptions.map(cyq => (
+                 <option key={cyq} value={cyq}>{cyq}</option>
+               ))}
+             </select>
+           </div>
+         </div>
+       </div>
+       
+       <div className="overflow-x-auto">
+         <table className="min-w-full divide-y divide-gray-200">
+           <thead className="bg-gray-50">
+             <tr>
+               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ticker</th>
+               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Analyst</th>
+               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CYQ</th>
+               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Days Until Earnings</th>
+               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Earnings Date</th>
+               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">QP Call Date</th>
+               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Preview Date</th>
+               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Callback Date</th>
+               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+             </tr>
+           </thead>
+           <tbody className="bg-white divide-y divide-gray-200">
+             {sortedTickers.map((ticker) => (
+               <EarningsTrackingRow 
+                 key={`${ticker.ticker}-${selectedCYQ}`}
+                 ticker={ticker}
+                 cyq={selectedCYQ}
+                 earningsData={getEarningsData(ticker.ticker, selectedCYQ)}
+                 onUpdateEarnings={onUpdateEarnings}
+                 formatDaysUntilEarnings={formatDaysUntilEarnings}
+               />
+             ))}
+           </tbody>
+         </table>
+       </div>
+       
+       {sortedTickers.length === 0 && (
+         <div className="text-center py-8">
+           <p className="text-gray-500">
+             {selectedEarningsAnalyst 
+               ? `No Portfolio tickers found for analyst ${selectedEarningsAnalyst}.`
+               : 'No Portfolio tickers found.'
+             }
+           </p>
+         </div>
+       )}
+     </div>
+   </div>
+ );
 };
 
 // Earnings Tracking Row Component
 const EarningsTrackingRow = ({ ticker, cyq, earningsData, onUpdateEarnings, formatDaysUntilEarnings }) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editData, setEditData] = useState({
-    earningsDate: earningsData.earningsDate || '',
-    qpCallDate: earningsData.qpCallDate || '',
-    previewDate: earningsData.previewDate || '',
-    callbackDate: earningsData.callbackDate || ''
-  });
+ const [isEditing, setIsEditing] = useState(false);
+ const [editData, setEditData] = useState({
+   earningsDate: earningsData.earningsDate || '',
+   qpCallDate: earningsData.qpCallDate || '',
+   previewDate: earningsData.previewDate || '',
+   callbackDate: earningsData.callbackDate || ''
+ });
 
-  const handleSave = () => {
-    onUpdateEarnings(ticker.ticker, cyq, editData);
-    setIsEditing(false);
-  };
+ const handleSave = () => {
+   onUpdateEarnings(ticker.ticker, cyq, editData);
+   setIsEditing(false);
+ };
 
-  const handleCancel = () => {
-    setEditData({
-      earningsDate: earningsData.earningsDate || '',
-      qpCallDate: earningsData.qpCallDate || '',
-      previewDate: earningsData.previewDate || '',
-      callbackDate: earningsData.callbackDate || ''
-    });
-    setIsEditing(false);
-  };
+ const handleCancel = () => {
+   setEditData({
+     earningsDate: earningsData.earningsDate || '',
+     qpCallDate: earningsData.qpCallDate || '',
+     previewDate: earningsData.previewDate || '',
+     callbackDate: earningsData.callbackDate || ''
+   });
+   setIsEditing(false);
+ };
 
-  const daysUntilEarnings = formatDaysUntilEarnings(earningsData.earningsDate);
+ const daysUntilEarnings = formatDaysUntilEarnings(earningsData.earningsDate);
 
-  if (isEditing) {
-    return (
-      <tr className="bg-blue-50">
-        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-          {ticker.ticker}
-        </td>
-        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-          {ticker.analyst || '-'}
-        </td>
-        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-          {cyq}
-        </td>
-        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-          {daysUntilEarnings}
-        </td>
-        <td className="px-6 py-4 whitespace-nowrap">
-          <input
-            type="date"
-            value={editData.earningsDate}
-            onChange={(e) => setEditData({...editData, earningsDate: e.target.value})}
-            className="text-sm border border-gray-300 rounded px-2 py-1"
-          />
-        </td>
-        <td className="px-6 py-4 whitespace-nowrap">
-          <input
-            type="date"
-            value={editData.qpCallDate}
-            onChange={(e) => setEditData({...editData, qpCallDate: e.target.value})}
-            className="text-sm border border-gray-300 rounded px-2 py-1"
-          />
-        </td>
-        <td className="px-6 py-4 whitespace-nowrap">
-          <input
-            type="date"
-            value={editData.previewDate}
-            onChange={(e) => setEditData({...editData, previewDate: e.target.value})}
-            className="text-sm border border-gray-300 rounded px-2 py-1"
-          />
-        </td>
-        <td className="px-6 py-4 whitespace-nowrap">
-          <input
-            type="date"
-            value={editData.callbackDate}
-            onChange={(e) => setEditData({...editData, callbackDate: e.target.value})}
-            className="text-sm border border-gray-300 rounded px-2 py-1"
-          />
-        </td>
-        <td className="px-6 py-4 whitespace-nowrap text-sm">
-          <div className="flex space-x-2">
-            <button
-              onClick={handleSave}
-              className="text-green-600 hover:text-green-900 text-xs"
-            >
-              Save
-            </button>
-            <button
-              onClick={handleCancel}
-              className="text-red-600 hover:text-red-900 text-xs"
-            >
-              Cancel
-            </button>
-          </div>
-        </td>
-      </tr>
-    );
-  }
+ if (isEditing) {
+   return (
+     <tr className="bg-blue-50">
+       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+         {ticker.ticker}
+       </td>
+       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+         {ticker.analyst || '-'}
+       </td>
+       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+         {cyq}
+       </td>
+       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+         {daysUntilEarnings}
+       </td>
+       <td className="px-6 py-4 whitespace-nowrap">
+         <input
+           type="date"
+           value={editData.earningsDate}
+           onChange={(e) => setEditData({...editData, earningsDate: e.target.value})}
+           className="text-sm border border-gray-300 rounded px-2 py-1"
+         />
+       </td>
+       <td className="px-6 py-4 whitespace-nowrap">
+         <input
+           type="date"
+           value={editData.qpCallDate}
+           onChange={(e) => setEditData({...editData, qpCallDate: e.target.value})}
+           className="text-sm border border-gray-300 rounded px-2 py-1"
+         />
+       </td>
+       <td className="px-6 py-4 whitespace-nowrap">
+         <input
+           type="date"
+           value={editData.previewDate}
+           onChange={(e) => setEditData({...editData, previewDate: e.target.value})}
+           className="text-sm border border-gray-300 rounded px-2 py-1"
+         />
+       </td>
+       <td className="px-6 py-4 whitespace-nowrap">
+         <input
+           type="date"
+           value={editData.callbackDate}
+           onChange={(e) => setEditData({...editData, callbackDate: e.target.value})}
+           className="text-sm border border-gray-300 rounded px-2 py-1"
+         />
+       </td>
+       <td className="px-6 py-4 whitespace-nowrap text-sm">
+         <div className="flex space-x-2">
+           <button
+             onClick={handleSave}
+             className="text-green-600 hover:text-green-900 text-xs"
+           >
+             Save
+           </button>
+           <button
+             onClick={handleCancel}
+             className="text-red-600 hover:text-red-900 text-xs"
+           >
+             Cancel
+           </button>
+         </div>
+       </td>
+     </tr>
+   );
+ }
 
-  return (
-    <tr className="hover:bg-gray-50" onDoubleClick={() => setIsEditing(true)}>
-      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-        {ticker.ticker}
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-        {ticker.analyst || '-'}
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-        {cyq}
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm">
-        <span className={`${
-          daysUntilEarnings !== '-' && daysUntilEarnings <= 7 ? 'text-red-600 font-medium' :
-          daysUntilEarnings !== '-' && daysUntilEarnings <= 30 ? 'text-yellow-600 font-medium' :
-          'text-gray-900'
-        }`}>
-          {daysUntilEarnings}
-        </span>
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-        {earningsData.earningsDate || '-'}
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-        {earningsData.qpCallDate || '-'}
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-        {earningsData.previewDate || '-'}
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-        {earningsData.callbackDate || '-'}
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm">
-        <button
-          onClick={() => setIsEditing(true)}
-          className="text-blue-600 hover:text-blue-900 text-xs"
-        >
-          Edit
-        </button>
-      </td>
-    </tr>
-  );
+ return (
+   <tr className="hover:bg-gray-50" onDoubleClick={() => setIsEditing(true)}>
+     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+       {ticker.ticker}
+     </td>
+     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+       {ticker.analyst || '-'}
+     </td>
+     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+       {cyq}
+     </td>
+     <td className="px-6 py-4 whitespace-nowrap text-sm">
+       <span className={`${
+         daysUntilEarnings !== '-' && daysUntilEarnings <= 7 ? 'text-red-600 font-medium' :
+         daysUntilEarnings !== '-' && daysUntilEarnings <= 30 ? 'text-yellow-600 font-medium' :
+         'text-gray-900'
+       }`}>
+         {daysUntilEarnings}
+       </span>
+     </td>
+     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+       {earningsData.earningsDate || '-'}
+     </td>
+     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+       {earningsData.qpCallDate || '-'}
+     </td>
+     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+       {earningsData.previewDate || '-'}
+     </td>
+     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+       {earningsData.callbackDate || '-'}
+     </td>
+     <td className="px-6 py-4 whitespace-nowrap text-sm">
+       <button
+         onClick={() => setIsEditing(true)}
+         className="text-blue-600 hover:text-blue-900 text-xs"
+       >
+         Edit
+       </button>
+     </td>
+   </tr>
+ );
 };
 
 export default ClearlineFlow;
