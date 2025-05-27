@@ -1,4 +1,48 @@
-# Getting Started with Create React App
+# Clearline Flow
+
+A hedge fund workflow management application built with React, featuring real-time stock quotes, investment idea tracking, and earnings monitoring.
+
+## Features
+
+- **Investment Idea Management**: Add, track, and manage investment ideas with detailed analysis
+- **Real-time Stock Quotes**: Integration with Alpha Vantage API for live market data
+- **Earnings Tracking**: Monitor upcoming earnings dates and related activities
+- **Role-based Access**: Secure login with read-only and read/write permissions
+- **Database Integration**: Persistent storage with Supabase
+- **Team Collaboration**: Analyst assignment and team output tracking
+
+## Environment Variables
+
+Create a `.env` file in the root directory with the following variables:
+
+```env
+# Alpha Vantage API Configuration
+REACT_APP_ALPHA_VANTAGE_API_KEY=your_alpha_vantage_api_key_here
+
+# Supabase Configuration
+REACT_APP_SUPABASE_URL=your_supabase_project_url
+REACT_APP_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# Authentication
+# Password for Read/Write Access (change this to a secure password)
+REACT_APP_READWRITE_PASSWORD=YourSecurePassword123!
+```
+
+## Authentication
+
+The application has two access levels:
+
+- **Read Only Access**: No password required, allows viewing all data but no modifications
+- **Read/Write Access**: Password protected, allows full access including adding and editing investment ideas
+
+### Security Notes
+
+- The read/write password is stored as an environment variable
+- In production, ensure you use a strong, unique password
+- The password is checked client-side for simplicity, but in a production environment, consider implementing server-side authentication
+- Default password is `ClearlineFlow2024!` - **change this immediately**
+
+## Getting Started
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 

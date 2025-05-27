@@ -828,6 +828,41 @@ const ClearlineFlow = () => {
 
 // Login Screen Component
 const LoginScreen = ({ onLogin }) => {
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Secure password for read/write access (in production, this should be environment variable)
+  const READWRITE_PASSWORD = process.env.REACT_APP_READWRITE_PASSWORD || 'ClearlineFlow2024!';
+
+  const handleReadWriteLogin = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError('');
+
+    // Simulate a small delay for security
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    if (password === READWRITE_PASSWORD) {
+      onLogin('readwrite');
+    } else {
+      setError('Invalid password. Please try again.');
+      setPassword('');
+    }
+    setIsLoading(false);
+  };
+
+  const handleReadOnlyLogin = () => {
+    onLogin('readonly');
+  };
+
+  const resetForm = () => {
+    setShowPasswordForm(false);
+    setPassword('');
+    setError('');
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
@@ -844,20 +879,81 @@ const LoginScreen = ({ onLogin }) => {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-          <div className="space-y-4">
-            <button
-              onClick={() => onLogin('readwrite')}
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              Login with Read/Write Access
-            </button>
-            <button
-              onClick={() => onLogin('readonly')}
-              className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              Login with Read Only Access
-            </button>
-          </div>
+          {!showPasswordForm ? (
+            <div className="space-y-4">
+              <button
+                onClick={() => setShowPasswordForm(true)}
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Login with Read/Write Access
+              </button>
+              <button
+                onClick={handleReadOnlyLogin}
+                className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Login with Read Only Access
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleReadWriteLogin} className="space-y-6">
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                  Password for Read/Write Access
+                </label>
+                <div className="mt-1">
+                  <input
+                    id="password"
+                    name="password"
+                    type="password"
+                    autoComplete="current-password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    placeholder="Enter password"
+                    autoFocus
+                  />
+                </div>
+              </div>
+
+              {error && (
+                <div className="rounded-md bg-red-50 p-4">
+                  <div className="text-sm text-red-700">{error}</div>
+                </div>
+              )}
+
+              <div className="flex space-x-3">
+                <button
+                  type="submit"
+                  disabled={isLoading || !password}
+                  className={`flex-1 flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
+                    isLoading || !password
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : 'bg-blue-600 hover:bg-blue-700'
+                  } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
+                >
+                  {isLoading ? 'Verifying...' : 'Login'}
+                </button>
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="flex-1 flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  Cancel
+                </button>
+              </div>
+
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={handleReadOnlyLogin}
+                  className="text-sm text-blue-600 hover:text-blue-500"
+                >
+                  Continue with Read Only Access instead
+                </button>
+              </div>
+            </form>
+          )}
         </div>
       </div>
     </div>
