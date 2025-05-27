@@ -616,8 +616,6 @@ const QuoteDisplay = ({ ticker, quote, onUpdateQuote, isLoading, hasError }) => 
       </div>
     );
   }
-
-  const isPositive = quote.change >= 0;
   
   return (
     <div className="text-sm">
@@ -632,12 +630,6 @@ const QuoteDisplay = ({ ticker, quote, onUpdateQuote, isLoading, hasError }) => 
             <RefreshCw className={`h-3 w-3 inline ${isLoading ? 'animate-spin' : ''}`} />
           </button>
         )}
-      </div>
-      <div className={`text-xs ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
-        {isPositive ? '+' : ''}${quote.change.toFixed(2)} ({isPositive ? '+' : ''}{quote.changePercent.toFixed(2)}%)
-      </div>
-      <div className="text-xs text-gray-500">
-        Vol: {(quote.volume / 1000000).toFixed(1)}M
       </div>
     </div>
   );
@@ -1131,9 +1123,6 @@ const EnhancedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
 
   // Calculate P&L from input price vs current quote price
   const currentPrice = quote ? quote.price : ticker.currentPrice;
-  const pnl = currentPrice && ticker.inputPrice 
-    ? ((currentPrice - ticker.inputPrice) / ticker.inputPrice * 100).toFixed(2)
-    : 0;
 
   if (isEditing && onUpdate) {
     return (
@@ -1275,11 +1264,6 @@ const EnhancedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
           isLoading={isLoadingQuotes}
           hasError={hasQuoteError}
         />
-        {ticker.inputPrice && currentPrice && (
-          <div className={`text-xs mt-1 ${pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-            P&L: {pnl >= 0 ? '+' : ''}{pnl}%
-          </div>
-        )}
       </td>
       {onUpdate && (
         <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -1425,9 +1409,6 @@ return dateString;
  };
 
  const currentPrice = quote ? quote.price : ticker.currentPrice;
- const pnl = currentPrice && ticker.inputPrice 
-   ? ((currentPrice - ticker.inputPrice) / ticker.inputPrice * 100).toFixed(2)
-   : 0;
 
  if (isEditing && onUpdate) {
    return (
@@ -1516,11 +1497,6 @@ return dateString;
          isLoading={isLoadingQuotes}
          hasError={hasQuoteError}
        />
-       {ticker.inputPrice && currentPrice && (
-         <div className={`text-xs mt-1 ${pnl >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-           P&L: {pnl >= 0 ? '+' : ''}{pnl}%
-         </div>
-       )}
      </td>
      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
        {ticker.marketCap ? `${(ticker.marketCap / 1000000).toFixed(0)}M` : '-'}
