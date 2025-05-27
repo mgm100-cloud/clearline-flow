@@ -160,15 +160,10 @@ const QuoteService = {
     const quotes = {};
     const errors = {};
     
-    // Alpha Vantage free tier has rate limits, so we'll batch with delays
+    // Alpha Vantage premium tier allows 75 calls per minute
     for (let i = 0; i < symbols.length; i++) {
       const symbol = symbols[i];
       try {
-        // Add delay to respect rate limits (5 calls per minute for free tier)
-        if (i > 0) {
-          await new Promise(resolve => setTimeout(resolve, 12000)); // 12 second delay
-        }
-        
         const quote = await this.getQuote(symbol);
         quotes[symbol] = quote;
       } catch (error) {
@@ -183,15 +178,10 @@ const QuoteService = {
     const earnings = {};
     const errors = {};
     
-    // Alpha Vantage free tier has rate limits, so we'll batch with delays
+    // Alpha Vantage premium tier allows 75 calls per minute
     for (let i = 0; i < symbols.length; i++) {
       const symbol = symbols[i];
       try {
-        // Add delay to respect rate limits (5 calls per minute for free tier)
-        if (i > 0) {
-          await new Promise(resolve => setTimeout(resolve, 12000)); // 12 second delay
-        }
-        
         const earningsData = await this.getEarningsData(symbol);
         if (earningsData) {
           earnings[symbol] = earningsData;
