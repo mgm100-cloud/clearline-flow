@@ -2,10 +2,88 @@ import { supabase } from './supabaseClient'
 
 // Helper functions to convert between camelCase and snake_case
 const toSnakeCase = (str) => {
+  // Handle special cases first
+  const specialCases = {
+    'adv3Month': 'adv_3_month',
+    'ptBear': 'pt_bear',
+    'ptBase': 'pt_base', 
+    'ptBull': 'pt_bull',
+    'dateIn': 'date_in',
+    'pokeDate': 'poke_date',
+    'lsPosition': 'ls_position',
+    'inputPrice': 'input_price',
+    'currentPrice': 'current_price',
+    'marketCap': 'market_cap',
+    'catalystDate': 'catalyst_date',
+    'valueOrGrowth': 'value_or_growth',
+    'maTargetBuyer': 'ma_target_buyer',
+    'maTargetValuation': 'ma_target_valuation',
+    'maTargetSeller': 'ma_target_seller',
+    'bigMoveRevert': 'big_move_revert',
+    'activistPotential': 'activist_potential',
+    'insiderTradeSignal': 'insider_trade_signal',
+    'newMgmt': 'new_mgmt',
+    'bigAcq': 'big_acq',
+    'fraudRisk': 'fraud_risk',
+    'regulatoryRisk': 'regulatory_risk',
+    'nonCyclical': 'non_cyclical',
+    'highBeta': 'high_beta',
+    'selfHelp': 'self_help',
+    'rateExposure': 'rate_exposure',
+    'strongDollar': 'strong_dollar',
+    'extremeValuation': 'extreme_valuation',
+    'createdAt': 'created_at',
+    'updatedAt': 'updated_at'
+  };
+  
+  if (specialCases[str]) {
+    return specialCases[str];
+  }
+  
+  // Default conversion for other cases
   return str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
 };
 
 const toCamelCase = (str) => {
+  // Handle special cases first
+  const specialCases = {
+    'adv_3_month': 'adv3Month',
+    'pt_bear': 'ptBear',
+    'pt_base': 'ptBase',
+    'pt_bull': 'ptBull',
+    'date_in': 'dateIn',
+    'poke_date': 'pokeDate',
+    'ls_position': 'lsPosition',
+    'input_price': 'inputPrice',
+    'current_price': 'currentPrice',
+    'market_cap': 'marketCap',
+    'catalyst_date': 'catalystDate',
+    'value_or_growth': 'valueOrGrowth',
+    'ma_target_buyer': 'maTargetBuyer',
+    'ma_target_valuation': 'maTargetValuation',
+    'ma_target_seller': 'maTargetSeller',
+    'big_move_revert': 'bigMoveRevert',
+    'activist_potential': 'activistPotential',
+    'insider_trade_signal': 'insiderTradeSignal',
+    'new_mgmt': 'newMgmt',
+    'big_acq': 'bigAcq',
+    'fraud_risk': 'fraudRisk',
+    'regulatory_risk': 'regulatoryRisk',
+    'non_cyclical': 'nonCyclical',
+    'high_beta': 'highBeta',
+    'self_help': 'selfHelp',
+    'rate_exposure': 'rateExposure',
+    'strong_dollar': 'strongDollar',
+    'extreme_valuation': 'extremeValuation',
+    'created_at': 'createdAt',
+    'updated_at': 'updatedAt'
+  };
+  
+  if (specialCases[str]) {
+    return specialCases[str];
+  }
+  
+  // Default conversion for other cases
   return str.replace(/_([a-z])/g, (match, letter) => letter.toUpperCase());
 };
 
