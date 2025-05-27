@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Database, Users, TrendingUp, BarChart3, LogOut, Search, ChevronUp, ChevronDown, RefreshCw } from 'lucide-react';
+import { DatabaseService } from './databaseService';
 
 // Alpha Vantage API configuration - using environment variable
 const ALPHA_VANTAGE_API_KEY = process.env.REACT_APP_ALPHA_VANTAGE_API_KEY || 'YOUR_API_KEY_HERE';
@@ -96,6 +97,33 @@ const ClearlineFlow = () => {
   const [earningsData, setEarningsData] = useState([]);
   const [selectedCYQ, setSelectedCYQ] = useState('2024Q4');
   const [selectedEarningsAnalyst, setSelectedEarningsAnalyst] = useState('');
+
+  // Load data from Supabase on component mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [tickersData, earningsDataFromDB] = await Promise.all([
+          DatabaseService.getTickers(),
+          DatabaseService.getEarningsData()
+        ]);
+        
+        setTickers(tickersData);
+        setEarningsData(earningsDataFromDB);
+      } catch (error) {
+        console.error('Error loading data from database:', error);
+        // Fallback to localStorage if database fails
+        const savedTickers = localStorage.getItem('clearline-tickers');
+        const savedEarnings = localStorage.getItem('clearline-earnings');
+        
+        if (savedTickers) setTickers(JSON.parse(savedTickers));
+        if (savedEarnings) setEarningsData(JSON.parse(savedEarnings));
+      }
+    };
+
+    if (isAuthenticated) {
+      loadData();
+    }
+  }, [isAuthenticated]);
 
   // Mock login
   const handleLogin = (role) => {
@@ -233,75 +261,99 @@ const ClearlineFlow = () => {
 
   // Add new ticker
   const addTicker = async (tickerData) => {
-    // Capitalize the ticker and format price targets
-    const capitalizedTickerData = {
-      ...tickerData,
-      ticker: tickerData.ticker.toUpperCase(),
-      ptBear: formatPriceTarget(tickerData.ptBear),
-      ptBase: formatPriceTarget(tickerData.ptBase),
-      ptBull: formatPriceTarget(tickerData.ptBull)
-    };
-    
-    const stockData = await fetchStockData(capitalizedTickerData.ticker);
-    const newTicker = {
-      ...capitalizedTickerData,
-      id: Date.now(),
-      dateIn: new Date().toLocaleDateString('en-US', { 
-        year: '2-digit', 
-        month: '2-digit', 
-        day: '2-digit' 
-      }),
-      pokeDate: new Date().toLocaleDateString('en-US', { 
-        year: '2-digit', 
-        month: '2-digit', 
-        day: '2-digit' 
-      }),
-      name: stockData.name,
-      inputPrice: stockData.price,
-      currentPrice: stockData.price,
-      marketCap: stockData.marketCap,
-      adv3Month: stockData.adv3Month
-    };
-    setTickers(prev => [...prev, newTicker]);
+    try {
+      // Capitalize the ticker and format price targets
+      const capitalizedTickerData = {
+        ...tickerData,
+        ticker: tickerData.ticker.toUpperCase(),
+        ptBear: formatPriceTarget(tickerData.ptBear),
+        ptBase: formatPriceTarget(tickerData.ptBase),
+        ptBull: formatPriceTarget(tickerData.ptBull)
+      };
+      
+      const stockData = await fetchStockData(capitalizedTickerData.ticker);
+      const newTicker = {
+        ...capitalizedTickerData,
+        dateIn: new Date().toLocaleDateString('en-US', { 
+          year: '2-digit', 
+          month: '2-digit', 
+          day: '2-digit' 
+        }),
+        pokeDate: new Date().toLocaleDateString('en-US', { 
+          year: '2-digit', 
+          month: '2-digit', 
+          day: '2-digit' 
+        }),
+        name: stockData.name,
+        inputPrice: stockData.price,
+        currentPrice: stockData.price,
+        marketCap: stockData.marketCap,
+        adv3Month: stockData.adv3Month,
+        created_at: new Date().toISOString()
+      };
+      
+      // Save to Supabase
+      const savedTicker = await DatabaseService.addTicker(newTicker);
+      setTickers(prev => [...prev, savedTicker]);
+    } catch (error) {
+      console.error('Error adding ticker:', error);
+      throw error;
+    }
   };
 
   // Update ticker
-  const updateTicker = (id, updates) => {
-    // Format price targets in updates if they exist
-    const formattedUpdates = {
-      ...updates,
-      ...(updates.ptBear !== undefined && { ptBear: formatPriceTarget(updates.ptBear) }),
-      ...(updates.ptBase !== undefined && { ptBase: formatPriceTarget(updates.ptBase) }),
-      ...(updates.ptBull !== undefined && { ptBull: formatPriceTarget(updates.ptBull) })
-    };
+  const updateTicker = async (id, updates) => {
+    try {
+      // Format price targets in updates if they exist
+      const formattedUpdates = {
+        ...updates,
+        ...(updates.ptBear !== undefined && { ptBear: formatPriceTarget(updates.ptBear) }),
+        ...(updates.ptBase !== undefined && { ptBase: formatPriceTarget(updates.ptBase) }),
+        ...(updates.ptBull !== undefined && { ptBull: formatPriceTarget(updates.ptBull) }),
+        pokeDate: new Date().toLocaleDateString('en-US', { 
+          year: '2-digit', 
+          month: '2-digit', 
+          day: '2-digit' 
+        }),
+        updated_at: new Date().toISOString()
+      };
 
-    setTickers(prev => prev.map(ticker => 
-      ticker.id === id 
-        ? { 
-            ...ticker, 
-            ...formattedUpdates, 
-            pokeDate: new Date().toLocaleDateString('en-US', { 
-              year: '2-digit', 
-              month: '2-digit', 
-              day: '2-digit' 
-            })
-          }
-        : ticker
-    ));
+      // Update in Supabase
+      await DatabaseService.updateTicker(id, formattedUpdates);
+      
+      // Update local state
+      setTickers(prev => prev.map(ticker => 
+        ticker.id === id 
+          ? { ...ticker, ...formattedUpdates }
+          : ticker
+      ));
+    } catch (error) {
+      console.error('Error updating ticker:', error);
+      throw error;
+    }
   };
 
   // Earnings tracking functions
-  const updateEarningsData = (ticker, cyq, updates) => {
-    setEarningsData(prev => {
-      const existingIndex = prev.findIndex(item => item.ticker === ticker && item.cyq === cyq);
-      if (existingIndex >= 0) {
-        const newData = [...prev];
-        newData[existingIndex] = { ...newData[existingIndex], ...updates };
-        return newData;
-      } else {
-        return [...prev, { ticker, cyq, ...updates }];
-      }
-    });
+  const updateEarningsData = async (ticker, cyq, updates) => {
+    try {
+      // Update in Supabase
+      await DatabaseService.upsertEarningsData(ticker, cyq, updates);
+      
+      // Update local state
+      setEarningsData(prev => {
+        const existingIndex = prev.findIndex(item => item.ticker === ticker && item.cyq === cyq);
+        if (existingIndex >= 0) {
+          const newData = [...prev];
+          newData[existingIndex] = { ...newData[existingIndex], ...updates };
+          return newData;
+        } else {
+          return [...prev, { ticker, cyq, ...updates }];
+        }
+      });
+    } catch (error) {
+      console.error('Error updating earnings data:', error);
+      throw error;
+    }
   };
 
   const getEarningsData = (ticker, cyq) => {
