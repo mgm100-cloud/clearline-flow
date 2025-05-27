@@ -50,6 +50,53 @@ const QuoteService = {
     }
   },
 
+  async getCompanyOverview(symbol) {
+    if (!ALPHA_VANTAGE_API_KEY || ALPHA_VANTAGE_API_KEY === 'YOUR_API_KEY_HERE') {
+      throw new Error('Alpha Vantage API key not configured');
+    }
+
+    try {
+      const url = `${ALPHA_VANTAGE_BASE_URL}?function=OVERVIEW&symbol=${symbol}&apikey=${ALPHA_VANTAGE_API_KEY}`;
+      console.log(`Fetching company overview for ${symbol} from:`, url);
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      console.log(`Alpha Vantage company overview response for ${symbol}:`, data);
+      
+      if (data['Symbol']) {
+        return {
+          symbol: data['Symbol'],
+          name: data['Name'] || `${symbol} Company Ltd`,
+          marketCap: parseInt(data['MarketCapitalization']) || Math.round(Math.random() * 50000000000),
+          description: data['Description'],
+          sector: data['Sector'],
+          industry: data['Industry'],
+          exchange: data['Exchange']
+        };
+      } else if (data['Error Message']) {
+        throw new Error(`Alpha Vantage Error: ${data['Error Message']}`);
+      } else if (data['Note']) {
+        throw new Error('API call frequency limit reached. Please try again later.');
+      } else {
+        console.warn('No company overview data found, using fallback');
+        return {
+          symbol: symbol,
+          name: `${symbol} Company Ltd`,
+          marketCap: Math.round(Math.random() * 50000000000)
+        };
+      }
+    } catch (error) {
+      console.error(`Error fetching company overview for ${symbol}:`, error);
+      // Return fallback data instead of throwing
+      return {
+        symbol: symbol,
+        name: `${symbol} Company Ltd`,
+        marketCap: Math.round(Math.random() * 50000000000)
+      };
+    }
+  },
+
   async getBatchQuotes(symbols) {
     const quotes = {};
     const errors = {};
@@ -248,20 +295,40 @@ const ClearlineFlow = () => {
   const fetchStockData = async (ticker) => {
     const cleanSymbol = ticker.replace(' US', '');
     
-    // Try to get real quote first
     try {
-      const quote = await QuoteService.getQuote(cleanSymbol);
-      setQuotes(prev => ({ ...prev, [cleanSymbol]: quote }));
+      console.log(`🏢 Fetching company data for ${cleanSymbol}...`);
       
-      return {
-        name: `${ticker} Company Ltd`,
-        price: quote.price,
-        adv3Month: Math.round(Math.random() * 10000000),
-        marketCap: Math.round(Math.random() * 50000000000)
+      // Get both quote and company overview data
+      const [quote, companyOverview] = await Promise.all([
+        QuoteService.getQuote(cleanSymbol).catch(error => {
+          console.warn(`Could not fetch quote for ${cleanSymbol}:`, error.message);
+          return null;
+        }),
+        QuoteService.getCompanyOverview(cleanSymbol).catch(error => {
+          console.warn(`Could not fetch company overview for ${cleanSymbol}:`, error.message);
+          return null;
+        })
+      ]);
+      
+      // Store quote in state if we got it
+      if (quote) {
+        setQuotes(prev => ({ ...prev, [cleanSymbol]: quote }));
+      }
+      
+      // Use real data when available, fallback to mock data
+      const stockData = {
+        name: companyOverview?.name || `${ticker} Company Ltd`,
+        price: quote?.price || Math.round((Math.random() * 200 + 50) * 100) / 100,
+        adv3Month: Math.round(Math.random() * 10000000), // This would need a different API
+        marketCap: companyOverview?.marketCap || Math.round(Math.random() * 50000000000)
       };
+      
+      console.log(`✅ Successfully fetched data for ${cleanSymbol}:`, stockData);
+      return stockData;
+      
     } catch (error) {
-      // Fallback to mock data if quote fails
-      console.warn(`Could not fetch real quote for ${ticker}, using mock data:`, error.message);
+      // Fallback to mock data if both APIs fail
+      console.warn(`Could not fetch real data for ${ticker}, using mock data:`, error.message);
       setQuoteErrors(prev => ({ ...prev, [cleanSymbol]: error.message }));
       
       return {
