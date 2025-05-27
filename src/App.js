@@ -75,6 +75,8 @@ const QuoteService = {
 };
 
 const ClearlineFlow = () => {
+  console.log('🚀 ClearlineFlow component loaded');
+  
   // Authentication state
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userRole, setUserRole] = useState(''); // 'readwrite' or 'readonly'
@@ -138,11 +140,14 @@ const ClearlineFlow = () => {
 
   // Mock login
   const handleLogin = (role) => {
+    console.log('🔑 handleLogin called with role:', role);
     setIsAuthenticated(true);
     setUserRole(role);
+    console.log('🔑 After setIsAuthenticated(true)');
   };
 
   const handleLogout = () => {
+    console.log('🚪 handleLogout called');
     setIsAuthenticated(false);
     setUserRole('');
     setActiveTab('input');
