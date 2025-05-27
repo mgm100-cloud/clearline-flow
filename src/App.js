@@ -97,6 +97,65 @@ const QuoteService = {
     }
   },
 
+  async getEarningsData(symbol) {
+    if (!ALPHA_VANTAGE_API_KEY || ALPHA_VANTAGE_API_KEY === 'YOUR_API_KEY_HERE') {
+      throw new Error('Alpha Vantage API key not configured');
+    }
+
+    try {
+      const url = `${ALPHA_VANTAGE_BASE_URL}?function=EARNINGS&symbol=${symbol}&apikey=${ALPHA_VANTAGE_API_KEY}`;
+      console.log(`Fetching earnings data for ${symbol} from:`, url);
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      console.log(`Alpha Vantage earnings response for ${symbol}:`, data);
+      
+      if (data['quarterlyEarnings'] && data['quarterlyEarnings'].length > 0) {
+        // Find the next upcoming earnings date
+        const today = new Date();
+        const upcomingEarnings = data['quarterlyEarnings']
+          .filter(earning => new Date(earning.reportedDate) > today)
+          .sort((a, b) => new Date(a.reportedDate) - new Date(b.reportedDate));
+        
+        if (upcomingEarnings.length > 0) {
+          return {
+            symbol: symbol,
+            nextEarningsDate: upcomingEarnings[0].reportedDate,
+            estimatedEPS: upcomingEarnings[0].estimatedEPS,
+            reportedEPS: upcomingEarnings[0].reportedEPS
+          };
+        } else {
+          // If no upcoming earnings, get the most recent one and estimate next quarter
+          const recentEarnings = data['quarterlyEarnings']
+            .sort((a, b) => new Date(b.reportedDate) - new Date(a.reportedDate));
+          
+          if (recentEarnings.length > 0) {
+            const lastDate = new Date(recentEarnings[0].reportedDate);
+            // Estimate next earnings ~3 months later
+            const estimatedNext = new Date(lastDate);
+            estimatedNext.setMonth(estimatedNext.getMonth() + 3);
+            
+            return {
+              symbol: symbol,
+              nextEarningsDate: estimatedNext.toISOString().split('T')[0],
+              estimatedEPS: null,
+              reportedEPS: null,
+              isEstimated: true
+            };
+          }
+        }
+      }
+      
+      // If no earnings data found, return null
+      return null;
+      
+    } catch (error) {
+      console.error(`Error fetching earnings data for ${symbol}:`, error);
+      throw error;
+    }
+  },
+
   async getBatchQuotes(symbols) {
     const quotes = {};
     const errors = {};
@@ -118,6 +177,31 @@ const QuoteService = {
     }
     
     return { quotes, errors };
+  },
+
+  async getBatchEarnings(symbols) {
+    const earnings = {};
+    const errors = {};
+    
+    // Alpha Vantage free tier has rate limits, so we'll batch with delays
+    for (let i = 0; i < symbols.length; i++) {
+      const symbol = symbols[i];
+      try {
+        // Add delay to respect rate limits (5 calls per minute for free tier)
+        if (i > 0) {
+          await new Promise(resolve => setTimeout(resolve, 12000)); // 12 second delay
+        }
+        
+        const earningsData = await this.getEarningsData(symbol);
+        if (earningsData) {
+          earnings[symbol] = earningsData;
+        }
+      } catch (error) {
+        errors[symbol] = error.message;
+      }
+    }
+    
+    return { earnings, errors };
   }
 };
 
@@ -452,6 +536,45 @@ const ClearlineFlow = () => {
     return earningsData.find(item => item.ticker === ticker && item.cyq === cyq) || {};
   };
 
+  // Refresh earnings dates from Alpha Vantage
+  const refreshEarningsDates = async (tickersToRefresh, targetCYQ) => {
+    if (!tickersToRefresh || tickersToRefresh.length === 0) return { success: 0, errors: {} };
+
+    const symbols = tickersToRefresh.map(ticker => ticker.ticker.replace(' US', ''));
+    
+    try {
+      console.log(`🔄 Refreshing earnings dates for ${symbols.length} tickers for CYQ ${targetCYQ}...`);
+      
+      const { earnings, errors } = await QuoteService.getBatchEarnings(symbols);
+      
+      let successCount = 0;
+      
+      // Update earnings data for each ticker that returned data
+      for (const [symbol, earningsInfo] of Object.entries(earnings)) {
+        try {
+          const ticker = tickersToRefresh.find(t => t.ticker.replace(' US', '') === symbol);
+          if (ticker && earningsInfo.nextEarningsDate) {
+            await updateEarningsData(ticker.ticker, targetCYQ, {
+              earningsDate: earningsInfo.nextEarningsDate
+            });
+            successCount++;
+            console.log(`✅ Updated earnings date for ${ticker.ticker}: ${earningsInfo.nextEarningsDate}`);
+          }
+        } catch (updateError) {
+          console.error(`Error updating earnings for ${symbol}:`, updateError);
+          errors[symbol] = updateError.message;
+        }
+      }
+      
+      console.log(`🎉 Successfully updated ${successCount} earnings dates`);
+      return { success: successCount, errors };
+      
+    } catch (error) {
+      console.error('Error refreshing earnings dates:', error);
+      throw error;
+    }
+  };
+
   // Sort function
   const sortData = (data, field) => {
     if (!field) return data;
@@ -704,6 +827,7 @@ const ClearlineFlow = () => {
             earningsData={earningsData}
             onUpdateEarnings={updateEarningsData}
             getEarningsData={getEarningsData}
+            onRefreshEarnings={refreshEarningsDates}
             analysts={analysts}
           />
         )}
@@ -2258,7 +2382,7 @@ const TeamOutputPage = ({ tickers, analysts }) => {
 };
 
 // Earnings Tracking Page Component
-const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarningsAnalyst, onSelectEarningsAnalyst, earningsData, onUpdateEarnings, getEarningsData, analysts }) => {
+const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarningsAnalyst, onSelectEarningsAnalyst, earningsData, onUpdateEarnings, getEarningsData, onRefreshEarnings, analysts }) => {
  // Filter tickers to only show Portfolio status
  let portfolioTickers = tickers.filter(ticker => ticker.status === 'Portfolio');
  
@@ -2303,6 +2427,48 @@ const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarni
    return days;
  };
 
+ // Refresh earnings state
+ const [isRefreshing, setIsRefreshing] = useState(false);
+ const [refreshMessage, setRefreshMessage] = useState('');
+
+ // Handle refresh earnings dates
+ const handleRefreshEarnings = async () => {
+   if (!onRefreshEarnings || sortedTickers.length === 0) return;
+
+   setIsRefreshing(true);
+   setRefreshMessage('Fetching earnings dates from Alpha Vantage...');
+
+   try {
+     const result = await onRefreshEarnings(sortedTickers, selectedCYQ);
+     
+     if (result.success > 0) {
+       setRefreshMessage(`✅ Successfully updated ${result.success} earnings dates`);
+     } else {
+       setRefreshMessage('⚠️ No earnings dates were updated');
+     }
+
+     // Show any errors
+     if (Object.keys(result.errors).length > 0) {
+       console.warn('Earnings refresh errors:', result.errors);
+     }
+
+     // Clear message after 5 seconds
+     setTimeout(() => {
+       setRefreshMessage('');
+     }, 5000);
+
+   } catch (error) {
+     console.error('Error refreshing earnings:', error);
+     setRefreshMessage(`❌ Error: ${error.message}`);
+     
+     setTimeout(() => {
+       setRefreshMessage('');
+     }, 5000);
+   } finally {
+     setIsRefreshing(false);
+   }
+ };
+
  return (
    <div className="bg-white shadow rounded-lg">
      <div className="px-4 py-5 sm:p-6">
@@ -2336,8 +2502,31 @@ const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarni
                ))}
              </select>
            </div>
+           <button
+             onClick={handleRefreshEarnings}
+             disabled={isRefreshing || sortedTickers.length === 0}
+             className={`flex items-center space-x-1 px-3 py-1 rounded text-sm font-medium ${
+               isRefreshing || sortedTickers.length === 0
+                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                 : 'bg-green-100 text-green-700 hover:bg-green-200'
+             }`}
+           >
+             <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+             <span>Refresh Earnings Dates</span>
+           </button>
          </div>
        </div>
+       
+       {refreshMessage && (
+         <div className={`mb-4 p-3 rounded-md ${
+           refreshMessage.includes('✅') ? 'bg-green-100 text-green-700' :
+           refreshMessage.includes('⚠️') ? 'bg-yellow-100 text-yellow-700' :
+           refreshMessage.includes('❌') ? 'bg-red-100 text-red-700' :
+           'bg-blue-100 text-blue-700'
+         }`}>
+           {refreshMessage}
+         </div>
+       )}
        
        <div className="overflow-x-auto">
          <table className="min-w-full divide-y divide-gray-200">
