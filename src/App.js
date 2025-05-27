@@ -393,12 +393,15 @@ const ClearlineFlow = () => {
   // Update ticker
   const updateTicker = async (id, updates) => {
     try {
+      // Remove fields that shouldn't be saved to database
+      const { lastQuoteUpdate, ...cleanUpdates } = updates;
+      
       // Format price targets in updates if they exist
       const formattedUpdates = {
-        ...updates,
-        ...(updates.ptBear !== undefined && { ptBear: formatPriceTarget(updates.ptBear) }),
-        ...(updates.ptBase !== undefined && { ptBase: formatPriceTarget(updates.ptBase) }),
-        ...(updates.ptBull !== undefined && { ptBull: formatPriceTarget(updates.ptBull) }),
+        ...cleanUpdates,
+        ...(cleanUpdates.ptBear !== undefined && { ptBear: formatPriceTarget(cleanUpdates.ptBear) }),
+        ...(cleanUpdates.ptBase !== undefined && { ptBase: formatPriceTarget(cleanUpdates.ptBase) }),
+        ...(cleanUpdates.ptBull !== undefined && { ptBull: formatPriceTarget(cleanUpdates.ptBull) }),
         pokeDate: new Date().toLocaleDateString('en-US', { 
           year: '2-digit', 
           month: '2-digit', 
