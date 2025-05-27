@@ -13,10 +13,13 @@ const QuoteService = {
     }
 
     try {
-      const response = await fetch(
-        `${ALPHA_VANTAGE_BASE_URL}?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${ALPHA_VANTAGE_API_KEY}`
-      );
+      const url = `${ALPHA_VANTAGE_BASE_URL}?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${ALPHA_VANTAGE_API_KEY}`;
+      console.log(`Fetching quote for ${symbol} from:`, url);
+      
+      const response = await fetch(url);
       const data = await response.json();
+      
+      console.log(`Alpha Vantage response for ${symbol}:`, data);
       
       if (data['Global Quote']) {
         const quote = data['Global Quote'];
@@ -37,7 +40,8 @@ const QuoteService = {
       } else if (data['Note']) {
         throw new Error('API call frequency limit reached. Please try again later.');
       } else {
-        throw new Error('Invalid response from Alpha Vantage');
+        console.error('Unexpected Alpha Vantage response structure:', data);
+        throw new Error(`Invalid response from Alpha Vantage. Response keys: ${Object.keys(data).join(', ')}`);
       }
     } catch (error) {
       console.error(`Error fetching quote for ${symbol}:`, error);
