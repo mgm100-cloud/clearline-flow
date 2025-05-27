@@ -101,25 +101,36 @@ const ClearlineFlow = () => {
   // Load data from Supabase on component mount
   useEffect(() => {
     const loadData = async () => {
+      console.log('🔄 Starting to load data from Supabase...');
       try {
+        console.log('📡 Calling DatabaseService.getTickers()...');
         const [tickersData, earningsDataFromDB] = await Promise.all([
           DatabaseService.getTickers(),
           DatabaseService.getEarningsData()
         ]);
         
+        console.log('✅ Successfully loaded data from Supabase:');
+        console.log('📊 Tickers:', tickersData);
+        console.log('📈 Earnings data:', earningsDataFromDB);
+        
         setTickers(tickersData);
         setEarningsData(earningsDataFromDB);
       } catch (error) {
-        console.error('Error loading data from database:', error);
+        console.error('❌ Error loading data from database:', error);
         // Fallback to localStorage if database fails
         const savedTickers = localStorage.getItem('clearline-tickers');
         const savedEarnings = localStorage.getItem('clearline-earnings');
+        
+        console.log('🔄 Falling back to localStorage...');
+        console.log('💾 localStorage tickers:', savedTickers);
+        console.log('💾 localStorage earnings:', savedEarnings);
         
         if (savedTickers) setTickers(JSON.parse(savedTickers));
         if (savedEarnings) setEarningsData(JSON.parse(savedEarnings));
       }
     };
 
+    console.log('🔐 Authentication status:', isAuthenticated);
     if (isAuthenticated) {
       loadData();
     }
