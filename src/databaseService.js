@@ -213,12 +213,24 @@ export const DatabaseService = {
     try {
       const { data, error } = await supabase
         .from('earnings_tracking')
-        .select('*')
+        .select(`
+          *,
+          tickers!ticker_id (
+            ticker
+          )
+        `)
       
       if (error) throw error
       
-      // Convert snake_case to camelCase for JavaScript
-      return (data || []).map(convertFromDbFormat);
+      // Convert snake_case to camelCase and flatten ticker data
+      return (data || []).map(item => {
+        const converted = convertFromDbFormat(item);
+        // Add ticker symbol from the joined tickers table
+        if (item.tickers) {
+          converted.ticker = item.tickers.ticker;
+        }
+        return converted;
+      });
     } catch (error) {
       console.error('Error fetching earnings data:', error)
       throw error
@@ -227,18 +239,33 @@ export const DatabaseService = {
 
   async upsertEarningsData(ticker, cyq, updates) {
     try {
-      // Convert camelCase to snake_case for database
-      const dbUpdates = convertToDbFormat({
-        ticker,
+      // First, find the ticker's ID from the tickers table
+      const { data: tickerData, error: tickerError } = await supabase
+        .from('tickers')
+        .select('id')
+        .eq('ticker', ticker)
+        .single()
+      
+      if (tickerError) {
+        console.error('Error finding ticker:', tickerError)
+        throw new Error(`Ticker ${ticker} not found in database`)
+      }
+      
+      // Prepare data for database with correct foreign key
+      const dataForDb = {
+        ticker_id: tickerData.id,  // Use the actual ID from tickers table
         cyq,
         ...updates,
         updated_at: new Date().toISOString()
-      });
+      };
+      
+      // Convert camelCase to snake_case for database
+      const dbUpdates = convertToDbFormat(dataForDb);
       
       const { data, error } = await supabase
         .from('earnings_tracking')
         .upsert([dbUpdates], {
-          onConflict: 'ticker,cyq'
+          onConflict: 'ticker_id,cyq'
         })
         .select()
       
