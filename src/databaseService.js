@@ -87,10 +87,37 @@ const toCamelCase = (str) => {
   return str.replace(/_([a-z])/g, (match, letter) => letter.toUpperCase());
 };
 
+// Clean data for database insertion
+const cleanDataForDb = (obj) => {
+  const cleaned = {};
+  
+  for (const [key, value] of Object.entries(obj)) {
+    // Convert empty strings to null for date fields
+    if (key === 'catalystDate' || key === 'catalyst_date') {
+      cleaned[key] = value === '' ? null : value;
+    }
+    // Convert empty strings to null for numeric fields
+    else if (['inputPrice', 'currentPrice', 'marketCap', 'adv3Month', 'ptBear', 'ptBase', 'ptBull',
+              'input_price', 'current_price', 'market_cap', 'adv_3_month', 'pt_bear', 'pt_base', 'pt_bull'].includes(key)) {
+      cleaned[key] = value === '' ? null : value;
+    }
+    // Convert empty strings to null for other optional fields
+    else if (['source', 'valueOrGrowth', 'value_or_growth'].includes(key)) {
+      cleaned[key] = value === '' ? null : value;
+    }
+    else {
+      cleaned[key] = value;
+    }
+  }
+  
+  return cleaned;
+};
+
 // Convert object keys from camelCase to snake_case for database
 const convertToDbFormat = (obj) => {
+  const cleaned = cleanDataForDb(obj);
   const converted = {};
-  for (const [key, value] of Object.entries(obj)) {
+  for (const [key, value] of Object.entries(cleaned)) {
     const snakeKey = toSnakeCase(key);
     converted[snakeKey] = value;
   }
