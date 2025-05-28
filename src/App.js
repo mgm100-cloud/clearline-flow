@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Database, Users, TrendingUp, BarChart3, LogOut, Search, ChevronUp, ChevronDown, RefreshCw, Download } from 'lucide-react';
 import { DatabaseService } from './databaseService';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 // Alpha Vantage API configuration - using environment variable
 const ALPHA_VANTAGE_API_KEY = process.env.REACT_APP_ALPHA_VANTAGE_API_KEY || 'YOUR_API_KEY_HERE';
@@ -2474,8 +2474,8 @@ const TeamOutputPage = ({ tickers, analysts }) => {
      
      console.log('Table data:', tableData);
      
-     // Create the PDF table
-     doc.autoTable({
+     // Create the PDF table using the correct autoTable syntax
+     autoTable(doc, {
        head: [['Analyst', 'Current-Long', 'Current-Short', 'OnDeck-Long', 'OnDeck-Short', 'Portfolio-Long', 'Portfolio-Short']],
        body: tableData,
        startY: 40,
