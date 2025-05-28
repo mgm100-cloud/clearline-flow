@@ -2415,98 +2415,109 @@ const TeamOutputPage = ({ tickers, analysts }) => {
 
  // PDF Export Function
  const exportToPDF = () => {
-   const doc = new jsPDF('landscape');
-   
-   // Add title
-   doc.setFontSize(18);
-   doc.text('Clearline Flow - Team Output Matrix', 14, 22);
-   
-   // Add timestamp
-   doc.setFontSize(10);
-   doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
-   
-   // Prepare data for the PDF table
-   const tableData = [];
-   
-   // Add analyst rows
-   analysts.forEach(analyst => {
-     const row = [analyst];
+   try {
+     console.log('Starting PDF export...');
+     const doc = new jsPDF('landscape');
      
-     // Current-Long
-     const currentLong = getTickersForCell(analyst, 'Current', 'Long');
-     row.push(currentLong.map(t => t.ticker).join(', ') || '-');
+     // Add title
+     doc.setFontSize(18);
+     doc.text('Clearline Flow - Team Output Matrix', 14, 22);
      
-     // Current-Short  
-     const currentShort = getTickersForCell(analyst, 'Current', 'Short');
-     row.push(currentShort.map(t => t.ticker).join(', ') || '-');
+     // Add timestamp
+     doc.setFontSize(10);
+     doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
      
-     // OnDeck-Long
-     const onDeckLong = getTickersForCell(analyst, 'On-Deck', 'Long');
-     row.push(onDeckLong.map(t => t.ticker).join(', ') || '-');
+     // Prepare data for the PDF table
+     const tableData = [];
+     console.log('Analysts:', analysts);
      
-     // OnDeck-Short
-     const onDeckShort = getTickersForCell(analyst, 'On-Deck', 'Short');
-     row.push(onDeckShort.map(t => t.ticker).join(', ') || '-');
+     // Add analyst rows
+     analysts.forEach(analyst => {
+       const row = [analyst];
+       
+       // Current-Long
+       const currentLong = getTickersForCell(analyst, 'Current', 'Long');
+       row.push(currentLong.map(t => t.ticker).join(', ') || '-');
+       
+       // Current-Short  
+       const currentShort = getTickersForCell(analyst, 'Current', 'Short');
+       row.push(currentShort.map(t => t.ticker).join(', ') || '-');
+       
+       // OnDeck-Long
+       const onDeckLong = getTickersForCell(analyst, 'On-Deck', 'Long');
+       row.push(onDeckLong.map(t => t.ticker).join(', ') || '-');
+       
+       // OnDeck-Short
+       const onDeckShort = getTickersForCell(analyst, 'On-Deck', 'Short');
+       row.push(onDeckShort.map(t => t.ticker).join(', ') || '-');
+       
+       // Portfolio-Long
+       const portfolioLong = getTickersForCell(analyst, 'Portfolio', 'Long');
+       row.push(portfolioLong.map(t => t.ticker).join(', ') || '-');
+       
+       // Portfolio-Short
+       const portfolioShort = getTickersForCell(analyst, 'Portfolio', 'Short');
+       row.push(portfolioShort.map(t => t.ticker).join(', ') || '-');
+       
+       tableData.push(row);
+     });
      
-     // Portfolio-Long
-     const portfolioLong = getTickersForCell(analyst, 'Portfolio', 'Long');
-     row.push(portfolioLong.map(t => t.ticker).join(', ') || '-');
+     // Add "To Assign" row
+     const toAssignRow = ['To Assign'];
+     toAssignRow.push(getUnassignedTickersForCell('Current', 'Long').map(t => t.ticker).join(', ') || '-');
+     toAssignRow.push(getUnassignedTickersForCell('Current', 'Short').map(t => t.ticker).join(', ') || '-');
+     toAssignRow.push(getUnassignedTickersForCell('On-Deck', 'Long').map(t => t.ticker).join(', ') || '-');
+     toAssignRow.push(getUnassignedTickersForCell('On-Deck', 'Short').map(t => t.ticker).join(', ') || '-');
+     toAssignRow.push(getUnassignedTickersForCell('Portfolio', 'Long').map(t => t.ticker).join(', ') || '-');
+     toAssignRow.push(getUnassignedTickersForCell('Portfolio', 'Short').map(t => t.ticker).join(', ') || '-');
+     tableData.push(toAssignRow);
      
-     // Portfolio-Short
-     const portfolioShort = getTickersForCell(analyst, 'Portfolio', 'Short');
-     row.push(portfolioShort.map(t => t.ticker).join(', ') || '-');
+     console.log('Table data:', tableData);
      
-     tableData.push(row);
-   });
-   
-   // Add "To Assign" row
-   const toAssignRow = ['To Assign'];
-   toAssignRow.push(getUnassignedTickersForCell('Current', 'Long').map(t => t.ticker).join(', ') || '-');
-   toAssignRow.push(getUnassignedTickersForCell('Current', 'Short').map(t => t.ticker).join(', ') || '-');
-   toAssignRow.push(getUnassignedTickersForCell('On-Deck', 'Long').map(t => t.ticker).join(', ') || '-');
-   toAssignRow.push(getUnassignedTickersForCell('On-Deck', 'Short').map(t => t.ticker).join(', ') || '-');
-   toAssignRow.push(getUnassignedTickersForCell('Portfolio', 'Long').map(t => t.ticker).join(', ') || '-');
-   toAssignRow.push(getUnassignedTickersForCell('Portfolio', 'Short').map(t => t.ticker).join(', ') || '-');
-   tableData.push(toAssignRow);
-   
-   // Create the PDF table
-   doc.autoTable({
-     head: [['Analyst', 'Current-Long', 'Current-Short', 'OnDeck-Long', 'OnDeck-Short', 'Portfolio-Long', 'Portfolio-Short']],
-     body: tableData,
-     startY: 40,
-     styles: {
-       fontSize: 8,
-       cellPadding: 3,
-     },
-     headStyles: {
-       fillColor: [75, 85, 99], // Gray color
-       textColor: 255,
-       fontStyle: 'bold'
-     },
-     alternateRowStyles: {
-       fillColor: [248, 250, 252] // Light gray
-     },
-     columnStyles: {
-       0: { cellWidth: 30 }, // Analyst column
-       1: { cellWidth: 35 }, // Current-Long
-       2: { cellWidth: 35 }, // Current-Short
-       3: { cellWidth: 35 }, // OnDeck-Long
-       4: { cellWidth: 35 }, // OnDeck-Short
-       5: { cellWidth: 35 }, // Portfolio-Long
-       6: { cellWidth: 35 }  // Portfolio-Short
-     },
-     didParseCell: function(data) {
-       // Highlight "To Assign" row
-       if (data.row.index === analysts.length) {
-         data.cell.styles.fillColor = [254, 226, 226]; // Light red background
-         data.cell.styles.fontStyle = 'bold';
+     // Create the PDF table
+     doc.autoTable({
+       head: [['Analyst', 'Current-Long', 'Current-Short', 'OnDeck-Long', 'OnDeck-Short', 'Portfolio-Long', 'Portfolio-Short']],
+       body: tableData,
+       startY: 40,
+       styles: {
+         fontSize: 8,
+         cellPadding: 3,
+       },
+       headStyles: {
+         fillColor: [75, 85, 99], // Gray color
+         textColor: 255,
+         fontStyle: 'bold'
+       },
+       alternateRowStyles: {
+         fillColor: [248, 250, 252] // Light gray
+       },
+       columnStyles: {
+         0: { cellWidth: 30 }, // Analyst column
+         1: { cellWidth: 35 }, // Current-Long
+         2: { cellWidth: 35 }, // Current-Short
+         3: { cellWidth: 35 }, // OnDeck-Long
+         4: { cellWidth: 35 }, // OnDeck-Short
+         5: { cellWidth: 35 }, // Portfolio-Long
+         6: { cellWidth: 35 }  // Portfolio-Short
+       },
+       didParseCell: function(data) {
+         // Highlight "To Assign" row
+         if (data.row.index === analysts.length) {
+           data.cell.styles.fillColor = [254, 226, 226]; // Light red background
+           data.cell.styles.fontStyle = 'bold';
+         }
        }
-     }
-   });
-   
-   // Save the PDF
-   const fileName = `team-output-matrix-${new Date().toISOString().split('T')[0]}.pdf`;
-   doc.save(fileName);
+     });
+     
+     // Save the PDF
+     const fileName = `team-output-matrix-${new Date().toISOString().split('T')[0]}.pdf`;
+     console.log('Saving PDF as:', fileName);
+     doc.save(fileName);
+     console.log('PDF export completed successfully');
+   } catch (error) {
+     console.error('Error exporting PDF:', error);
+     alert(`Error exporting PDF: ${error.message}`);
+   }
  };
 
  return (
