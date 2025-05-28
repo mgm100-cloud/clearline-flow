@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Database, Users, TrendingUp, BarChart3, LogOut, Search, ChevronUp, ChevronDown, RefreshCw } from 'lucide-react';
+import { Plus, Database, Users, TrendingUp, BarChart3, LogOut, Search, ChevronUp, ChevronDown, RefreshCw, Download } from 'lucide-react';
 import { DatabaseService } from './databaseService';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 // Alpha Vantage API configuration - using environment variable
 const ALPHA_VANTAGE_API_KEY = process.env.REACT_APP_ALPHA_VANTAGE_API_KEY || 'YOUR_API_KEY_HERE';
@@ -2411,12 +2413,117 @@ const TeamOutputPage = ({ tickers, analysts }) => {
    );
  };
 
+ // PDF Export Function
+ const exportToPDF = () => {
+   const doc = new jsPDF('landscape');
+   
+   // Add title
+   doc.setFontSize(18);
+   doc.text('Clearline Flow - Team Output Matrix', 14, 22);
+   
+   // Add timestamp
+   doc.setFontSize(10);
+   doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
+   
+   // Prepare data for the PDF table
+   const tableData = [];
+   
+   // Add analyst rows
+   analysts.forEach(analyst => {
+     const row = [analyst];
+     
+     // Current-Long
+     const currentLong = getTickersForCell(analyst, 'Current', 'Long');
+     row.push(currentLong.map(t => t.ticker).join(', ') || '-');
+     
+     // Current-Short  
+     const currentShort = getTickersForCell(analyst, 'Current', 'Short');
+     row.push(currentShort.map(t => t.ticker).join(', ') || '-');
+     
+     // OnDeck-Long
+     const onDeckLong = getTickersForCell(analyst, 'On-Deck', 'Long');
+     row.push(onDeckLong.map(t => t.ticker).join(', ') || '-');
+     
+     // OnDeck-Short
+     const onDeckShort = getTickersForCell(analyst, 'On-Deck', 'Short');
+     row.push(onDeckShort.map(t => t.ticker).join(', ') || '-');
+     
+     // Portfolio-Long
+     const portfolioLong = getTickersForCell(analyst, 'Portfolio', 'Long');
+     row.push(portfolioLong.map(t => t.ticker).join(', ') || '-');
+     
+     // Portfolio-Short
+     const portfolioShort = getTickersForCell(analyst, 'Portfolio', 'Short');
+     row.push(portfolioShort.map(t => t.ticker).join(', ') || '-');
+     
+     tableData.push(row);
+   });
+   
+   // Add "To Assign" row
+   const toAssignRow = ['To Assign'];
+   toAssignRow.push(getUnassignedTickersForCell('Current', 'Long').map(t => t.ticker).join(', ') || '-');
+   toAssignRow.push(getUnassignedTickersForCell('Current', 'Short').map(t => t.ticker).join(', ') || '-');
+   toAssignRow.push(getUnassignedTickersForCell('On-Deck', 'Long').map(t => t.ticker).join(', ') || '-');
+   toAssignRow.push(getUnassignedTickersForCell('On-Deck', 'Short').map(t => t.ticker).join(', ') || '-');
+   toAssignRow.push(getUnassignedTickersForCell('Portfolio', 'Long').map(t => t.ticker).join(', ') || '-');
+   toAssignRow.push(getUnassignedTickersForCell('Portfolio', 'Short').map(t => t.ticker).join(', ') || '-');
+   tableData.push(toAssignRow);
+   
+   // Create the PDF table
+   doc.autoTable({
+     head: [['Analyst', 'Current-Long', 'Current-Short', 'OnDeck-Long', 'OnDeck-Short', 'Portfolio-Long', 'Portfolio-Short']],
+     body: tableData,
+     startY: 40,
+     styles: {
+       fontSize: 8,
+       cellPadding: 3,
+     },
+     headStyles: {
+       fillColor: [75, 85, 99], // Gray color
+       textColor: 255,
+       fontStyle: 'bold'
+     },
+     alternateRowStyles: {
+       fillColor: [248, 250, 252] // Light gray
+     },
+     columnStyles: {
+       0: { cellWidth: 30 }, // Analyst column
+       1: { cellWidth: 35 }, // Current-Long
+       2: { cellWidth: 35 }, // Current-Short
+       3: { cellWidth: 35 }, // OnDeck-Long
+       4: { cellWidth: 35 }, // OnDeck-Short
+       5: { cellWidth: 35 }, // Portfolio-Long
+       6: { cellWidth: 35 }  // Portfolio-Short
+     },
+     didParseCell: function(data) {
+       // Highlight "To Assign" row
+       if (data.row.index === analysts.length) {
+         data.cell.styles.fillColor = [254, 226, 226]; // Light red background
+         data.cell.styles.fontStyle = 'bold';
+       }
+     }
+   });
+   
+   // Save the PDF
+   const fileName = `team-output-matrix-${new Date().toISOString().split('T')[0]}.pdf`;
+   doc.save(fileName);
+ };
+
  return (
    <div className="bg-white shadow rounded-lg">
      <div className="px-4 py-5 sm:p-6">
-       <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-         Team Output Matrix
-       </h3>
+       <div className="flex items-center justify-between mb-4">
+         <h3 className="text-lg leading-6 font-medium text-gray-900">
+           Team Output Matrix
+         </h3>
+         <button
+           onClick={exportToPDF}
+           className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+         >
+           <Download className="h-4 w-4" />
+           <span>Export to PDF</span>
+         </button>
+       </div>
        
        <div className="overflow-x-auto">
          <table className="min-w-full divide-y divide-gray-200">
