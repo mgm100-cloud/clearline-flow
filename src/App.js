@@ -2129,12 +2129,127 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
     }
   });
 
+  // PDF Export Function for PM Detail
+  const exportToPDF = () => {
+    try {
+      console.log('Starting PM Detail PDF export...');
+      const doc = new jsPDF('landscape');
+      
+      // Add title
+      doc.setFontSize(18);
+      doc.text('Clearline Flow - PM Detail Output', 14, 22);
+      
+      // Add timestamp
+      doc.setFontSize(10);
+      doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
+      
+      // Prepare data for the PDF table
+      const tableData = [];
+      
+      statusOrder.forEach(status => {
+        const statusTickers = tickers.filter(ticker => ticker.status === status);
+        if (statusTickers.length > 0) {
+          const sortedTickers = sortData(statusTickers, sortField);
+          
+          // Add status header row
+          tableData.push([`${status} (${sortedTickers.length})`, '', '', '', '', '', '', '', '', '', '', '']);
+          
+          // Add ticker data rows
+          sortedTickers.forEach(ticker => {
+            const cleanSymbol = ticker.ticker.replace(' US', '');
+            const quote = quotes[cleanSymbol];
+            const currentPrice = quote ? quote.price : ticker.currentPrice;
+            
+            const row = [
+              ticker.ticker || '-',
+              ticker.lsPosition || '-',
+              currentPrice ? `$${parseFloat(currentPrice).toFixed(2)}` : '-',
+              ticker.priority || '-',
+              ticker.analyst || '-',
+              ticker.ptBear ? `$${parseFloat(ticker.ptBear).toFixed(2)}` : '-',
+              calculatePercentChange(ticker.ptBear, currentPrice) || '-',
+              ticker.ptBase ? `$${parseFloat(ticker.ptBase).toFixed(2)}` : '-',
+              calculatePercentChange(ticker.ptBase, currentPrice) || '-',
+              ticker.ptBull ? `$${parseFloat(ticker.ptBull).toFixed(2)}` : '-',
+              calculatePercentChange(ticker.ptBull, currentPrice) || '-',
+              ticker.thesis || '-'
+            ];
+            tableData.push(row);
+          });
+        }
+      });
+      
+      console.log('PM Detail table data:', tableData);
+      
+      // Create the PDF table
+      autoTable(doc, {
+        head: [['Ticker', 'L/S', 'Live Quote', 'Priority', 'Analyst', 'PT Bear', 'Bear %', 'PT Base', 'Base %', 'PT Bull', 'Bull %', 'Thesis']],
+        body: tableData,
+        startY: 40,
+        styles: {
+          fontSize: 6,
+          cellPadding: 2,
+        },
+        headStyles: {
+          fillColor: [75, 85, 99],
+          textColor: 255,
+          fontStyle: 'bold'
+        },
+        columnStyles: {
+          0: { cellWidth: 20 }, // Ticker
+          1: { cellWidth: 15 }, // L/S
+          2: { cellWidth: 20 }, // Live Quote
+          3: { cellWidth: 15 }, // Priority
+          4: { cellWidth: 20 }, // Analyst
+          5: { cellWidth: 20 }, // PT Bear
+          6: { cellWidth: 15 }, // Bear %
+          7: { cellWidth: 20 }, // PT Base
+          8: { cellWidth: 15 }, // Base %
+          9: { cellWidth: 20 }, // PT Bull
+          10: { cellWidth: 15 }, // Bull %
+          11: { cellWidth: 60 }  // Thesis
+        },
+        didParseCell: function(data) {
+          // Highlight status header rows
+          if (data.cell.text[0] && (
+            data.cell.text[0].includes('Current (') || 
+            data.cell.text[0].includes('On-Deck (') || 
+            data.cell.text[0].includes('Portfolio (') ||
+            data.cell.text[0].includes('New (') ||
+            data.cell.text[0].includes('Old (')
+          )) {
+            data.cell.styles.fillColor = [229, 231, 235]; // Light gray background
+            data.cell.styles.fontStyle = 'bold';
+          }
+        }
+      });
+      
+      // Save the PDF
+      const fileName = `pm-detail-output-${new Date().toISOString().split('T')[0]}.pdf`;
+      console.log('Saving PM Detail PDF as:', fileName);
+      doc.save(fileName);
+      console.log('PM Detail PDF export completed successfully');
+    } catch (error) {
+      console.error('Error exporting PM Detail PDF:', error);
+      alert(`Error exporting PDF: ${error.message}`);
+    }
+  };
+
   return (
     <div className="bg-white shadow rounded-lg">
       <div className="px-4 py-5 sm:p-6">
-        <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-          PM Detail Output
-        </h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg leading-6 font-medium text-gray-900">
+            PM Detail Output
+          </h3>
+          <button
+            onClick={exportToPDF}
+            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          >
+            <Download className="h-4 w-4" />
+            <span>Export to PDF</span>
+          </button>
+        </div>
         
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed' }}>
@@ -2281,23 +2396,124 @@ const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst
    return acc;
  }, {});
 
+ // PDF Export Function for Analyst Detail
+ const exportToPDF = () => {
+   try {
+     console.log('Starting Analyst Detail PDF export...');
+     const doc = new jsPDF('landscape');
+     
+     // Add title
+     doc.setFontSize(18);
+     doc.text(`Clearline Flow - Analyst Detail: ${selectedAnalyst}`, 14, 22);
+     
+     // Add timestamp
+     doc.setFontSize(10);
+     doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
+     
+     // Prepare data for the PDF table
+     const tableData = [];
+     
+     statusOrder.forEach(status => {
+       const statusTickers = groupedTickers[status];
+       if (statusTickers.length > 0) {
+         // Add status header row
+         tableData.push([`${status} (${statusTickers.length})`, '', '', '', '', '']);
+         
+         // Add ticker data rows
+         statusTickers.forEach(ticker => {
+           const cleanSymbol = ticker.ticker.replace(' US', '');
+           const quote = quotes[cleanSymbol];
+           const currentPrice = quote ? quote.price : ticker.currentPrice;
+           
+           const row = [
+             ticker.ticker || '-',
+             ticker.name || '-',
+             ticker.lsPosition || '-',
+             ticker.priority || '-',
+             currentPrice ? `$${parseFloat(currentPrice).toFixed(2)}` : '-',
+             ticker.thesis || '-'
+           ];
+           tableData.push(row);
+         });
+       }
+     });
+     
+     console.log('Analyst Detail table data:', tableData);
+     
+     // Create the PDF table
+     autoTable(doc, {
+       head: [['Ticker', 'Name', 'L/S', 'Priority', 'Live Quote', 'Thesis']],
+       body: tableData,
+       startY: 40,
+       styles: {
+         fontSize: 8,
+         cellPadding: 3,
+       },
+       headStyles: {
+         fillColor: [75, 85, 99],
+         textColor: 255,
+         fontStyle: 'bold'
+       },
+       columnStyles: {
+         0: { cellWidth: 25 }, // Ticker
+         1: { cellWidth: 50 }, // Name
+         2: { cellWidth: 20 }, // L/S
+         3: { cellWidth: 20 }, // Priority
+         4: { cellWidth: 25 }, // Live Quote
+         5: { cellWidth: 115 } // Thesis
+       },
+       didParseCell: function(data) {
+         // Highlight status header rows
+         if (data.cell.text[0] && (
+           data.cell.text[0].includes('Current (') || 
+           data.cell.text[0].includes('On-Deck (') || 
+           data.cell.text[0].includes('Portfolio (') ||
+           data.cell.text[0].includes('New (') ||
+           data.cell.text[0].includes('Old (')
+         )) {
+           data.cell.styles.fillColor = [229, 231, 235]; // Light gray background
+           data.cell.styles.fontStyle = 'bold';
+         }
+       }
+     });
+     
+     // Save the PDF
+     const fileName = `analyst-detail-${selectedAnalyst.replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.pdf`;
+     console.log('Saving Analyst Detail PDF as:', fileName);
+     doc.save(fileName);
+     console.log('Analyst Detail PDF export completed successfully');
+   } catch (error) {
+     console.error('Error exporting Analyst Detail PDF:', error);
+     alert(`Error exporting PDF: ${error.message}`);
+   }
+ };
+
  return (
    <div className="space-y-6">
      <div className="flex items-center justify-between">
        <h3 className="text-lg leading-6 font-medium text-gray-900">
          Analyst Detail Output
        </h3>
-       <div className="flex items-center space-x-2">
-         <label className="text-sm font-medium text-gray-700">Select Analyst:</label>
-         <select
-           value={selectedAnalyst}
-           onChange={(e) => onSelectAnalyst(e.target.value)}
-           className="border border-gray-300 rounded-md px-3 py-1 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+       <div className="flex items-center space-x-4">
+         <button
+           onClick={exportToPDF}
+           className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
          >
-           {analysts.map(analyst => (
-             <option key={analyst} value={analyst}>{analyst}</option>
-           ))}
-         </select>
+           <Download className="h-4 w-4" />
+           <span>Export to PDF</span>
+         </button>
+         <div className="flex items-center space-x-2">
+           <label className="text-sm font-medium text-gray-700">Select Analyst:</label>
+           <select
+             value={selectedAnalyst}
+             onChange={(e) => onSelectAnalyst(e.target.value)}
+             className="border border-gray-300 rounded-md px-3 py-1 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+           >
+             {analysts.map(analyst => (
+               <option key={analyst} value={analyst}>{analyst}</option>
+             ))}
+           </select>
+         </div>
        </div>
      </div>
      
@@ -2782,6 +2998,82 @@ const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarni
     }
   };
 
+  // PDF Export Function for Earnings Tracking
+  const exportToPDF = () => {
+    try {
+      console.log('Starting Earnings Tracking PDF export...');
+      const doc = new jsPDF('landscape');
+      
+      // Add title
+      doc.setFontSize(18);
+      const title = selectedEarningsAnalyst 
+        ? `Clearline Flow - Earnings Tracking: ${selectedEarningsAnalyst} (${selectedCYQ})`
+        : `Clearline Flow - Earnings Tracking: All Analysts (${selectedCYQ})`;
+      doc.text(title, 14, 22);
+      
+      // Add timestamp
+      doc.setFontSize(10);
+      doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
+      
+      // Prepare data for the PDF table
+      const tableData = [];
+      
+      sortedTickers.forEach(ticker => {
+        const currentEarningsData = getEarningsData(ticker.ticker, selectedCYQ);
+        
+        const row = [
+          ticker.ticker || '-',
+          ticker.analyst || '-',
+          selectedCYQ || '-',
+          formatDaysUntilEarnings(currentEarningsData.earningsDate) || '-',
+          currentEarningsData.earningsDate || '-',
+          currentEarningsData.qpCallDate || '-',
+          currentEarningsData.quarterlyPrint || '-',
+          currentEarningsData.preMarketTimeSlot || '-'
+        ];
+        tableData.push(row);
+      });
+      
+      console.log('Earnings Tracking table data:', tableData);
+      
+      // Create the PDF table
+      autoTable(doc, {
+        head: [['Ticker', 'Analyst', 'CYQ', 'Days Until', 'Earnings Date', 'QP Call Date', 'Quarterly Print', 'Pre-Market Slot']],
+        body: tableData,
+        startY: 40,
+        styles: {
+          fontSize: 8,
+          cellPadding: 3,
+        },
+        headStyles: {
+          fillColor: [75, 85, 99],
+          textColor: 255,
+          fontStyle: 'bold'
+        },
+        columnStyles: {
+          0: { cellWidth: 25 }, // Ticker
+          1: { cellWidth: 25 }, // Analyst
+          2: { cellWidth: 20 }, // CYQ
+          3: { cellWidth: 25 }, // Days Until
+          4: { cellWidth: 30 }, // Earnings Date
+          5: { cellWidth: 30 }, // QP Call Date
+          6: { cellWidth: 35 }, // Quarterly Print
+          7: { cellWidth: 35 }  // Pre-Market Slot
+        }
+      });
+      
+      // Save the PDF
+      const analystSuffix = selectedEarningsAnalyst ? `-${selectedEarningsAnalyst.replace(/\s+/g, '-').toLowerCase()}` : '-all-analysts';
+      const fileName = `earnings-tracking${analystSuffix}-${selectedCYQ}-${new Date().toISOString().split('T')[0]}.pdf`;
+      console.log('Saving Earnings Tracking PDF as:', fileName);
+      doc.save(fileName);
+      console.log('Earnings Tracking PDF export completed successfully');
+    } catch (error) {
+      console.error('Error exporting Earnings Tracking PDF:', error);
+      alert(`Error exporting PDF: ${error.message}`);
+    }
+  };
+
   return (
     <div className="bg-white shadow rounded-lg">
       <div className="px-4 py-5 sm:p-6">
@@ -2790,6 +3082,13 @@ const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarni
             Earnings Tracking ({sortedTickers.length} Portfolio tickers)
           </h3>
           <div className="flex items-center space-x-4">
+            <button
+              onClick={exportToPDF}
+              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            >
+              <Download className="h-4 w-4" />
+              <span>Export to PDF</span>
+            </button>
             <div className="flex items-center space-x-2">
               <label className="text-sm font-medium text-gray-700">Analyst:</label>
               <select
