@@ -1918,14 +1918,47 @@ return dateString;
      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
        {ticker.adv3Month ? `${(ticker.adv3Month / 1000000).toFixed(1)}M` : '-'}
      </td>
-     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
+     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
        {ticker.ptBear ? `${parseFloat(ticker.ptBear).toFixed(2)}` : '-'}
      </td>
-     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
+     <td className="px-3 py-4 whitespace-nowrap text-sm">
+       <span className={`${
+         calculatePercentChange(ticker.ptBear, currentPrice).startsWith('+') 
+           ? 'text-green-600' 
+           : calculatePercentChange(ticker.ptBear, currentPrice).startsWith('-')
+           ? 'text-red-600'
+           : 'text-gray-500'
+       }`}>
+         {calculatePercentChange(ticker.ptBear, currentPrice) || '-'}
+       </span>
+     </td>
+     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
        {ticker.ptBase ? `${parseFloat(ticker.ptBase).toFixed(2)}` : '-'}
      </td>
-     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
+     <td className="px-3 py-4 whitespace-nowrap text-sm">
+       <span className={`${
+         calculatePercentChange(ticker.ptBase, currentPrice).startsWith('+') 
+           ? 'text-green-600' 
+           : calculatePercentChange(ticker.ptBase, currentPrice).startsWith('-')
+           ? 'text-red-600'
+           : 'text-gray-500'
+       }`}>
+         {calculatePercentChange(ticker.ptBase, currentPrice) || '-'}
+       </span>
+     </td>
+     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
        {ticker.ptBull ? `${parseFloat(ticker.ptBull).toFixed(2)}` : '-'}
+     </td>
+     <td className="px-3 py-4 whitespace-nowrap text-sm">
+       <span className={`${
+         calculatePercentChange(ticker.ptBull, currentPrice).startsWith('+') 
+           ? 'text-green-600' 
+           : calculatePercentChange(ticker.ptBull, currentPrice).startsWith('-')
+           ? 'text-red-600'
+           : 'text-gray-500'
+       }`}>
+         {calculatePercentChange(ticker.ptBull, currentPrice) || '-'}
+       </span>
      </td>
      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
        {ticker.catalystDate || '-'}
@@ -2069,6 +2102,12 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
    if (!priceTarget || !currentPrice || currentPrice === 0) return '';
    const change = (parseFloat(priceTarget) / parseFloat(currentPrice) - 1) * 100;
    return `${change >= 0 ? '+' : ''}${Math.round(change)}%`;
+ };
+
+ // Helper function to format price targets with 2 decimal places
+ const formatPriceTarget = (priceTarget) => {
+   if (!priceTarget) return '-';
+   return parseFloat(priceTarget).toFixed(2);
  };
 
  const groupedTickers = statusOrder.reduce((acc, status) => {
