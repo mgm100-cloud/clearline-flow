@@ -2054,200 +2054,219 @@ const calculatePercentChange = (priceTarget, currentPrice) => {
 
 // PM Detail Page Component with quotes integration
 const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors }) => {
- const [sortField, setSortField] = useState('');
- const [sortDirection, setSortDirection] = useState('asc');
- 
- const statusOrder = ['Current', 'On-Deck', 'Portfolio', 'New', 'Old'];
- 
- const handleSort = (field) => {
-   if (sortField === field) {
-     setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-   } else {
-     setSortField(field);
-     setSortDirection('asc');
-   }
- };
+  const [sortField, setSortField] = useState('');
+  const [sortDirection, setSortDirection] = useState('asc');
+  
+  const statusOrder = ['Current', 'On-Deck', 'Portfolio', 'New', 'Old'];
+  
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
 
- const sortData = (data, field) => {
-   if (!field) return data;
-   
-   return [...data].sort((a, b) => {
-     let aVal = a[field];
-     let bVal = b[field];
-     
-     if (field === 'currentPrice' || field === 'ptBear' || field === 'ptBase' || field === 'ptBull') {
-       aVal = parseFloat(aVal) || 0;
-       bVal = parseFloat(bVal) || 0;
-     } else if (typeof aVal === 'string') {
-       aVal = aVal.toLowerCase();
-       bVal = bVal.toLowerCase();
-     }
-     
-     if (sortDirection === 'asc') {
-       return aVal > bVal ? 1 : -1;
-     } else {
-       return aVal < bVal ? 1 : -1;
-     }
-   });
- };
+  const sortData = (data, field) => {
+    if (!field) return data;
+    
+    return [...data].sort((a, b) => {
+      let aVal = a[field];
+      let bVal = b[field];
+      
+      if (field === 'currentPrice' || field === 'ptBear' || field === 'ptBase' || field === 'ptBull') {
+        aVal = parseFloat(aVal) || 0;
+        bVal = parseFloat(bVal) || 0;
+      } else if (typeof aVal === 'string') {
+        aVal = aVal.toLowerCase();
+        bVal = bVal.toLowerCase();
+      }
+      
+      if (sortDirection === 'asc') {
+        return aVal > bVal ? 1 : -1;
+      } else {
+        return aVal < bVal ? 1 : -1;
+      }
+    });
+  };
 
- const SortableHeader = ({ field, children, width = "" }) => (
-   <th 
-     className={`px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 ${width}`}
-     onClick={() => handleSort(field)}
-   >
-     <div className="flex items-center space-x-1">
-       <span>{children}</span>
-       {sortField === field && (
-         sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
-       )}
-     </div>
-   </th>
- );
+  const SortableHeader = ({ field, children }) => (
+    <th 
+      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+      onClick={() => handleSort(field)}
+      style={{ width: field === 'ticker' ? '100px' : 
+                     field === 'lsPosition' ? '80px' :
+                     field === 'currentPrice' ? '120px' :
+                     field === 'priority' ? '100px' :
+                     field === 'analyst' ? '100px' :
+                     field === 'ptBear' || field === 'ptBase' || field === 'ptBull' ? '100px' :
+                     field === 'thesis' ? 'auto' : '80px' }}
+    >
+      <div className="flex items-center space-x-1">
+        <span>{children}</span>
+        {sortField === field && (
+          sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+        )}
+      </div>
+    </th>
+  );
 
- const groupedTickers = statusOrder.reduce((acc, status) => {
-   const statusTickers = tickers.filter(ticker => ticker.status === status);
-   if (statusTickers.length > 0) {
-     acc[status] = sortData(statusTickers, sortField);
-   }
-   return acc;
- }, {});
+  // Group tickers by status and create a flat array with status headers
+  const groupedData = [];
+  statusOrder.forEach(status => {
+    const statusTickers = tickers.filter(ticker => ticker.status === status);
+    if (statusTickers.length > 0) {
+      const sortedTickers = sortData(statusTickers, sortField);
+      // Add status header row
+      groupedData.push({ type: 'header', status, count: sortedTickers.length });
+      // Add ticker rows
+      sortedTickers.forEach(ticker => {
+        groupedData.push({ type: 'ticker', ticker, status });
+      });
+    }
+  });
 
- return (
-   <div className="space-y-6">
-     <h3 className="text-lg leading-6 font-medium text-gray-900">
-       PM Detail Output
-     </h3>
-     
-     {statusOrder.map(status => {
-       const statusTickers = groupedTickers[status];
-       if (!statusTickers || statusTickers.length === 0) return null;
-       
-       return (
-         <div key={status} className="bg-white shadow rounded-lg">
-           <div className="px-4 py-3 border-b border-gray-200">
-             <h4 className="text-md font-medium text-gray-900">
-               {status} ({statusTickers.length})
-             </h4>
-           </div>
-           <div className="overflow-x-auto">
-             <table className="min-w-full divide-y divide-gray-200 table-fixed">
-               <thead className="bg-gray-50">
-                 <tr>
-                   <SortableHeader field="ticker" width="w-20">Ticker</SortableHeader>
-                   <SortableHeader field="lsPosition" width="w-16">L/S</SortableHeader>
-                   <SortableHeader field="currentPrice" width="w-24">Live Quote</SortableHeader>
-                   <SortableHeader field="priority" width="w-20">Priority</SortableHeader>
-                   <SortableHeader field="analyst" width="w-20">Analyst</SortableHeader>
-                   <SortableHeader field="ptBear" width="w-20">PT Bear</SortableHeader>
-                   <th className="w-16 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bear %</th>
-                   <SortableHeader field="ptBase" width="w-20">PT Base</SortableHeader>
-                   <th className="w-16 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Base %</th>
-                   <SortableHeader field="ptBull" width="w-20">PT Bull</SortableHeader>
-                   <th className="w-16 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bull %</th>
-                   <SortableHeader field="thesis" width="flex-1">Thesis</SortableHeader>
-                 </tr>
-               </thead>
-               <tbody className="bg-white divide-y divide-gray-200">
-                 {statusTickers.map((ticker) => {
-                   const cleanSymbol = ticker.ticker.replace(' US', '');
-                   const quote = quotes[cleanSymbol];
-                   const currentPrice = quote ? quote.price : ticker.currentPrice;
-                   
-                   return (
-                     <tr key={ticker.id}>
-                       <td className="w-20 px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                         {ticker.ticker}
-                       </td>
-                       <td className="w-16 px-6 py-4 whitespace-nowrap">
-                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                           ticker.lsPosition === 'Long' 
-                             ? 'bg-green-100 text-green-800' 
-                             : 'bg-red-100 text-red-800'
-                         }`}>
-                           {ticker.lsPosition}
-                         </span>
-                       </td>
-                       <td className="w-24 px-6 py-4 whitespace-nowrap">
-                         <QuoteDisplay 
-                           ticker={ticker.ticker}
-                           quote={quote}
-                           onUpdateQuote={onUpdateQuote}
-                           isLoading={isLoadingQuotes}
-                           hasError={quoteErrors[cleanSymbol]}
-                         />
-                       </td>
-                       <td className="w-20 px-6 py-4 whitespace-nowrap">
-                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                           ticker.priority === 'A' ? 'bg-red-100 text-red-800' :
-                           ticker.priority === 'B' ? 'bg-yellow-100 text-yellow-800' :
-                           ticker.priority === 'C' ? 'bg-blue-100 text-blue-800' :
-                           'bg-gray-100 text-gray-800'
-                         }`}>
-                           {ticker.priority}
-                         </span>
-                       </td>
-                       <td className="w-20 px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                         {ticker.analyst || '-'}
-                       </td>
-                       <td className="w-20 px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                         {ticker.ptBear ? `${parseFloat(ticker.ptBear).toFixed(2)}` : '-'}
-                       </td>
-                       <td className="w-16 px-6 py-4 whitespace-nowrap text-sm">
-                         <span className={`${
-                           calculatePercentChange(ticker.ptBear, currentPrice).startsWith('+') 
-                             ? 'text-green-600' 
-                             : calculatePercentChange(ticker.ptBear, currentPrice).startsWith('-')
-                             ? 'text-red-600'
-                             : 'text-gray-500'
-                         }`}>
-                           {calculatePercentChange(ticker.ptBear, currentPrice) || '-'}
-                         </span>
-                       </td>
-                       <td className="w-20 px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                         {ticker.ptBase ? `${parseFloat(ticker.ptBase).toFixed(2)}` : '-'}
-                       </td>
-                       <td className="w-16 px-6 py-4 whitespace-nowrap text-sm">
-                         <span className={`${
-                           calculatePercentChange(ticker.ptBase, currentPrice).startsWith('+') 
-                             ? 'text-green-600' 
-                             : calculatePercentChange(ticker.ptBase, currentPrice).startsWith('-')
-                             ? 'text-red-600'
-                             : 'text-gray-500'
-                         }`}>
-                           {calculatePercentChange(ticker.ptBase, currentPrice) || '-'}
-                         </span>
-                       </td>
-                       <td className="w-20 px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {ticker.ptBull ? `${parseFloat(ticker.ptBull).toFixed(2)}` : '-'}  
-                       </td>
-                       <td className="w-16 px-6 py-4 whitespace-nowrap text-sm">
-                         <span className={`${
-                           calculatePercentChange(ticker.ptBull, currentPrice).startsWith('+') 
-                             ? 'text-green-600' 
-                             : calculatePercentChange(ticker.ptBull, currentPrice).startsWith('-')
-                             ? 'text-red-600'
-                             : 'text-gray-500'
-                         }`}>
-                           {calculatePercentChange(ticker.ptBull, currentPrice) || '-'}
-                         </span>
-                       </td>
-                       <td className="flex-1 px-6 py-4 text-sm text-gray-500">
-                         <div className="max-w-xs truncate">
-                           {ticker.thesis}
-                         </div>
-                       </td>
-                     </tr>
-                   );
-                 })}
-               </tbody>
-             </table>
-           </div>
-         </div>
-       );
-     })}
-   </div>
- );
+  return (
+    <div className="bg-white shadow rounded-lg">
+      <div className="px-4 py-5 sm:p-6">
+        <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+          PM Detail Output
+        </h3>
+        
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed' }}>
+            <thead className="bg-gray-50">
+              <tr>
+                <SortableHeader field="ticker">Ticker</SortableHeader>
+                <SortableHeader field="lsPosition">L/S</SortableHeader>
+                <SortableHeader field="currentPrice">Live Quote</SortableHeader>
+                <SortableHeader field="priority">Priority</SortableHeader>
+                <SortableHeader field="analyst">Analyst</SortableHeader>
+                <SortableHeader field="ptBear">PT Bear</SortableHeader>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '80px' }}>Bear %</th>
+                <SortableHeader field="ptBase">PT Base</SortableHeader>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '80px' }}>Base %</th>
+                <SortableHeader field="ptBull">PT Bull</SortableHeader>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '80px' }}>Bull %</th>
+                <SortableHeader field="thesis">Thesis</SortableHeader>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {groupedData.map((item, index) => {
+                if (item.type === 'header') {
+                  return (
+                    <tr key={`header-${item.status}`} className="bg-gray-100">
+                      <td colSpan="12" className="px-6 py-3 text-sm font-medium text-gray-900">
+                        {item.status} ({item.count})
+                      </td>
+                    </tr>
+                  );
+                } else {
+                  const { ticker } = item;
+                  const cleanSymbol = ticker.ticker.replace(' US', '');
+                  const quote = quotes[cleanSymbol];
+                  const currentPrice = quote ? quote.price : ticker.currentPrice;
+                  
+                  return (
+                    <tr key={ticker.id}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" style={{ width: '100px' }}>
+                        {ticker.ticker}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap" style={{ width: '80px' }}>
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          ticker.lsPosition === 'Long' 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {ticker.lsPosition}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap" style={{ width: '120px' }}>
+                        <QuoteDisplay 
+                          ticker={ticker.ticker}
+                          quote={quote}
+                          onUpdateQuote={onUpdateQuote}
+                          isLoading={isLoadingQuotes}
+                          hasError={quoteErrors[cleanSymbol]}
+                        />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap" style={{ width: '100px' }}>
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          ticker.priority === 'A' ? 'bg-red-100 text-red-800' :
+                          ticker.priority === 'B' ? 'bg-yellow-100 text-yellow-800' :
+                          ticker.priority === 'C' ? 'bg-blue-100 text-blue-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {ticker.priority}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900" style={{ width: '100px' }}>
+                        {ticker.analyst || '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900" style={{ width: '100px' }}>
+                        {ticker.ptBear ? `${parseFloat(ticker.ptBear).toFixed(2)}` : '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm" style={{ width: '80px' }}>
+                        <span className={`${
+                          calculatePercentChange(ticker.ptBear, currentPrice).startsWith('+') 
+                            ? 'text-green-600' 
+                            : calculatePercentChange(ticker.ptBear, currentPrice).startsWith('-')
+                            ? 'text-red-600'
+                            : 'text-gray-500'
+                        }`}>
+                          {calculatePercentChange(ticker.ptBear, currentPrice) || '-'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900" style={{ width: '100px' }}>
+                        {ticker.ptBase ? `${parseFloat(ticker.ptBase).toFixed(2)}` : '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm" style={{ width: '80px' }}>
+                        <span className={`${
+                          calculatePercentChange(ticker.ptBase, currentPrice).startsWith('+') 
+                            ? 'text-green-600' 
+                            : calculatePercentChange(ticker.ptBase, currentPrice).startsWith('-')
+                            ? 'text-red-600'
+                            : 'text-gray-500'
+                        }`}>
+                          {calculatePercentChange(ticker.ptBase, currentPrice) || '-'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900" style={{ width: '100px' }}>
+                        {ticker.ptBull ? `${parseFloat(ticker.ptBull).toFixed(2)}` : '-'}  
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm" style={{ width: '80px' }}>
+                        <span className={`${
+                          calculatePercentChange(ticker.ptBull, currentPrice).startsWith('+') 
+                            ? 'text-green-600' 
+                            : calculatePercentChange(ticker.ptBull, currentPrice).startsWith('-')
+                            ? 'text-red-600'
+                            : 'text-gray-500'
+                        }`}>
+                          {calculatePercentChange(ticker.ptBull, currentPrice) || '-'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-500">
+                        <div className="max-w-xs truncate">
+                          {ticker.thesis}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                }
+              })}
+            </tbody>
+          </table>
+        </div>
+        
+        {groupedData.length === 0 && (
+          <div className="text-center py-8">
+            <p className="text-gray-500">No investment ideas found.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 };
 
 // Analyst Detail Page Component with quotes integration
