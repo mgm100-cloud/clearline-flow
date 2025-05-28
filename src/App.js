@@ -220,6 +220,10 @@ const ClearlineFlow = () => {
   const [earningsData, setEarningsData] = useState([]);
   const [selectedCYQ, setSelectedCYQ] = useState('2025Q2');
   const [selectedEarningsAnalyst, setSelectedEarningsAnalyst] = useState('');
+  
+  // Data refresh state
+  const [isRefreshingData, setIsRefreshingData] = useState(false);
+  const [lastDataRefresh, setLastDataRefresh] = useState(null);
 
   // Load data from Supabase on component mount
   useEffect(() => {
@@ -278,6 +282,40 @@ const ClearlineFlow = () => {
     setIsAuthenticated(false);
     setUserRole('');
     setActiveTab('input');
+  };
+
+  // Refresh data from database
+  const refreshData = async () => {
+    if (!isAuthenticated) return;
+    
+    setIsRefreshingData(true);
+    console.log('🔄 Refreshing data from database...');
+    
+    try {
+      // Load tickers
+      const tickersData = await DatabaseService.getTickers();
+      console.log('✅ Refreshed tickers from Supabase:', tickersData);
+      setTickers(tickersData);
+      
+      // Load earnings data
+      try {
+        const earningsDataFromDB = await DatabaseService.getEarningsData();
+        console.log('✅ Refreshed earnings data from Supabase:', earningsDataFromDB);
+        setEarningsData(earningsDataFromDB);
+      } catch (earningsError) {
+        console.warn('⚠️ Could not refresh earnings data:', earningsError);
+        setEarningsData([]);
+      }
+      
+      setLastDataRefresh(new Date());
+      console.log('✅ Data refresh completed successfully');
+      
+    } catch (error) {
+      console.error('❌ Error refreshing data from database:', error);
+      // Don't fallback to localStorage on refresh - keep existing data
+    } finally {
+      setIsRefreshingData(false);
+    }
   };
 
   // Real-time quote functions
@@ -626,6 +664,24 @@ const ClearlineFlow = () => {
                 >
                   <RefreshCw className={`h-4 w-4 ${isLoadingQuotes ? 'animate-spin' : ''}`} />
                   <span>Update Quotes</span>
+                </button>
+              </div>
+              {/* Data Refresh Controls */}
+              <div className="flex items-center space-x-2 text-sm text-gray-600">
+                {lastDataRefresh && (
+                  <span>Data refreshed: {lastDataRefresh.toLocaleTimeString()}</span>
+                )}
+                <button
+                  onClick={refreshData}
+                  disabled={isRefreshingData}
+                  className={`flex items-center space-x-1 px-2 py-1 rounded text-sm ${
+                    isRefreshingData 
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                      : 'bg-green-100 text-green-600 hover:bg-green-200'
+                  }`}
+                >
+                  <RefreshCw className={`h-4 w-4 ${isRefreshingData ? 'animate-spin' : ''}`} />
+                  <span>Refresh Data</span>
                 </button>
               </div>
               <span className="text-sm text-gray-600">
