@@ -2045,6 +2045,13 @@ return dateString;
  );
 };
 
+// Helper function to calculate percentage change between price target and current price
+const calculatePercentChange = (priceTarget, currentPrice) => {
+  if (!priceTarget || !currentPrice || currentPrice === 0) return '';
+  const change = (parseFloat(priceTarget) / parseFloat(currentPrice) - 1) * 100;
+  return `${change >= 0 ? '+' : ''}${Math.round(change)}%`;
+};
+
 // PM Detail Page Component with quotes integration
 const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors }) => {
  const [sortField, setSortField] = useState('');
@@ -2097,18 +2104,6 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
      </div>
    </th>
  );
-
- const calculatePercentChange = (priceTarget, currentPrice) => {
-   if (!priceTarget || !currentPrice || currentPrice === 0) return '';
-   const change = (parseFloat(priceTarget) / parseFloat(currentPrice) - 1) * 100;
-   return `${change >= 0 ? '+' : ''}${Math.round(change)}%`;
- };
-
- // Helper function to format price targets with 2 decimal places
- const formatPriceTarget = (priceTarget) => {
-   if (!priceTarget) return '-';
-   return parseFloat(priceTarget).toFixed(2);
- };
 
  const groupedTickers = statusOrder.reduce((acc, status) => {
    const statusTickers = tickers.filter(ticker => ticker.status === status);
@@ -2196,7 +2191,7 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
                          {ticker.analyst || '-'}
                        </td>
                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                         {ticker.ptBear ? `${ticker.ptBear}` : '-'}
+                         {ticker.ptBear ? `${parseFloat(ticker.ptBear).toFixed(2)}` : '-'}
                        </td>
                        <td className="px-6 py-4 whitespace-nowrap text-sm">
                          <span className={`${
@@ -2210,7 +2205,7 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
                          </span>
                        </td>
                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                         {ticker.ptBase ? `${ticker.ptBase}` : '-'}
+                         {ticker.ptBase ? `${parseFloat(ticker.ptBase).toFixed(2)}` : '-'}
                        </td>
                        <td className="px-6 py-4 whitespace-nowrap text-sm">
                          <span className={`${
@@ -2224,7 +2219,7 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
                          </span>
                        </td>
                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                         {ticker.ptBull ? `${ticker.ptBull}` : '-'}
+                          {ticker.ptBull ? `${parseFloat(ticker.ptBull).toFixed(2)}` : '-'}  
                        </td>
                        <td className="px-6 py-4 whitespace-nowrap text-sm">
                          <span className={`${
@@ -2564,194 +2559,194 @@ const TeamOutputPage = ({ tickers, analysts }) => {
 
 // Earnings Tracking Page Component
 const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarningsAnalyst, onSelectEarningsAnalyst, earningsData, onUpdateEarnings, getEarningsData, onRefreshEarnings, analysts }) => {
- // Filter tickers to only show Portfolio status
- let portfolioTickers = tickers.filter(ticker => ticker.status === 'Portfolio');
- 
- // Apply analyst filter if selected
- if (selectedEarningsAnalyst) {
-   portfolioTickers = portfolioTickers.filter(ticker => ticker.analyst === selectedEarningsAnalyst);
- }
- 
- // Generate CYQ options (current year and next year, all quarters)
- const currentYear = new Date().getFullYear();
- const cyqOptions = [];
- for (let year of [currentYear - 1, currentYear, currentYear + 1]) {
-   for (let quarter of ['Q1', 'Q2', 'Q3', 'Q4']) {
-     cyqOptions.push(`${year}${quarter}`);
-   }
- }
+  // Filter tickers to only show Portfolio status
+  let portfolioTickers = tickers.filter(ticker => ticker.status === 'Portfolio');
+  
+  // Apply analyst filter if selected
+  if (selectedEarningsAnalyst) {
+    portfolioTickers = portfolioTickers.filter(ticker => ticker.analyst === selectedEarningsAnalyst);
+  }
+  
+  // Generate CYQ options (current year and next year, all quarters)
+  const currentYear = new Date().getFullYear();
+  const cyqOptions = [];
+  for (let year of [currentYear - 1, currentYear, currentYear + 1]) {
+    for (let quarter of ['Q1', 'Q2', 'Q3', 'Q4']) {
+      cyqOptions.push(`${year}${quarter}`);
+    }
+  }
 
- // Calculate days until earnings
- const calculateDaysUntilEarnings = (earningsDate) => {
-   if (!earningsDate) return 999999; // Put items without dates at the bottom
-   const today = new Date();
-   const earnings = new Date(earningsDate);
-   const diffTime = earnings - today;
-   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-   return diffDays;
- };
+  // Calculate days until earnings
+  const calculateDaysUntilEarnings = (earningsDate) => {
+    if (!earningsDate) return 999999; // Put items without dates at the bottom
+    const today = new Date();
+    const earnings = new Date(earningsDate);
+    const diffTime = earnings - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
 
- // Sort tickers by Days Until Earnings (smallest first)
- const sortedTickers = [...portfolioTickers].sort((a, b) => {
-   const aEarningsData = getEarningsData(a.ticker, selectedCYQ);
-   const bEarningsData = getEarningsData(b.ticker, selectedCYQ);
-   const aDays = calculateDaysUntilEarnings(aEarningsData.earningsDate);
-   const bDays = calculateDaysUntilEarnings(bEarningsData.earningsDate);
-   return aDays - bDays;
- });
+  // Sort tickers by Days Until Earnings (smallest first)
+  const sortedTickers = [...portfolioTickers].sort((a, b) => {
+    const aEarningsData = getEarningsData(a.ticker, selectedCYQ);
+    const bEarningsData = getEarningsData(b.ticker, selectedCYQ);
+    const aDays = calculateDaysUntilEarnings(aEarningsData.earningsDate);
+    const bDays = calculateDaysUntilEarnings(bEarningsData.earningsDate);
+    return aDays - bDays;
+  });
 
- // Format days for display
- const formatDaysUntilEarnings = (earningsDate) => {
-   if (!earningsDate) return '-';
-   const days = calculateDaysUntilEarnings(earningsDate);
-   if (days === 999999) return '-';
-   return days;
- };
+  // Format days for display
+  const formatDaysUntilEarnings = (earningsDate) => {
+    if (!earningsDate) return '-';
+    const days = calculateDaysUntilEarnings(earningsDate);
+    if (days === 999999) return '-';
+    return days;
+  };
 
- // Refresh earnings state
- const [isRefreshing, setIsRefreshing] = useState(false);
- const [refreshMessage, setRefreshMessage] = useState('');
+  // Refresh earnings state
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshMessage, setRefreshMessage] = useState('');
 
- // Handle refresh earnings dates
- const handleRefreshEarnings = async () => {
-   if (!onRefreshEarnings || sortedTickers.length === 0) return;
+  // Handle refresh earnings dates
+  const handleRefreshEarnings = async () => {
+    if (!onRefreshEarnings || sortedTickers.length === 0) return;
 
-   setIsRefreshing(true);
-   setRefreshMessage('Fetching earnings dates from Alpha Vantage...');
+    setIsRefreshing(true);
+    setRefreshMessage('Fetching earnings dates from Alpha Vantage...');
 
-   try {
-     const result = await onRefreshEarnings(sortedTickers, selectedCYQ);
-     
-     if (result.success > 0) {
-       setRefreshMessage(`✅ Successfully updated ${result.success} earnings dates`);
-     } else {
-       setRefreshMessage('⚠️ No earnings dates were updated');
-     }
+    try {
+      const result = await onRefreshEarnings(sortedTickers, selectedCYQ);
+      
+      if (result.success > 0) {
+        setRefreshMessage(`✅ Successfully updated ${result.success} earnings dates`);
+      } else {
+        setRefreshMessage('⚠️ No earnings dates were updated');
+      }
 
-     // Show any errors
-     if (Object.keys(result.errors).length > 0) {
-       console.warn('Earnings refresh errors:', result.errors);
-     }
+      // Show any errors
+      if (Object.keys(result.errors).length > 0) {
+        console.warn('Earnings refresh errors:', result.errors);
+      }
 
-     // Clear message after 5 seconds
-     setTimeout(() => {
-       setRefreshMessage('');
-     }, 5000);
+      // Clear message after 5 seconds
+      setTimeout(() => {
+        setRefreshMessage('');
+      }, 5000);
 
-   } catch (error) {
-     console.error('Error refreshing earnings:', error);
-     setRefreshMessage(`❌ Error: ${error.message}`);
-     
-     setTimeout(() => {
-       setRefreshMessage('');
-     }, 5000);
-   } finally {
-     setIsRefreshing(false);
-   }
- };
+    } catch (error) {
+      console.error('Error refreshing earnings:', error);
+      setRefreshMessage(`❌ Error: ${error.message}`);
+      
+      setTimeout(() => {
+        setRefreshMessage('');
+      }, 5000);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
- return (
-   <div className="bg-white shadow rounded-lg">
-     <div className="px-4 py-5 sm:p-6">
-       <div className="flex items-center justify-between mb-4">
-         <h3 className="text-lg leading-6 font-medium text-gray-900">
-           Earnings Tracking ({sortedTickers.length} Portfolio tickers)
-         </h3>
-         <div className="flex items-center space-x-4">
-           <div className="flex items-center space-x-2">
-             <label className="text-sm font-medium text-gray-700">Analyst:</label>
-             <select
-               value={selectedEarningsAnalyst}
-               onChange={(e) => onSelectEarningsAnalyst(e.target.value)}
-               className="border border-gray-300 rounded-md px-3 py-1 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-             >
-               <option value="">All Analysts</option>
-               {analysts.map(analyst => (
-                 <option key={analyst} value={analyst}>{analyst}</option>
-               ))}
-             </select>
-           </div>
-           <div className="flex items-center space-x-2">
-             <label className="text-sm font-medium text-gray-700">CYQ:</label>
-             <select
-               value={selectedCYQ}
-               onChange={(e) => onSelectCYQ(e.target.value)}
-               className="border border-gray-300 rounded-md px-3 py-1 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-             >
-               {cyqOptions.map(cyq => (
-                 <option key={cyq} value={cyq}>{cyq}</option>
-               ))}
-             </select>
-           </div>
-           <button
-             onClick={handleRefreshEarnings}
-             disabled={isRefreshing || sortedTickers.length === 0}
-             className={`flex items-center space-x-1 px-3 py-1 rounded text-sm font-medium ${
-               isRefreshing || sortedTickers.length === 0
-                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-                 : 'bg-green-100 text-green-700 hover:bg-green-200'
-             }`}
-           >
-             <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-             <span>Refresh Earnings Dates</span>
-           </button>
-         </div>
-       </div>
-       
-       {refreshMessage && (
-         <div className={`mb-4 p-3 rounded-md ${
-           refreshMessage.includes('✅') ? 'bg-green-100 text-green-700' :
-           refreshMessage.includes('⚠️') ? 'bg-yellow-100 text-yellow-700' :
-           refreshMessage.includes('❌') ? 'bg-red-100 text-red-700' :
-           'bg-blue-100 text-blue-700'
-         }`}>
-           {refreshMessage}
-         </div>
-       )}
-       
-       <div className="overflow-x-auto">
-         <table className="min-w-full divide-y divide-gray-200">
-           <thead className="bg-gray-50">
-             <tr>
-               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ticker</th>
-               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Analyst</th>
-               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CYQ</th>
-               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Days Until Earnings</th>
-               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Earnings Date</th>
-               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">QP Call Date</th>
-               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Preview Date</th>
-               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Callback Date</th>
-               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-             </tr>
-           </thead>
-           <tbody className="bg-white divide-y divide-gray-200">
-             {sortedTickers.map((ticker) => (
-               <EarningsTrackingRow 
-                 key={`${ticker.ticker}-${selectedCYQ}`}
-                 ticker={ticker}
-                 cyq={selectedCYQ}
-                 earningsData={getEarningsData(ticker.ticker, selectedCYQ)}
-                 onUpdateEarnings={onUpdateEarnings}
-                 formatDaysUntilEarnings={formatDaysUntilEarnings}
-               />
-             ))}
-           </tbody>
-         </table>
-       </div>
-       
-       {sortedTickers.length === 0 && (
-         <div className="text-center py-8">
-           <p className="text-gray-500">
-             {selectedEarningsAnalyst 
-               ? `No Portfolio tickers found for analyst ${selectedEarningsAnalyst}.`
-               : 'No Portfolio tickers found.'
-             }
-           </p>
-         </div>
-       )}
-     </div>
-   </div>
- );
+  return (
+    <div className="bg-white shadow rounded-lg">
+      <div className="px-4 py-5 sm:p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg leading-6 font-medium text-gray-900">
+            Earnings Tracking ({sortedTickers.length} Portfolio tickers)
+          </h3>
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <label className="text-sm font-medium text-gray-700">Analyst:</label>
+              <select
+                value={selectedEarningsAnalyst}
+                onChange={(e) => onSelectEarningsAnalyst(e.target.value)}
+                className="border border-gray-300 rounded-md px-3 py-1 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              >
+                <option value="">All Analysts</option>
+                {analysts.map(analyst => (
+                  <option key={analyst} value={analyst}>{analyst}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-center space-x-2">
+              <label className="text-sm font-medium text-gray-700">CYQ:</label>
+              <select
+                value={selectedCYQ}
+                onChange={(e) => onSelectCYQ(e.target.value)}
+                className="border border-gray-300 rounded-md px-3 py-1 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              >
+                {cyqOptions.map(cyq => (
+                  <option key={cyq} value={cyq}>{cyq}</option>
+                ))}
+              </select>
+            </div>
+            <button
+              onClick={handleRefreshEarnings}
+              disabled={isRefreshing || sortedTickers.length === 0}
+              className={`flex items-center space-x-1 px-3 py-1 rounded text-sm font-medium ${
+                isRefreshing || sortedTickers.length === 0
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                  : 'bg-green-100 text-green-700 hover:bg-green-200'
+              }`}
+            >
+              <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              <span>Refresh Earnings Dates</span>
+            </button>
+          </div>
+        </div>
+        
+        {refreshMessage && (
+          <div className={`mb-4 p-3 rounded-md ${
+            refreshMessage.includes('✅') ? 'bg-green-100 text-green-700' :
+            refreshMessage.includes('⚠️') ? 'bg-yellow-100 text-yellow-700' :
+            refreshMessage.includes('❌') ? 'bg-red-100 text-red-700' :
+            'bg-blue-100 text-blue-700'
+          }`}>
+            {refreshMessage}
+          </div>
+        )}
+        
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ticker</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Analyst</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CYQ</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Days Until Earnings</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Earnings Date</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">QP Call Date</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Preview Date</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Callback Date</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {sortedTickers.map((ticker) => (
+                <EarningsTrackingRow 
+                  key={`${ticker.ticker}-${selectedCYQ}`}
+                  ticker={ticker}
+                  cyq={selectedCYQ}
+                  earningsData={getEarningsData(ticker.ticker, selectedCYQ)}
+                  onUpdateEarnings={onUpdateEarnings}
+                  formatDaysUntilEarnings={formatDaysUntilEarnings}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
+        
+        {sortedTickers.length === 0 && (
+          <div className="text-center py-8">
+            <p className="text-gray-500">
+              {selectedEarningsAnalyst 
+                ? `No Portfolio tickers found for analyst ${selectedEarningsAnalyst}.`
+                : 'No Portfolio tickers found.'
+              }
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 };
 
 // Earnings Tracking Row Component
