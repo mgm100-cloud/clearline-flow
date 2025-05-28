@@ -2091,9 +2091,9 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
    });
  };
 
- const SortableHeader = ({ field, children }) => (
+ const SortableHeader = ({ field, children, width = "" }) => (
    <th 
-     className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+     className={`px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 ${width}`}
      onClick={() => handleSort(field)}
    >
      <div className="flex items-center space-x-1">
@@ -2131,21 +2131,21 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
              </h4>
            </div>
            <div className="overflow-x-auto">
-             <table className="min-w-full divide-y divide-gray-200">
+             <table className="min-w-full divide-y divide-gray-200 table-fixed">
                <thead className="bg-gray-50">
                  <tr>
-                   <SortableHeader field="ticker">Ticker</SortableHeader>
-                   <SortableHeader field="lsPosition">L/S</SortableHeader>
-                   <SortableHeader field="currentPrice">Live Quote</SortableHeader>
-                   <SortableHeader field="priority">Priority</SortableHeader>
-                   <SortableHeader field="analyst">Analyst</SortableHeader>
-                   <SortableHeader field="ptBear">PT Bear</SortableHeader>
-                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bear %</th>
-                   <SortableHeader field="ptBase">PT Base</SortableHeader>
-                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Base %</th>
-                   <SortableHeader field="ptBull">PT Bull</SortableHeader>
-                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bull %</th>
-                   <SortableHeader field="thesis">Thesis</SortableHeader>
+                   <SortableHeader field="ticker" width="w-20">Ticker</SortableHeader>
+                   <SortableHeader field="lsPosition" width="w-16">L/S</SortableHeader>
+                   <SortableHeader field="currentPrice" width="w-24">Live Quote</SortableHeader>
+                   <SortableHeader field="priority" width="w-20">Priority</SortableHeader>
+                   <SortableHeader field="analyst" width="w-20">Analyst</SortableHeader>
+                   <SortableHeader field="ptBear" width="w-20">PT Bear</SortableHeader>
+                   <th className="w-16 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bear %</th>
+                   <SortableHeader field="ptBase" width="w-20">PT Base</SortableHeader>
+                   <th className="w-16 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Base %</th>
+                   <SortableHeader field="ptBull" width="w-20">PT Bull</SortableHeader>
+                   <th className="w-16 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bull %</th>
+                   <SortableHeader field="thesis" width="flex-1">Thesis</SortableHeader>
                  </tr>
                </thead>
                <tbody className="bg-white divide-y divide-gray-200">
@@ -2156,10 +2156,10 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
                    
                    return (
                      <tr key={ticker.id}>
-                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                       <td className="w-20 px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                          {ticker.ticker}
                        </td>
-                       <td className="px-6 py-4 whitespace-nowrap">
+                       <td className="w-16 px-6 py-4 whitespace-nowrap">
                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                            ticker.lsPosition === 'Long' 
                              ? 'bg-green-100 text-green-800' 
@@ -2168,7 +2168,7 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
                            {ticker.lsPosition}
                          </span>
                        </td>
-                       <td className="px-6 py-4 whitespace-nowrap">
+                       <td className="w-24 px-6 py-4 whitespace-nowrap">
                          <QuoteDisplay 
                            ticker={ticker.ticker}
                            quote={quote}
@@ -2177,7 +2177,7 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
                            hasError={quoteErrors[cleanSymbol]}
                          />
                        </td>
-                       <td className="px-6 py-4 whitespace-nowrap">
+                       <td className="w-20 px-6 py-4 whitespace-nowrap">
                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                            ticker.priority === 'A' ? 'bg-red-100 text-red-800' :
                            ticker.priority === 'B' ? 'bg-yellow-100 text-yellow-800' :
@@ -2187,13 +2187,13 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
                            {ticker.priority}
                          </span>
                        </td>
-                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                       <td className="w-20 px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                          {ticker.analyst || '-'}
                        </td>
-                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                       <td className="w-20 px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                          {ticker.ptBear ? `${parseFloat(ticker.ptBear).toFixed(2)}` : '-'}
                        </td>
-                       <td className="px-6 py-4 whitespace-nowrap text-sm">
+                       <td className="w-16 px-6 py-4 whitespace-nowrap text-sm">
                          <span className={`${
                            calculatePercentChange(ticker.ptBear, currentPrice).startsWith('+') 
                              ? 'text-green-600' 
@@ -2204,10 +2204,10 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
                            {calculatePercentChange(ticker.ptBear, currentPrice) || '-'}
                          </span>
                        </td>
-                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                       <td className="w-20 px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                          {ticker.ptBase ? `${parseFloat(ticker.ptBase).toFixed(2)}` : '-'}
                        </td>
-                       <td className="px-6 py-4 whitespace-nowrap text-sm">
+                       <td className="w-16 px-6 py-4 whitespace-nowrap text-sm">
                          <span className={`${
                            calculatePercentChange(ticker.ptBase, currentPrice).startsWith('+') 
                              ? 'text-green-600' 
@@ -2218,10 +2218,10 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
                            {calculatePercentChange(ticker.ptBase, currentPrice) || '-'}
                          </span>
                        </td>
-                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                       <td className="w-20 px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {ticker.ptBull ? `${parseFloat(ticker.ptBull).toFixed(2)}` : '-'}  
                        </td>
-                       <td className="px-6 py-4 whitespace-nowrap text-sm">
+                       <td className="w-16 px-6 py-4 whitespace-nowrap text-sm">
                          <span className={`${
                            calculatePercentChange(ticker.ptBull, currentPrice).startsWith('+') 
                              ? 'text-green-600' 
@@ -2232,7 +2232,7 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
                            {calculatePercentChange(ticker.ptBull, currentPrice) || '-'}
                          </span>
                        </td>
-                       <td className="px-6 py-4 text-sm text-gray-500">
+                       <td className="flex-1 px-6 py-4 text-sm text-gray-500">
                          <div className="max-w-xs truncate">
                            {ticker.thesis}
                          </div>
