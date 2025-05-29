@@ -1684,10 +1684,14 @@ const EnhancedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
       {onUpdate && (
         <td className="px-6 py-4 whitespace-nowrap text-sm">
           <button
-            onClick={() => setIsEditing(true)}
-            className="text-blue-600 hover:text-blue-900 text-xs"
+            onClick={() => {
+              console.log('🔥 EDIT BUTTON CLICKED for ticker:', ticker.ticker);
+              console.log('Setting isEditing to true...');
+              setIsEditing(true);
+            }}
+            className="text-blue-600 hover:text-blue-900 text-xs font-bold border border-blue-500 px-2 py-1 rounded"
           >
-            Edit
+            🔧 Edit {ticker.ticker}
           </button>
         </td>
       )}
@@ -1803,6 +1807,11 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState(ticker);
 
+  // Ensure editData is synced with ticker prop changes
+  useEffect(() => {
+    setEditData(ticker);
+  }, [ticker]);
+
   const cleanSymbol = ticker.ticker.replace(' US', '');
   const quote = quotes[cleanSymbol];
   const hasQuoteError = quoteErrors[cleanSymbol];
@@ -1821,230 +1830,573 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
   
   const formatDate = (dateString) => {
     if (!dateString) return '-';
-return dateString;
- };
+    return dateString;
+  };
 
- const currentPrice = quote ? quote.price : ticker.currentPrice;
+  const currentPrice = quote ? quote.price : ticker.currentPrice;
 
- if (isEditing && onUpdate) {
-   return (
-     <tr className="bg-blue-50">
-       <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-         {ticker.ticker}
-       </td>
-       <td colSpan="20" className="px-3 py-4 text-center">
-         <div className="flex space-x-2 justify-center">
-           <button
-             onClick={handleSave}
-             className="text-green-600 hover:text-green-900 text-xs font-medium"
-           >
-             Save
-           </button>
-           <button
-             onClick={handleCancel}
-             className="text-red-600 hover:text-red-900 text-xs font-medium"
-           >
-             Cancel
-           </button>
-         </div>
-       </td>
-     </tr>
-   );
- }
+  // Debug logging to help diagnose the issue
+  console.log('DetailedTickerRow render:', {
+    tickerId: ticker.id,
+    isEditing,
+    hasOnUpdate: !!onUpdate,
+    userCanEdit: !!onUpdate
+  });
 
- return (
-   <tr className="hover:bg-gray-50">
-     <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-       {ticker.ticker}
-     </td>
-     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 max-w-32 truncate">
-       {ticker.name}
-     </td>
-     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
-       {formatDate(ticker.dateIn)}
-     </td>
-     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
-       {formatDate(ticker.pokeDate)}
-     </td>
-     <td className="px-3 py-4 whitespace-nowrap">
-       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-         ticker.lsPosition === 'Long' 
-           ? 'bg-green-100 text-green-800' 
-           : 'bg-red-100 text-red-800'
-       }`}>
-         {ticker.lsPosition}
-       </span>
-     </td>
-     <td className="px-3 py-4 whitespace-nowrap">
-       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-         ticker.priority === 'A' ? 'bg-red-100 text-red-800' :
-         ticker.priority === 'B' ? 'bg-yellow-100 text-yellow-800' :
-         ticker.priority === 'C' ? 'bg-blue-100 text-blue-800' :
-         'bg-gray-100 text-gray-800'
-       }`}>
-         {ticker.priority}
-       </span>
-     </td>
-     <td className="px-3 py-4 whitespace-nowrap">
-       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-         ticker.status === 'Current' ? 'bg-green-100 text-green-800' :
-         ticker.status === 'Portfolio' ? 'bg-blue-100 text-blue-800' :
-         ticker.status === 'On-Deck' ? 'bg-yellow-100 text-yellow-800' :
-         ticker.status === 'New' ? 'bg-purple-100 text-purple-800' :
-         'bg-gray-100 text-gray-800'
-       }`}>
-         {ticker.status}
-       </span>
-     </td>
-     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-       {ticker.analyst || '-'}
-     </td>
-     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
-       {ticker.source || '-'}
-     </td>
-     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-       ${ticker.inputPrice || '-'}
-     </td>
-     <td className="px-3 py-4 whitespace-nowrap">
-       <QuoteDisplay 
-         ticker={ticker.ticker}
-         quote={quote}
-         onUpdateQuote={onUpdateQuote}
-         isLoading={isLoadingQuotes}
-         hasError={hasQuoteError}
-       />
-     </td>
-     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
-       {ticker.marketCap ? `${(ticker.marketCap / 1000000).toFixed(0)}M` : '-'}
-     </td>
-     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
-       {ticker.adv3Month ? `${(ticker.adv3Month / 1000000).toFixed(1)}M` : '-'}
-     </td>
-     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-       {ticker.ptBear ? `${parseFloat(ticker.ptBear).toFixed(2)}` : '-'}
-     </td>
-     <td className="px-3 py-4 whitespace-nowrap text-sm">
-       <span className={`${
-         calculatePercentChange(ticker.ptBear, currentPrice).startsWith('+') 
-           ? 'text-green-600' 
-           : calculatePercentChange(ticker.ptBear, currentPrice).startsWith('-')
-           ? 'text-red-600'
-           : 'text-gray-500'
-       }`}>
-         {calculatePercentChange(ticker.ptBear, currentPrice) || '-'}
-       </span>
-     </td>
-     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-       {ticker.ptBase ? `${parseFloat(ticker.ptBase).toFixed(2)}` : '-'}
-     </td>
-     <td className="px-3 py-4 whitespace-nowrap text-sm">
-       <span className={`${
-         calculatePercentChange(ticker.ptBase, currentPrice).startsWith('+') 
-           ? 'text-green-600' 
-           : calculatePercentChange(ticker.ptBase, currentPrice).startsWith('-')
-           ? 'text-red-600'
-           : 'text-gray-500'
-       }`}>
-         {calculatePercentChange(ticker.ptBase, currentPrice) || '-'}
-       </span>
-     </td>
-     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-       {ticker.ptBull ? `${parseFloat(ticker.ptBull).toFixed(2)}` : '-'}
-     </td>
-     <td className="px-3 py-4 whitespace-nowrap text-sm">
-       <span className={`${
-         calculatePercentChange(ticker.ptBull, currentPrice).startsWith('+') 
-           ? 'text-green-600' 
-           : calculatePercentChange(ticker.ptBull, currentPrice).startsWith('-')
-           ? 'text-red-600'
-           : 'text-gray-500'
-       }`}>
-         {calculatePercentChange(ticker.ptBull, currentPrice) || '-'}
-       </span>
-     </td>
-     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
-       {ticker.catalystDate || '-'}
-     </td>
-     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
-       {ticker.valueOrGrowth || '-'}
-     </td>
-     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-       {formatBoolean(ticker.maTargetBuyer)}
-     </td>
-     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-       {formatBoolean(ticker.maTargetValuation)}
-     </td>
-     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-       {formatBoolean(ticker.maTargetSeller)}
-     </td>
-     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-       {formatBoolean(ticker.bigMoveRevert)}
-     </td>
-     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-       {formatBoolean(ticker.activist)}
-     </td>
-     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-       {formatBoolean(ticker.activistPotential)}
-     </td>
-     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-       {formatBoolean(ticker.insiderTradeSignal)}
-     </td>
-     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-       {formatBoolean(ticker.newMgmt)}
-     </td>
-     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-       {formatBoolean(ticker.spin)}
-     </td>
-     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-       {formatBoolean(ticker.bigAcq)}
-     </td>
-     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-       {formatBoolean(ticker.fraudRisk)}
-     </td>
-     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-       {formatBoolean(ticker.regulatoryRisk)}
-     </td>
-     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-       {formatBoolean(ticker.cyclical)}
-     </td>
-     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-       {formatBoolean(ticker.nonCyclical)}
-     </td>
-     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-       {formatBoolean(ticker.highBeta)}
-     </td>
-     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-       {formatBoolean(ticker.momo)}
-     </td>
-     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-       {formatBoolean(ticker.selfHelp)}
-     </td>
-     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-       {formatBoolean(ticker.rateExposure)}
-     </td>
-     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-       {formatBoolean(ticker.strongDollar)}
-     </td>
-     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-       {formatBoolean(ticker.extremeValuation)}
-     </td>
-     <td className="px-3 py-4 text-sm text-gray-500">
-       <div className="break-words">
-         {ticker.thesis}
-       </div>
-     </td>
-     {onUpdate && (
-       <td className="px-3 py-4 whitespace-nowrap text-sm">
-         <button
-           onClick={() => setIsEditing(true)}
-           className="text-blue-600 hover:text-blue-900 text-xs"
-         >
-           Edit
-         </button>
-       </td>
-     )}
-   </tr>
- );
+  if (isEditing && onUpdate) {
+    console.log('Rendering EDIT MODE for ticker:', ticker.ticker);
+    return (
+      <tr className="bg-blue-50 border-2 border-blue-500">
+        <td className="px-3 py-4 whitespace-nowrap text-sm font-bold text-blue-900">
+          🔧 EDITING: {ticker.ticker}
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 max-w-32 truncate">
+          {ticker.name}
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
+          {formatDate(ticker.dateIn)}
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
+          {formatDate(ticker.pokeDate)}
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap">
+          <select
+            value={editData.lsPosition}
+            onChange={(e) => setEditData({...editData, lsPosition: e.target.value})}
+            className="text-xs border border-gray-300 rounded px-1 py-1 w-20"
+          >
+            <option value="Long">Long</option>
+            <option value="Short">Short</option>
+          </select>
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap">
+          <select
+            value={editData.priority}
+            onChange={(e) => setEditData({...editData, priority: e.target.value})}
+            className="text-xs border border-gray-300 rounded px-1 py-1 w-12"
+          >
+            <option value="A">A</option>
+            <option value="B">B</option>
+            <option value="C">C</option>
+            <option value="F">F</option>
+          </select>
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap">
+          <select
+            value={editData.status}
+            onChange={(e) => setEditData({...editData, status: e.target.value})}
+            className="text-xs border border-gray-300 rounded px-1 py-1 w-20"
+          >
+            <option value="New">New</option>
+            <option value="Portfolio">Portfolio</option>
+            <option value="Current">Current</option>
+            <option value="On-Deck">On-Deck</option>
+            <option value="Old">Old</option>
+          </select>
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap">
+          <select
+            value={editData.analyst}
+            onChange={(e) => setEditData({...editData, analyst: e.target.value})}
+            className="text-xs border border-gray-300 rounded px-1 py-1 w-16"
+          >
+            <option value="">-</option>
+            {analysts.map(analyst => (
+              <option key={analyst} value={analyst}>{analyst}</option>
+            ))}
+          </select>
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap">
+          <input
+            type="text"
+            value={editData.source || ''}
+            onChange={(e) => setEditData({...editData, source: e.target.value})}
+            className="text-xs border border-gray-300 rounded px-1 py-1 w-20"
+          />
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+          ${ticker.inputPrice || '-'}
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap">
+          <QuoteDisplay 
+            ticker={ticker.ticker}
+            quote={quote}
+            onUpdateQuote={onUpdateQuote}
+            isLoading={isLoadingQuotes}
+            hasError={hasQuoteError}
+          />
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
+          {ticker.marketCap ? `${(ticker.marketCap / 1000000).toFixed(0)}M` : '-'}
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
+          {ticker.adv3Month ? `${(ticker.adv3Month / 1000000).toFixed(1)}M` : '-'}
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap">
+          <input
+            type="number"
+            step="0.01"
+            value={editData.ptBear || ''}
+            onChange={(e) => setEditData({...editData, ptBear: e.target.value})}
+            className="text-xs border border-gray-300 rounded px-1 py-1 w-16"
+          />
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap text-sm">
+          <span className={`${
+            calculatePercentChange(editData.ptBear, currentPrice).startsWith('+') 
+              ? 'text-green-600' 
+              : calculatePercentChange(editData.ptBear, currentPrice).startsWith('-')
+              ? 'text-red-600'
+              : 'text-gray-500'
+          }`}>
+            {calculatePercentChange(editData.ptBear, currentPrice) || '-'}
+          </span>
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap">
+          <input
+            type="number"
+            step="0.01"
+            value={editData.ptBase || ''}
+            onChange={(e) => setEditData({...editData, ptBase: e.target.value})}
+            className="text-xs border border-gray-300 rounded px-1 py-1 w-16"
+          />
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap text-sm">
+          <span className={`${
+            calculatePercentChange(editData.ptBase, currentPrice).startsWith('+') 
+              ? 'text-green-600' 
+              : calculatePercentChange(editData.ptBase, currentPrice).startsWith('-')
+              ? 'text-red-600'
+              : 'text-gray-500'
+          }`}>
+            {calculatePercentChange(editData.ptBase, currentPrice) || '-'}
+          </span>
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap">
+          <input
+            type="number"
+            step="0.01"
+            value={editData.ptBull || ''}
+            onChange={(e) => setEditData({...editData, ptBull: e.target.value})}
+            className="text-xs border border-gray-300 rounded px-1 py-1 w-16"
+          />
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap text-sm">
+          <span className={`${
+            calculatePercentChange(editData.ptBull, currentPrice).startsWith('+') 
+              ? 'text-green-600' 
+              : calculatePercentChange(editData.ptBull, currentPrice).startsWith('-')
+              ? 'text-red-600'
+              : 'text-gray-500'
+          }`}>
+            {calculatePercentChange(editData.ptBull, currentPrice) || '-'}
+          </span>
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap">
+          <input
+            type="date"
+            value={editData.catalystDate || ''}
+            onChange={(e) => setEditData({...editData, catalystDate: e.target.value})}
+            className="text-xs border border-gray-300 rounded px-1 py-1 w-24"
+          />
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap">
+          <select
+            value={editData.valueOrGrowth || ''}
+            onChange={(e) => setEditData({...editData, valueOrGrowth: e.target.value})}
+            className="text-xs border border-gray-300 rounded px-1 py-1 w-16"
+          >
+            <option value="">-</option>
+            <option value="Value">Value</option>
+            <option value="Growth">Growth</option>
+          </select>
+        </td>
+        {/* Boolean fields - show as checkboxes */}
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.maTargetBuyer || false}
+            onChange={(e) => setEditData({...editData, maTargetBuyer: e.target.checked})}
+            className="h-3 w-3"
+          />
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.maTargetValuation || false}
+            onChange={(e) => setEditData({...editData, maTargetValuation: e.target.checked})}
+            className="h-3 w-3"
+          />
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.maTargetSeller || false}
+            onChange={(e) => setEditData({...editData, maTargetSeller: e.target.checked})}
+            className="h-3 w-3"
+          />
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.bigMoveRevert || false}
+            onChange={(e) => setEditData({...editData, bigMoveRevert: e.target.checked})}
+            className="h-3 w-3"
+          />
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.activist || false}
+            onChange={(e) => setEditData({...editData, activist: e.target.checked})}
+            className="h-3 w-3"
+          />
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.activistPotential || false}
+            onChange={(e) => setEditData({...editData, activistPotential: e.target.checked})}
+            className="h-3 w-3"
+          />
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.insiderTradeSignal || false}
+            onChange={(e) => setEditData({...editData, insiderTradeSignal: e.target.checked})}
+            className="h-3 w-3"
+          />
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.newMgmt || false}
+            onChange={(e) => setEditData({...editData, newMgmt: e.target.checked})}
+            className="h-3 w-3"
+          />
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.spin || false}
+            onChange={(e) => setEditData({...editData, spin: e.target.checked})}
+            className="h-3 w-3"
+          />
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.bigAcq || false}
+            onChange={(e) => setEditData({...editData, bigAcq: e.target.checked})}
+            className="h-3 w-3"
+          />
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.fraudRisk || false}
+            onChange={(e) => setEditData({...editData, fraudRisk: e.target.checked})}
+            className="h-3 w-3"
+          />
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.regulatoryRisk || false}
+            onChange={(e) => setEditData({...editData, regulatoryRisk: e.target.checked})}
+            className="h-3 w-3"
+          />
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.cyclical || false}
+            onChange={(e) => setEditData({...editData, cyclical: e.target.checked})}
+            className="h-3 w-3"
+          />
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.nonCyclical || false}
+            onChange={(e) => setEditData({...editData, nonCyclical: e.target.checked})}
+            className="h-3 w-3"
+          />
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.highBeta || false}
+            onChange={(e) => setEditData({...editData, highBeta: e.target.checked})}
+            className="h-3 w-3"
+          />
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.momo || false}
+            onChange={(e) => setEditData({...editData, momo: e.target.checked})}
+            className="h-3 w-3"
+          />
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.selfHelp || false}
+            onChange={(e) => setEditData({...editData, selfHelp: e.target.checked})}
+            className="h-3 w-3"
+          />
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.rateExposure || false}
+            onChange={(e) => setEditData({...editData, rateExposure: e.target.checked})}
+            className="h-3 w-3"
+          />
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.strongDollar || false}
+            onChange={(e) => setEditData({...editData, strongDollar: e.target.checked})}
+            className="h-3 w-3"
+          />
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.extremeValuation || false}
+            onChange={(e) => setEditData({...editData, extremeValuation: e.target.checked})}
+            className="h-3 w-3"
+          />
+        </td>
+        <td className="px-3 py-4">
+          <textarea
+            value={editData.thesis || ''}
+            onChange={(e) => setEditData({...editData, thesis: e.target.value})}
+            rows={2}
+            className="text-xs border border-gray-300 rounded px-1 py-1 w-full resize-none"
+          />
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap text-sm">
+          <div className="flex space-x-2">
+            <button
+              onClick={handleSave}
+              className="text-green-600 hover:text-green-900 text-xs font-medium"
+            >
+              Save
+            </button>
+            <button
+              onClick={handleCancel}
+              className="text-red-600 hover:text-red-900 text-xs font-medium"
+            >
+              Cancel
+            </button>
+          </div>
+        </td>
+      </tr>
+    );
+  }
+
+  return (
+    <tr className="hover:bg-gray-50">
+      <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+        {ticker.ticker}
+      </td>
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 max-w-32 truncate">
+        {ticker.name}
+      </td>
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
+        {formatDate(ticker.dateIn)}
+      </td>
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
+        {formatDate(ticker.pokeDate)}
+      </td>
+      <td className="px-3 py-4 whitespace-nowrap">
+        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+          ticker.lsPosition === 'Long' 
+            ? 'bg-green-100 text-green-800' 
+            : 'bg-red-100 text-red-800'
+        }`}>
+          {ticker.lsPosition}
+        </span>
+      </td>
+      <td className="px-3 py-4 whitespace-nowrap">
+        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+          ticker.priority === 'A' ? 'bg-red-100 text-red-800' :
+          ticker.priority === 'B' ? 'bg-yellow-100 text-yellow-800' :
+          ticker.priority === 'C' ? 'bg-blue-100 text-blue-800' :
+          'bg-gray-100 text-gray-800'
+        }`}>
+          {ticker.priority}
+        </span>
+      </td>
+      <td className="px-3 py-4 whitespace-nowrap">
+        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+          ticker.status === 'Current' ? 'bg-green-100 text-green-800' :
+          ticker.status === 'Portfolio' ? 'bg-blue-100 text-blue-800' :
+          ticker.status === 'On-Deck' ? 'bg-yellow-100 text-yellow-800' :
+          ticker.status === 'New' ? 'bg-purple-100 text-purple-800' :
+          'bg-gray-100 text-gray-800'
+        }`}>
+          {ticker.status}
+        </span>
+      </td>
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+        {ticker.analyst || '-'}
+      </td>
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
+        {ticker.source || '-'}
+      </td>
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+        ${ticker.inputPrice || '-'}
+      </td>
+      <td className="px-3 py-4 whitespace-nowrap">
+        <QuoteDisplay 
+          ticker={ticker.ticker}
+          quote={quote}
+          onUpdateQuote={onUpdateQuote}
+          isLoading={isLoadingQuotes}
+          hasError={hasQuoteError}
+        />
+      </td>
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
+        {ticker.marketCap ? `${(ticker.marketCap / 1000000).toFixed(0)}M` : '-'}
+      </td>
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
+        {ticker.adv3Month ? `${(ticker.adv3Month / 1000000).toFixed(1)}M` : '-'}
+      </td>
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+        {ticker.ptBear ? `${parseFloat(ticker.ptBear).toFixed(2)}` : '-'}
+      </td>
+      <td className="px-3 py-4 whitespace-nowrap text-sm">
+        <span className={`${
+          calculatePercentChange(ticker.ptBear, currentPrice).startsWith('+') 
+            ? 'text-green-600' 
+            : calculatePercentChange(ticker.ptBear, currentPrice).startsWith('-')
+            ? 'text-red-600'
+            : 'text-gray-500'
+        }`}>
+          {calculatePercentChange(ticker.ptBear, currentPrice) || '-'}
+        </span>
+      </td>
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+        {ticker.ptBase ? `${parseFloat(ticker.ptBase).toFixed(2)}` : '-'}
+      </td>
+      <td className="px-3 py-4 whitespace-nowrap text-sm">
+        <span className={`${
+          calculatePercentChange(ticker.ptBase, currentPrice).startsWith('+') 
+            ? 'text-green-600' 
+            : calculatePercentChange(ticker.ptBase, currentPrice).startsWith('-')
+            ? 'text-red-600'
+            : 'text-gray-500'
+        }`}>
+          {calculatePercentChange(ticker.ptBase, currentPrice) || '-'}
+        </span>
+      </td>
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+        {ticker.ptBull ? `${parseFloat(ticker.ptBull).toFixed(2)}` : '-'}
+      </td>
+      <td className="px-3 py-4 whitespace-nowrap text-sm">
+        <span className={`${
+          calculatePercentChange(ticker.ptBull, currentPrice).startsWith('+') 
+            ? 'text-green-600' 
+            : calculatePercentChange(ticker.ptBull, currentPrice).startsWith('-')
+            ? 'text-red-600'
+            : 'text-gray-500'
+        }`}>
+          {calculatePercentChange(ticker.ptBull, currentPrice) || '-'}
+        </span>
+      </td>
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
+        {ticker.catalystDate || '-'}
+      </td>
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
+        {ticker.valueOrGrowth || '-'}
+      </td>
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+        {formatBoolean(ticker.maTargetBuyer)}
+      </td>
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+        {formatBoolean(ticker.maTargetValuation)}
+      </td>
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+        {formatBoolean(ticker.maTargetSeller)}
+      </td>
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+        {formatBoolean(ticker.bigMoveRevert)}
+      </td>
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+        {formatBoolean(ticker.activist)}
+      </td>
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+        {formatBoolean(ticker.activistPotential)}
+      </td>
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+        {formatBoolean(ticker.insiderTradeSignal)}
+      </td>
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+        {formatBoolean(ticker.newMgmt)}
+      </td>
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+        {formatBoolean(ticker.spin)}
+      </td>
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+        {formatBoolean(ticker.bigAcq)}
+      </td>
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+        {formatBoolean(ticker.fraudRisk)}
+      </td>
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+        {formatBoolean(ticker.regulatoryRisk)}
+      </td>
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+        {formatBoolean(ticker.cyclical)}
+      </td>
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+        {formatBoolean(ticker.nonCyclical)}
+      </td>
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+        {formatBoolean(ticker.highBeta)}
+      </td>
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+        {formatBoolean(ticker.momo)}
+      </td>
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+        {formatBoolean(ticker.selfHelp)}
+      </td>
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+        {formatBoolean(ticker.rateExposure)}
+      </td>
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+        {formatBoolean(ticker.strongDollar)}
+      </td>
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+        {formatBoolean(ticker.extremeValuation)}
+      </td>
+      <td className="px-3 py-4 text-sm text-gray-500">
+        <div className="break-words">
+          {ticker.thesis}
+        </div>
+      </td>
+      {onUpdate && (
+        <td className="px-3 py-4 whitespace-nowrap text-sm">
+          <button
+            onClick={() => {
+              console.log('🔥 EDIT BUTTON CLICKED for ticker:', ticker.ticker);
+              console.log('Setting isEditing to true...');
+              setIsEditing(true);
+            }}
+            className="text-blue-600 hover:text-blue-900 text-xs font-bold border border-blue-500 px-2 py-1 rounded"
+          >
+            🔧 Edit {ticker.ticker}
+          </button>
+        </td>
+      )}
+    </tr>
+  );
 };
 
 // Helper function to calculate percentage change between price target and current price
@@ -3314,9 +3666,9 @@ const EarningsTrackingRow = ({ ticker, cyq, earningsData, onUpdateEarnings, form
      <td className="px-6 py-4 whitespace-nowrap text-sm">
        <button
          onClick={() => setIsEditing(true)}
-         className="text-blue-600 hover:text-blue-900 text-xs"
+         className="text-blue-600 hover:text-blue-900 text-xs font-bold border border-blue-500 px-2 py-1 rounded"
        >
-         Edit
+         🔧 Edit {ticker.ticker}
        </button>
      </td>
    </tr>
