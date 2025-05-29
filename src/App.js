@@ -226,6 +226,9 @@ const ClearlineFlow = () => {
   // Data refresh state
   const [isRefreshingData, setIsRefreshingData] = useState(false);
   const [lastDataRefresh, setLastDataRefresh] = useState(null);
+  
+  // Tab switching state
+  const [isTabSwitching, setIsTabSwitching] = useState(false);
 
   // Load data from Supabase on component mount
   useEffect(() => {
@@ -284,6 +287,7 @@ const ClearlineFlow = () => {
     setIsAuthenticated(false);
     setUserRole('');
     setActiveTab('input');
+    setIsTabSwitching(false); // Reset tab switching state
   };
 
   // Refresh data from database
@@ -635,6 +639,32 @@ const ClearlineFlow = () => {
     }
   };
 
+  // Handle tab switching with automatic data refresh
+  const handleTabSwitch = async (newTab) => {
+    console.log(`🔄 Switching to tab: ${newTab} - Auto-refreshing data...`);
+    
+    // Only refresh if switching to a different tab
+    if (newTab !== activeTab) {
+      setIsTabSwitching(true);
+      
+      try {
+        // Refresh data before switching tabs
+        await refreshData();
+        
+        // Set the new active tab
+        setActiveTab(newTab);
+        
+        console.log(`✅ Tab switched to: ${newTab} with fresh data`);
+      } catch (error) {
+        console.error('❌ Error refreshing data during tab switch:', error);
+        // Still switch tabs even if refresh fails
+        setActiveTab(newTab);
+      } finally {
+        setIsTabSwitching(false);
+      }
+    }
+  };
+
   if (!isAuthenticated) {
     return <LoginScreen onLogin={handleLogin} />;
   }
@@ -675,17 +705,24 @@ const ClearlineFlow = () => {
                 )}
                 <button
                   onClick={refreshData}
-                  disabled={isRefreshingData}
+                  disabled={isRefreshingData || isTabSwitching}
                   className={`flex items-center space-x-1 px-2 py-1 rounded text-sm ${
-                    isRefreshingData 
+                    isRefreshingData || isTabSwitching
                       ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
                       : 'bg-green-100 text-green-600 hover:bg-green-200'
                   }`}
                 >
-                  <RefreshCw className={`h-4 w-4 ${isRefreshingData ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={`h-4 w-4 ${isRefreshingData || isTabSwitching ? 'animate-spin' : ''}`} />
                   <span>Refresh Data</span>
                 </button>
               </div>
+              {/* Tab Switching Indicator */}
+              {isTabSwitching && (
+                <div className="flex items-center space-x-2 text-sm text-blue-600">
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  <span>Loading fresh data...</span>
+                </div>
+              )}
               <span className="text-sm text-gray-600">
                 {userRole === 'readwrite' ? 'Read/Write Access' : 'Read Only'}
               </span>
@@ -730,79 +767,86 @@ const ClearlineFlow = () => {
           <div className="flex space-x-8">
             {userRole === 'readwrite' && (
               <button
-                onClick={() => setActiveTab('input')}
+                onClick={() => handleTabSwitch('input')}
+                disabled={isTabSwitching}
                 className={`py-4 px-1 border-b-2 font-medium text-sm ${
                   activeTab === 'input'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}
+                } ${isTabSwitching ? 'cursor-not-allowed opacity-50' : ''}`}
               >
                 <Plus className="inline h-4 w-4 mr-1" />
                 Input Page
               </button>
             )}
             <button
-              onClick={() => setActiveTab('database')}
+              onClick={() => handleTabSwitch('database')}
+              disabled={isTabSwitching}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'database'
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
+              } ${isTabSwitching ? 'cursor-not-allowed opacity-50' : ''}`}
             >
               <Database className="inline h-4 w-4 mr-1" />
               Idea Database
             </button>
             <button
-              onClick={() => setActiveTab('database-detailed')}
+              onClick={() => handleTabSwitch('database-detailed')}
+              disabled={isTabSwitching}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'database-detailed'
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
+              } ${isTabSwitching ? 'cursor-not-allowed opacity-50' : ''}`}
             >
               <Database className="inline h-4 w-4 mr-1" />
               Idea Database Detailed
             </button>
             <button
-              onClick={() => setActiveTab('pm-detail')}
+              onClick={() => handleTabSwitch('pm-detail')}
+              disabled={isTabSwitching}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'pm-detail'
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
+              } ${isTabSwitching ? 'cursor-not-allowed opacity-50' : ''}`}
             >
               <BarChart3 className="inline h-4 w-4 mr-1" />
               PM Detail
             </button>
             <button
-              onClick={() => setActiveTab('analyst-detail')}
+              onClick={() => handleTabSwitch('analyst-detail')}
+              disabled={isTabSwitching}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'analyst-detail'
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
+              } ${isTabSwitching ? 'cursor-not-allowed opacity-50' : ''}`}
             >
               <Users className="inline h-4 w-4 mr-1" />
               Analyst Detail
             </button>
             <button
-              onClick={() => setActiveTab('team')}
+              onClick={() => handleTabSwitch('team')}
+              disabled={isTabSwitching}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'team'
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
+              } ${isTabSwitching ? 'cursor-not-allowed opacity-50' : ''}`}
             >
               <TrendingUp className="inline h-4 w-4 mr-1" />
               Team Output
             </button>
             <button
-              onClick={() => setActiveTab('earnings')}
+              onClick={() => handleTabSwitch('earnings')}
+              disabled={isTabSwitching}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'earnings'
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
+              } ${isTabSwitching ? 'cursor-not-allowed opacity-50' : ''}`}
             >
               <BarChart3 className="inline h-4 w-4 mr-1" />
               Earnings Tracking
