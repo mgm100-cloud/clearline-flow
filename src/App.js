@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Database, Users, TrendingUp, BarChart3, LogOut, Search, ChevronUp, ChevronDown, RefreshCw, Download } from 'lucide-react';
+import { Plus, Database, Users, TrendingUp, BarChart3, LogOut, Search, ChevronUp, ChevronDown, RefreshCw, Download, CheckSquare } from 'lucide-react';
 import { DatabaseService } from './databaseService';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -207,7 +207,7 @@ const ClearlineFlow = () => {
 
   // Data state
   const [tickers, setTickers] = useState([]);
-  const [analysts] = useState(['LT', 'GA', 'DP', 'MS', 'DO']);
+  const [analysts] = useState(['LT', 'GA', 'DP', 'MS', 'DO', 'MM']);
   const [selectedAnalyst, setSelectedAnalyst] = useState('LT');
   const [sortField, setSortField] = useState('');
   const [sortDirection, setSortDirection] = useState('asc');
@@ -222,6 +222,10 @@ const ClearlineFlow = () => {
   const [earningsData, setEarningsData] = useState([]);
   const [selectedCYQ, setSelectedCYQ] = useState('2025Q2');
   const [selectedEarningsAnalyst, setSelectedEarningsAnalyst] = useState('');
+  
+  // Todo state
+  const [todos, setTodos] = useState([]);
+  const [selectedTodoAnalyst, setSelectedTodoAnalyst] = useState('');
   
   // Data refresh state
   const [isRefreshingData, setIsRefreshingData] = useState(false);
@@ -251,6 +255,17 @@ const ClearlineFlow = () => {
         } catch (earningsError) {
           console.warn('⚠️ Could not load earnings data (table may not exist yet):', earningsError);
           setEarningsData([]);
+        }
+        
+        // Try to load todos data, but don't fail if table doesn't exist
+        try {
+          console.log('📡 Calling DatabaseService.getTodos()...');
+          const todosData = await DatabaseService.getTodos();
+          console.log('✅ Successfully loaded todos from Supabase:', todosData);
+          setTodos(todosData);
+        } catch (todosError) {
+          console.warn('⚠️ Could not load todos data (table may not exist yet):', todosError);
+          setTodos([]);
         }
         
       } catch (error) {
@@ -609,6 +624,64 @@ const ClearlineFlow = () => {
     }
   };
 
+  // Todo functions
+  const addTodo = async (todoData) => {
+    try {
+      const newTodo = {
+        ...todoData,
+        dateEntered: new Date().toISOString(),
+        isOpen: true
+      };
+      
+      // Save to Supabase
+      const savedTodo = await DatabaseService.addTodo(newTodo);
+      setTodos(prev => [savedTodo, ...prev]);
+      return savedTodo;
+    } catch (error) {
+      console.error('Error adding todo:', error);
+      throw error;
+    }
+  };
+
+  const updateTodo = async (id, updates) => {
+    try {
+      // If closing the todo, set the date closed
+      if (updates.isOpen === false && !updates.dateClosed) {
+        updates.dateClosed = new Date().toISOString();
+      }
+      // If reopening the todo, clear the date closed
+      if (updates.isOpen === true) {
+        updates.dateClosed = null;
+      }
+
+      // Update in Supabase
+      await DatabaseService.updateTodo(id, updates);
+      
+      // Update local state
+      setTodos(prev => prev.map(todo => 
+        todo.id === id 
+          ? { ...todo, ...updates }
+          : todo
+      ));
+    } catch (error) {
+      console.error('Error updating todo:', error);
+      throw error;
+    }
+  };
+
+  const deleteTodo = async (id) => {
+    try {
+      // Delete from Supabase
+      await DatabaseService.deleteTodo(id);
+      
+      // Update local state
+      setTodos(prev => prev.filter(todo => todo.id !== id));
+    } catch (error) {
+      console.error('Error deleting todo:', error);
+      throw error;
+    }
+  };
+
   // Sort function
   const sortData = (data, field) => {
     if (!field) return data;
@@ -851,6 +924,18 @@ const ClearlineFlow = () => {
               <BarChart3 className="inline h-4 w-4 mr-1" />
               Earnings Tracking
             </button>
+            <button
+              onClick={() => handleTabSwitch('todos')}
+              disabled={isTabSwitching}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'todos'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              } ${isTabSwitching ? 'cursor-not-allowed opacity-50' : ''}`}
+            >
+              <CheckSquare className="inline h-4 w-4 mr-1" />
+              Todo List
+            </button>
           </div>
         </div>
       </nav>
@@ -921,6 +1006,18 @@ const ClearlineFlow = () => {
             getEarningsData={getEarningsData}
             onRefreshEarnings={refreshEarningsDates}
             analysts={analysts}
+          />
+        )}
+        {activeTab === 'todos' && (
+          <TodoListPage 
+            todos={todos}
+            selectedTodoAnalyst={selectedTodoAnalyst}
+            onSelectTodoAnalyst={setSelectedTodoAnalyst}
+            onAddTodo={addTodo}
+            onUpdateTodo={updateTodo}
+            onDeleteTodo={deleteTodo}
+            analysts={analysts}
+            userRole={userRole}
           />
         )}
       </main>
@@ -3717,6 +3814,509 @@ const EarningsTrackingRow = ({ ticker, cyq, earningsData, onUpdateEarnings, form
      </td>
    </tr>
  );
+};
+
+// Todo List Page Component
+const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTodo, onUpdateTodo, onDeleteTodo, analysts, userRole }) => {
+  const [sortField, setSortField] = useState('dateEntered');
+  const [sortDirection, setSortDirection] = useState('desc');
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newTodo, setNewTodo] = useState({
+    ticker: '',
+    analyst: '',
+    priority: 'medium',
+    item: ''
+  });
+
+  // Calculate days since entered
+  const calculateDaysSinceEntered = (dateEntered) => {
+    const entered = new Date(dateEntered);
+    const now = new Date();
+    const diffTime = Math.abs(now - entered);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
+  // Format date for display
+  const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: '2-digit',
+      month: '2-digit',
+      day: '2-digit'
+    });
+  };
+
+  // Filter todos based on selected analyst
+  const filteredTodos = selectedTodoAnalyst 
+    ? todos.filter(todo => todo.analyst === selectedTodoAnalyst)
+    : todos;
+
+  // Separate open and recently closed todos
+  const openTodos = filteredTodos.filter(todo => todo.isOpen);
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const recentlyClosedTodos = filteredTodos.filter(todo => 
+    !todo.isOpen && todo.dateClosed && new Date(todo.dateClosed) >= sevenDaysAgo
+  );
+
+  // Sort function
+  const sortTodos = (todosToSort) => {
+    if (!sortField) return todosToSort;
+    
+    return [...todosToSort].sort((a, b) => {
+      let aVal = a[sortField];
+      let bVal = b[sortField];
+      
+      // Handle date fields
+      if (sortField === 'dateEntered' || sortField === 'dateClosed') {
+        aVal = new Date(aVal || 0);
+        bVal = new Date(bVal || 0);
+      }
+      
+      // Handle string fields
+      if (typeof aVal === 'string') {
+        aVal = aVal.toLowerCase();
+        bVal = bVal.toLowerCase();
+      }
+      
+      if (sortDirection === 'asc') {
+        return aVal > bVal ? 1 : -1;
+      } else {
+        return aVal < bVal ? 1 : -1;
+      }
+    });
+  };
+
+  // Handle sort
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  // Sortable header component
+  const SortableHeader = ({ field, children }) => (
+    <th 
+      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+      onClick={() => handleSort(field)}
+    >
+      <div className="flex items-center space-x-1">
+        <span>{children}</span>
+        {sortField === field && (
+          sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+        )}
+      </div>
+    </th>
+  );
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold text-gray-900">Todo List</h1>
+        <div className="flex space-x-4">
+          <button
+            onClick={() => {
+              const doc = new jsPDF();
+              
+              // Title
+              doc.setFontSize(16);
+              doc.text('Todo List Report', 20, 20);
+              
+              // Filter info
+              doc.setFontSize(10);
+              const filterText = selectedTodoAnalyst ? `Analyst: ${selectedTodoAnalyst}` : 'All Analysts';
+              doc.text(filterText, 20, 30);
+              doc.text(`Generated: ${new Date().toLocaleDateString()}`, 20, 35);
+              
+              // Open todos
+              if (openTodos.length > 0) {
+                doc.setFontSize(12);
+                doc.text('Open Todos', 20, 50);
+                
+                const openTableData = sortTodos(openTodos).map(todo => [
+                  todo.ticker,
+                  todo.analyst,
+                  formatDate(todo.dateEntered),
+                  calculateDaysSinceEntered(todo.dateEntered).toString(),
+                  todo.priority,
+                  todo.item.length > 50 ? todo.item.substring(0, 50) + '...' : todo.item
+                ]);
+                
+                autoTable(doc, {
+                  startY: 55,
+                  head: [['Ticker', 'Analyst', 'Date Entered', 'Days Since', 'Priority', 'Item']],
+                  body: openTableData,
+                  styles: { fontSize: 8 },
+                  headStyles: { fillColor: [59, 130, 246] }
+                });
+              }
+              
+              // Recently closed todos
+              if (recentlyClosedTodos.length > 0) {
+                const startY = openTodos.length > 0 ? doc.lastAutoTable.finalY + 20 : 55;
+                
+                doc.setFontSize(12);
+                doc.text('Recently Closed Todos (Last 7 Days)', 20, startY);
+                
+                const closedTableData = sortTodos(recentlyClosedTodos).map(todo => [
+                  todo.ticker,
+                  todo.analyst,
+                  formatDate(todo.dateEntered),
+                  formatDate(todo.dateClosed),
+                  todo.priority,
+                  todo.item.length > 50 ? todo.item.substring(0, 50) + '...' : todo.item
+                ]);
+                
+                autoTable(doc, {
+                  startY: startY + 5,
+                  head: [['Ticker', 'Analyst', 'Date Entered', 'Date Closed', 'Priority', 'Item']],
+                  body: closedTableData,
+                  styles: { fontSize: 8 },
+                  headStyles: { fillColor: [34, 197, 94] }
+                });
+              }
+              
+              doc.save(`todo-list-${selectedTodoAnalyst || 'all'}-${new Date().toISOString().split('T')[0]}.pdf`);
+            }}
+            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Export PDF
+          </button>
+          {userRole === 'readwrite' && (
+            <button
+              onClick={() => setShowAddForm(!showAddForm)}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Todo
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Analyst Filter */}
+      <div className="flex items-center space-x-4">
+        <label className="text-sm font-medium text-gray-700">Filter by Analyst:</label>
+        <select
+          value={selectedTodoAnalyst}
+          onChange={(e) => onSelectTodoAnalyst(e.target.value)}
+          className="border border-gray-300 rounded-md px-3 py-2 text-sm"
+        >
+          <option value="">All Analysts</option>
+          {analysts.map(analyst => (
+            <option key={analyst} value={analyst}>{analyst}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Open Todos Section */}
+      <div>
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">
+          Open Todos ({openTodos.length})
+        </h2>
+        {openTodos.length === 0 ? (
+          <p className="text-gray-500 text-center py-8">No open todos found.</p>
+        ) : (
+          <div className="bg-white shadow overflow-hidden sm:rounded-md">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <SortableHeader field="ticker">Ticker</SortableHeader>
+                  <SortableHeader field="analyst">Analyst</SortableHeader>
+                  <SortableHeader field="dateEntered">Date Entered</SortableHeader>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Days Since</th>
+                  <SortableHeader field="priority">Priority</SortableHeader>
+                  <SortableHeader field="item">Item</SortableHeader>
+                  {userRole === 'readwrite' && (
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  )}
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {sortTodos(openTodos).map((todo) => (
+                  <TodoRow 
+                    key={todo.id} 
+                    todo={todo} 
+                    onUpdateTodo={onUpdateTodo}
+                    onDeleteTodo={onDeleteTodo}
+                    calculateDaysSinceEntered={calculateDaysSinceEntered}
+                    formatDate={formatDate}
+                    userRole={userRole}
+                    isClosed={false}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Recently Closed Todos Section */}
+      <div>
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">
+          Recently Closed Todos - Last 7 Days ({recentlyClosedTodos.length})
+        </h2>
+        {recentlyClosedTodos.length === 0 ? (
+          <p className="text-gray-500 text-center py-8">No recently closed todos found.</p>
+        ) : (
+          <div className="bg-white shadow overflow-hidden sm:rounded-md">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <SortableHeader field="ticker">Ticker</SortableHeader>
+                  <SortableHeader field="analyst">Analyst</SortableHeader>
+                  <SortableHeader field="dateEntered">Date Entered</SortableHeader>
+                  <SortableHeader field="dateClosed">Date Closed</SortableHeader>
+                  <SortableHeader field="priority">Priority</SortableHeader>
+                  <SortableHeader field="item">Item</SortableHeader>
+                  {userRole === 'readwrite' && (
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  )}
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {sortTodos(recentlyClosedTodos).map((todo) => (
+                  <TodoRow 
+                    key={todo.id} 
+                    todo={todo} 
+                    onUpdateTodo={onUpdateTodo}
+                    onDeleteTodo={onDeleteTodo}
+                    calculateDaysSinceEntered={calculateDaysSinceEntered}
+                    formatDate={formatDate}
+                    userRole={userRole}
+                    isClosed={true}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Add Todo Form */}
+      {showAddForm && userRole === 'readwrite' && (
+        <div className="bg-gray-50 p-4 rounded-lg">
+          <h3 className="text-lg font-medium mb-4">Add New Todo</h3>
+          <form onSubmit={async (e) => {
+            e.preventDefault();
+            if (!newTodo.ticker || !newTodo.analyst || !newTodo.item) return;
+            
+            try {
+              await onAddTodo(newTodo);
+              setNewTodo({ ticker: '', analyst: '', priority: 'medium', item: '' });
+              setShowAddForm(false);
+            } catch (error) {
+              console.error('Error adding todo:', error);
+            }
+          }} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Ticker</label>
+              <input
+                type="text"
+                value={newTodo.ticker}
+                onChange={(e) => setNewTodo({...newTodo, ticker: e.target.value.toUpperCase()})}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Analyst</label>
+              <select
+                value={newTodo.analyst}
+                onChange={(e) => setNewTodo({...newTodo, analyst: e.target.value})}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                required
+              >
+                <option value="">Select Analyst</option>
+                {analysts.map(analyst => (
+                  <option key={analyst} value={analyst}>{analyst}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+              <select
+                value={newTodo.priority}
+                onChange={(e) => setNewTodo({...newTodo, priority: e.target.value})}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+              >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+            <div className="md:col-span-2 lg:col-span-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Actions</label>
+              <div className="flex space-x-2">
+                <button
+                  type="submit"
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+                >
+                  Add
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowAddForm(false)}
+                  className="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-md text-sm font-medium"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+            <div className="md:col-span-2 lg:col-span-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Item Description</label>
+              <textarea
+                value={newTodo.item}
+                onChange={(e) => setNewTodo({...newTodo, item: e.target.value})}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                rows="3"
+                required
+              />
+            </div>
+          </form>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Todo Row Component with double-click editing
+const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, formatDate, userRole, isClosed = false }) => {
+  const [editingField, setEditingField] = useState(null); // 'priority' or 'item'
+  const [editValue, setEditValue] = useState('');
+
+  const handleDoubleClick = (field, currentValue) => {
+    if (userRole !== 'readwrite') return;
+    setEditingField(field);
+    setEditValue(currentValue);
+  };
+
+  const handleSaveEdit = async () => {
+    if (editingField && editValue !== todo[editingField]) {
+      try {
+        await onUpdateTodo(todo.id, { [editingField]: editValue });
+      } catch (error) {
+        console.error('Error updating todo:', error);
+      }
+    }
+    setEditingField(null);
+    setEditValue('');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingField(null);
+    setEditValue('');
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleSaveEdit();
+    } else if (e.key === 'Escape') {
+      handleCancelEdit();
+    }
+  };
+
+  const getPriorityColor = (priority) => {
+    switch (priority) {
+      case 'high': return 'text-red-600 bg-red-100';
+      case 'medium': return 'text-yellow-600 bg-yellow-100';
+      case 'low': return 'text-green-600 bg-green-100';
+      default: return 'text-gray-600 bg-gray-100';
+    }
+  };
+
+  return (
+    <tr className={isClosed ? 'bg-white' : ''}>
+      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+        {todo.ticker}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        {todo.analyst}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        {formatDate(todo.dateEntered)}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        {isClosed ? formatDate(todo.dateClosed) : calculateDaysSinceEntered(todo.dateEntered)}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm">
+        {editingField === 'priority' ? (
+          <select
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onBlur={handleSaveEdit}
+            onKeyDown={handleKeyPress}
+            autoFocus
+            className="border border-blue-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select>
+        ) : (
+          <span 
+            className={`px-2 py-1 rounded-full text-xs font-medium cursor-pointer hover:opacity-80 ${getPriorityColor(todo.priority)} ${userRole === 'readwrite' ? 'hover:ring-2 hover:ring-blue-300' : ''}`}
+            onDoubleClick={() => handleDoubleClick('priority', todo.priority)}
+            title={userRole === 'readwrite' ? 'Double-click to edit' : ''}
+          >
+            {todo.priority}
+          </span>
+        )}
+      </td>
+      <td className="px-6 py-4 text-sm text-gray-900">
+        {editingField === 'item' ? (
+          <textarea
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onBlur={handleSaveEdit}
+            onKeyDown={handleKeyPress}
+            autoFocus
+            className="w-full border border-blue-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            rows="2"
+          />
+        ) : (
+          <div 
+            className={`cursor-pointer hover:bg-gray-50 p-1 rounded break-words ${userRole === 'readwrite' ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+            title={userRole === 'readwrite' ? 'Double-click to edit' : ''}
+            onDoubleClick={() => handleDoubleClick('item', todo.item)}
+          >
+            {todo.item}
+          </div>
+        )}
+      </td>
+      {userRole === 'readwrite' && (
+        <td className="px-6 py-4 whitespace-nowrap text-sm">
+          <div className="flex space-x-2">
+            <button
+              onClick={() => onUpdateTodo(todo.id, { isOpen: !todo.isOpen })}
+              className={`text-xs font-bold border px-2 py-1 rounded ${
+                todo.isOpen 
+                  ? 'text-green-600 hover:text-green-900 border-green-500' 
+                  : 'text-blue-600 hover:text-blue-900 border-blue-500'
+              }`}
+            >
+              {todo.isOpen ? 'Close' : 'Reopen'}
+            </button>
+            <button
+              onClick={() => {
+                if (window.confirm('Are you sure you want to delete this todo?')) {
+                  onDeleteTodo(todo.id);
+                }
+              }}
+              className="text-red-600 hover:text-red-900 text-xs font-bold border border-red-500 px-2 py-1 rounded"
+            >
+              Delete
+            </button>
+          </div>
+        </td>
+      )}
+    </tr>
+  );
 };
 
 export default ClearlineFlow;

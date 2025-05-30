@@ -33,7 +33,10 @@ const toSnakeCase = (str) => {
     'strongDollar': 'strong_dollar',
     'extremeValuation': 'extreme_valuation',
     'createdAt': 'created_at',
-    'updatedAt': 'updated_at'
+    'updatedAt': 'updated_at',
+    'dateEntered': 'date_entered',
+    'dateClosed': 'date_closed',
+    'isOpen': 'is_open'
   };
   
   if (specialCases[str]) {
@@ -76,7 +79,10 @@ const toCamelCase = (str) => {
     'strong_dollar': 'strongDollar',
     'extreme_valuation': 'extremeValuation',
     'created_at': 'createdAt',
-    'updated_at': 'updatedAt'
+    'updated_at': 'updatedAt',
+    'date_entered': 'dateEntered',
+    'date_closed': 'dateClosed',
+    'is_open': 'isOpen'
   };
   
   if (specialCases[str]) {
@@ -275,6 +281,80 @@ export const DatabaseService = {
       return convertFromDbFormat(data[0]);
     } catch (error) {
       console.error('Error upserting earnings data:', error)
+      throw error
+    }
+  },
+
+  // Todo operations
+  async getTodos() {
+    try {
+      const { data, error } = await supabase
+        .from('todos')
+        .select('*')
+        .order('date_entered', { ascending: false })
+      
+      if (error) throw error
+      
+      // Convert snake_case to camelCase for JavaScript
+      return (data || []).map(convertFromDbFormat);
+    } catch (error) {
+      console.error('Error fetching todos:', error)
+      throw error
+    }
+  },
+
+  async addTodo(todo) {
+    try {
+      // Convert camelCase to snake_case for database
+      const dbTodo = convertToDbFormat(todo);
+      
+      const { data, error } = await supabase
+        .from('todos')
+        .insert([dbTodo])
+        .select()
+      
+      if (error) throw error
+      
+      // Convert back to camelCase for JavaScript
+      return convertFromDbFormat(data[0]);
+    } catch (error) {
+      console.error('Error adding todo:', error)
+      throw error
+    }
+  },
+
+  async updateTodo(id, updates) {
+    try {
+      // Convert camelCase to snake_case for database
+      const dbUpdates = convertToDbFormat(updates);
+      dbUpdates.updated_at = new Date().toISOString();
+      
+      const { data, error } = await supabase
+        .from('todos')
+        .update(dbUpdates)
+        .eq('id', id)
+        .select()
+      
+      if (error) throw error
+      
+      // Convert back to camelCase for JavaScript
+      return convertFromDbFormat(data[0]);
+    } catch (error) {
+      console.error('Error updating todo:', error)
+      throw error
+    }
+  },
+
+  async deleteTodo(id) {
+    try {
+      const { error } = await supabase
+        .from('todos')
+        .delete()
+        .eq('id', id)
+      
+      if (error) throw error
+    } catch (error) {
+      console.error('Error deleting todo:', error)
       throw error
     }
   }
