@@ -3873,9 +3873,14 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
         aVal = new Date(aVal || 0);
         bVal = new Date(bVal || 0);
       }
-      
+      // Handle priority field with custom order
+      else if (sortField === 'priority') {
+        const priorityOrder = { 'high': 3, 'medium': 2, 'low': 1 };
+        aVal = priorityOrder[aVal] || 0;
+        bVal = priorityOrder[bVal] || 0;
+      }
       // Handle string fields
-      if (typeof aVal === 'string') {
+      else if (typeof aVal === 'string') {
         aVal = aVal.toLowerCase();
         bVal = bVal.toLowerCase();
       }
