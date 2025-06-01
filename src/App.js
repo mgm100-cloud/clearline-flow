@@ -300,8 +300,11 @@ const ClearlineFlow = () => {
         
         if (session && user) {
           console.log('✅ User already authenticated:', user);
+          const role = AuthService.getUserRole(user);
+          console.log('👤 User role determined:', role);
+          console.log('📋 User metadata:', user?.user_metadata);
           setCurrentUser(user);
-          setUserRole(AuthService.getUserRole(user));
+          setUserRole(role);
           setIsAuthenticated(true);
         } else {
           console.log('🔓 No active session found');
@@ -324,8 +327,11 @@ const ClearlineFlow = () => {
       if (event === 'SIGNED_IN' && session) {
         const user = session.user;
         console.log('✅ User signed in:', user);
+        const role = AuthService.getUserRole(user);
+        console.log('👤 User role determined:', role);
+        console.log('📋 User metadata:', user?.user_metadata);
         setCurrentUser(user);
-        setUserRole(AuthService.getUserRole(user));
+        setUserRole(role);
         setIsAuthenticated(true);
         setAuthError('');
       } else if (event === 'SIGNED_OUT') {
@@ -425,8 +431,11 @@ const ClearlineFlow = () => {
   // Handle successful authentication
   const handleAuthSuccess = (user, session) => {
     console.log('🔑 Authentication successful:', user);
+    const role = AuthService.getUserRole(user);
+    console.log('👤 User role determined:', role);
+    console.log('📋 User metadata:', user?.user_metadata);
     setCurrentUser(user);
-    setUserRole(AuthService.getUserRole(user));
+    setUserRole(role);
     setIsAuthenticated(true);
     setAuthError('');
     
@@ -980,7 +989,7 @@ const ClearlineFlow = () => {
       <nav className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex space-x-8">
-            {userRole === 'readwrite' && (
+            {(userRole === 'readwrite' || userRole === 'admin') && (
               <button
                 onClick={() => handleTabSwitch('input')}
                 disabled={isTabSwitching}
@@ -3974,7 +3983,7 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
             <Download className="h-4 w-4 mr-2" />
             Export PDF
           </button>
-          {userRole === 'readwrite' && (
+          {(userRole === 'readwrite' || userRole === 'admin') && (
             <button
               onClick={() => setShowAddForm(!showAddForm)}
               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center"
@@ -4002,7 +4011,7 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
       </div>
 
       {/* Add Todo Form - Moved to top */}
-      {showAddForm && userRole === 'readwrite' && (
+      {showAddForm && (userRole === 'readwrite' || userRole === 'admin') && (
         <div className="bg-gray-50 p-4 rounded-lg">
           <h3 className="text-lg font-medium mb-4">Add New Todo</h3>
           <form onSubmit={async (e) => {
@@ -4103,7 +4112,7 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Days Since</th>
                   <SortableHeader field="priority">Priority</SortableHeader>
                   <SortableHeader field="item">Item</SortableHeader>
-                  {userRole === 'readwrite' && (
+                  {(userRole === 'readwrite' || userRole === 'admin') && (
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   )}
                 </tr>
@@ -4118,6 +4127,7 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
                     calculateDaysSinceEntered={calculateDaysSinceEntered}
                     formatDate={formatDate}
                     userRole={userRole}
+                    hasWriteAccess={userRole === 'readwrite' || userRole === 'admin'}
                     isClosed={false}
                   />
                 ))}
@@ -4145,7 +4155,7 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
                   <SortableHeader field="dateClosed">Date Closed</SortableHeader>
                   <SortableHeader field="priority">Priority</SortableHeader>
                   <SortableHeader field="item">Item</SortableHeader>
-                  {userRole === 'readwrite' && (
+                  {(userRole === 'readwrite' || userRole === 'admin') && (
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   )}
                 </tr>
@@ -4160,6 +4170,7 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
                     calculateDaysSinceEntered={calculateDaysSinceEntered}
                     formatDate={formatDate}
                     userRole={userRole}
+                    hasWriteAccess={userRole === 'readwrite' || userRole === 'admin'}
                     isClosed={true}
                   />
                 ))}
@@ -4173,12 +4184,12 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
 };
 
 // Todo Row Component with double-click editing
-const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, formatDate, userRole, isClosed = false }) => {
+const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, formatDate, userRole, hasWriteAccess, isClosed = false }) => {
   const [editingField, setEditingField] = useState(null); // 'priority' or 'item'
   const [editValue, setEditValue] = useState('');
 
   const handleDoubleClick = (field, currentValue) => {
-    if (userRole !== 'readwrite') return;
+    if (!hasWriteAccess) return;
     setEditingField(field);
     setEditValue(currentValue);
   };
@@ -4247,9 +4258,9 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, 
           </select>
         ) : (
           <span 
-            className={`px-2 py-1 rounded-full text-xs font-medium cursor-pointer hover:opacity-80 ${getPriorityColor(todo.priority)} ${userRole === 'readwrite' ? 'hover:ring-2 hover:ring-blue-300' : ''}`}
+            className={`px-2 py-1 rounded-full text-xs font-medium cursor-pointer hover:opacity-80 ${getPriorityColor(todo.priority)} ${hasWriteAccess ? 'hover:ring-2 hover:ring-blue-300' : ''}`}
             onDoubleClick={() => handleDoubleClick('priority', todo.priority)}
-            title={userRole === 'readwrite' ? 'Double-click to edit' : ''}
+            title={hasWriteAccess ? 'Double-click to edit' : ''}
           >
             {todo.priority}
           </span>
@@ -4268,15 +4279,15 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, 
           />
         ) : (
           <div 
-            className={`cursor-pointer hover:bg-gray-50 p-1 rounded break-words ${userRole === 'readwrite' ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
-            title={userRole === 'readwrite' ? 'Double-click to edit' : ''}
+            className={`cursor-pointer hover:bg-gray-50 p-1 rounded break-words ${hasWriteAccess ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+            title={hasWriteAccess ? 'Double-click to edit' : ''}
             onDoubleClick={() => handleDoubleClick('item', todo.item)}
           >
             {todo.item}
           </div>
         )}
       </td>
-      {userRole === 'readwrite' && (
+      {hasWriteAccess && (
         <td className="px-6 py-4 whitespace-nowrap text-sm">
           <div className="flex space-x-2">
             <button
