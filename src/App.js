@@ -3581,8 +3581,8 @@ const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarni
   // Filter tickers to only show Portfolio status
   let portfolioTickers = tickers.filter(ticker => ticker.status === 'Portfolio');
   
-  // Apply analyst filter if selected
-  if (selectedEarningsAnalyst) {
+  // Apply analyst filter if selected and not "All Analysts"
+  if (selectedEarningsAnalyst && selectedEarningsAnalyst !== 'All Analysts') {
     portfolioTickers = portfolioTickers.filter(ticker => ticker.analyst === selectedEarningsAnalyst);
   }
   
