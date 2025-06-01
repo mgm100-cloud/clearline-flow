@@ -794,25 +794,22 @@ const ClearlineFlow = () => {
 
   // Handle tab switching with automatic data refresh
   const handleTabSwitch = async (newTab) => {
-    console.log(`🔄 Switching to tab: ${newTab} - Auto-refreshing data and quotes...`);
+    console.log(`🔄 Switching to tab: ${newTab} - Auto-refreshing data...`);
     
     // Only refresh if switching to a different tab
     if (newTab !== activeTab) {
       setIsTabSwitching(true);
       
       try {
-        // Refresh data and quotes before switching tabs
-        await Promise.all([
-          refreshData(),
-          updateQuotes()
-        ]);
+        // Refresh data before switching tabs
+        await refreshData();
         
         // Set the new active tab
         setActiveTab(newTab);
         
-        console.log(`✅ Tab switched to: ${newTab} with fresh data and quotes`);
+        console.log(`✅ Tab switched to: ${newTab} with fresh data`);
       } catch (error) {
-        console.error('❌ Error refreshing data/quotes during tab switch:', error);
+        console.error('❌ Error refreshing data during tab switch:', error);
         // Still switch tabs even if refresh fails
         setActiveTab(newTab);
       } finally {
