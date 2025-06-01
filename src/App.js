@@ -363,13 +363,15 @@ const ClearlineFlow = () => {
 
   const formatVolumeDollars = (volumeValue) => {
     if (!volumeValue || volumeValue === 0) return '-';
-    
-    // Convert to millions with 1 decimal place and add commas
-    const millions = volumeValue / 1000000;
-    return millions.toLocaleString('en-US', {
-      minimumFractionDigits: 1,
-      maximumFractionDigits: 1
-    });
+    const volumeInMillions = volumeValue / 1000000;
+    return `$${volumeInMillions.toFixed(1)}M`;
+  };
+
+  // Helper function to truncate company names
+  const truncateName = (name, maxLength = 20) => {
+    if (!name) return '-';
+    if (name.length <= maxLength) return name;
+    return name.substring(0, maxLength) + '...';
   };
 
   // Initialize authentication state and listen for auth changes
@@ -1910,10 +1912,30 @@ const DatabasePage = ({ tickers, onSort, sortField, sortDirection, onUpdate, ana
             <thead className="bg-gray-50">
               <tr>
                 <SortableHeader field="ticker">Ticker</SortableHeader>
-                <SortableHeader field="name">Name</SortableHeader>
+                <th
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 w-40"
+                  onClick={() => onSort('name')}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>Name</span>
+                    {sortField === 'name' && (
+                      sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+                    )}
+                  </div>
+                </th>
                 <SortableHeader field="dateIn">Date In</SortableHeader>
                 <SortableHeader field="lsPosition">L/S</SortableHeader>
-                <SortableHeader field="priority">Priority</SortableHeader>
+                <th
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 w-20"
+                  onClick={() => onSort('priority')}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>Priority</span>
+                    {sortField === 'priority' && (
+                      sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+                    )}
+                  </div>
+                </th>
                 <SortableHeader field="status">Status</SortableHeader>
                 <SortableHeader field="analyst">Analyst</SortableHeader>
                 <SortableHeader field="currentPrice">Current Price</SortableHeader>
@@ -2092,8 +2114,8 @@ const EnhancedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
         {ticker.ticker}
       </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-        {ticker.name}
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 w-40" title={ticker.name}>
+        {ticker.name && ticker.name.length > 20 ? ticker.name.substring(0, 20) + '...' : ticker.name}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
         {ticker.dateIn}
@@ -2107,7 +2129,7 @@ const EnhancedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
           {ticker.lsPosition}
         </span>
       </td>
-      <td className="px-6 py-4 whitespace-nowrap">
+      <td className="px-6 py-4 whitespace-nowrap w-20">
         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
           ticker.priority === 'A' ? 'bg-red-100 text-red-800' :
           ticker.priority === 'B' ? 'bg-yellow-100 text-yellow-800' :
@@ -2240,14 +2262,36 @@ const DatabaseDetailedPage = ({ tickers, onSort, sortField, sortDirection, onUpd
             <thead className="bg-gray-50">
               <tr>
                 <SortableHeader field="ticker">Ticker</SortableHeader>
-                <SortableHeader field="name">Name</SortableHeader>
+                <th
+                  className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 w-32"
+                  onClick={() => onSort('name')}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>Name</span>
+                    {sortField === 'name' && (
+                      sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+                    )}
+                  </div>
+                </th>
                 <SortableHeader field="dateIn">Date In</SortableHeader>
                 <SortableHeader field="pokeDate">Poke Date</SortableHeader>
                 <SortableHeader field="lsPosition">L/S</SortableHeader>
-                <SortableHeader field="priority">Priority</SortableHeader>
+                <th
+                  className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 w-16"
+                  onClick={() => onSort('priority')}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>Priority</span>
+                    {sortField === 'priority' && (
+                      sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+                    )}
+                  </div>
+                </th>
                 <SortableHeader field="status">Status</SortableHeader>
                 <SortableHeader field="analyst">Analyst</SortableHeader>
                 <SortableHeader field="source">Source</SortableHeader>
+                
+                {/* Financial Data */}
                 <th
                   className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                   onClick={() => onSort('inputPrice')}
@@ -2282,17 +2326,22 @@ const DatabaseDetailedPage = ({ tickers, onSort, sortField, sortDirection, onUpd
                     )}
                   </div>
                 </th>
+                
+                {/* Price Targets */}
                 <SortableHeader field="ptBear">PT Bear</SortableHeader>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bear %</th>
                 <SortableHeader field="ptBase">PT Base</SortableHeader>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Base %</th>
                 <SortableHeader field="ptBull">PT Bull</SortableHeader>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bull %</th>
+                
+                {/* Additional Info */}
                 <SortableHeader field="catalystDate">Catalyst Date</SortableHeader>
                 <SortableHeader field="valueOrGrowth">Value/Growth</SortableHeader>
+                
+                {/* M&A Characteristics */}
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">M&A Target Buyer</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">M&A Target Val</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">M&A Target Seller</th>
+                
+                {/* Other Investment Characteristics */}
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Big Move Revert</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Activist</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Activist Potential</th>
@@ -2300,8 +2349,12 @@ const DatabaseDetailedPage = ({ tickers, onSort, sortField, sortDirection, onUpd
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">New Mgmt</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Spin</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Big Acq</th>
+                
+                {/* Risk Factors */}
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fraud Risk</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Regulatory Risk</th>
+                
+                {/* Market Characteristics */}
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cyclical</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Non-Cyclical</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">High Beta</th>
@@ -2310,7 +2363,10 @@ const DatabaseDetailedPage = ({ tickers, onSort, sortField, sortDirection, onUpd
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rate Exposure</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Strong Dollar</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Extreme Val</th>
+                
+                {/* Thesis */}
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thesis</th>
+                
                 {onUpdate && <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>}
               </tr>
             </thead>
@@ -2343,19 +2399,18 @@ const DatabaseDetailedPage = ({ tickers, onSort, sortField, sortDirection, onUpd
   );
 };
 
-// Detailed Ticker Row Component for inline editing in detailed view with quotes
+// Detailed Ticker Row Component for Database Detailed Page
 const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors, formatMarketCap, formatVolumeDollars }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState(ticker);
 
-  // Ensure editData is synced with ticker prop changes
-  useEffect(() => {
-    setEditData(ticker);
-  }, [ticker]);
-
-  const cleanSymbol = ticker.ticker.replace(' US', '');
-  const quote = quotes[cleanSymbol];
-  const hasQuoteError = quoteErrors[cleanSymbol];
+  // Helper function to format price targets to 2 decimal places
+  const formatPriceTarget = (value) => {
+    if (!value || value === '') return '';
+    const num = parseFloat(value);
+    if (isNaN(num)) return '';
+    return num.toFixed(2);
+  };
 
   const handleSave = () => {
     onUpdate(ticker.id, editData);
@@ -2374,25 +2429,18 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
     return dateString;
   };
 
-  const currentPrice = quote ? quote.price : ticker.currentPrice;
-
-  // Debug logging to help diagnose the issue
-  console.log('DetailedTickerRow render:', {
-    tickerId: ticker.id,
-    isEditing,
-    hasOnUpdate: !!onUpdate,
-    userCanEdit: !!onUpdate
-  });
+  const cleanSymbol = ticker.ticker.replace(' US', '');
+  const quote = quotes ? quotes[cleanSymbol] : null;
+  const hasQuoteError = quoteErrors ? quoteErrors[cleanSymbol] : false;
 
   if (isEditing && onUpdate) {
-    console.log('Rendering EDIT MODE for ticker:', ticker.ticker);
     return (
-      <tr className="bg-blue-50 border-2 border-blue-500">
-        <td className="px-3 py-4 whitespace-nowrap text-sm font-bold text-blue-900">
-          🔧 EDITING: {ticker.ticker}
+      <tr className="bg-blue-50">
+        <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+          {ticker.ticker}
         </td>
-        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 max-w-32 truncate">
-          {ticker.name}
+        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 w-32" title={ticker.name}>
+          {ticker.name && ticker.name.length > 20 ? ticker.name.substring(0, 20) + '...' : ticker.name}
         </td>
         <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
           {formatDate(ticker.dateIn)}
@@ -2404,13 +2452,13 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
           <select
             value={editData.lsPosition}
             onChange={(e) => setEditData({...editData, lsPosition: e.target.value})}
-            className="text-xs border border-gray-300 rounded px-1 py-1 w-20"
+            className="text-xs border border-gray-300 rounded px-1 py-1 w-16"
           >
             <option value="Long">Long</option>
             <option value="Short">Short</option>
           </select>
         </td>
-        <td className="px-3 py-4 whitespace-nowrap">
+        <td className="px-3 py-4 whitespace-nowrap w-16">
           <select
             value={editData.priority}
             onChange={(e) => setEditData({...editData, priority: e.target.value})}
@@ -2458,7 +2506,7 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
         <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
           {ticker.inputPrice ? `$${parseFloat(ticker.inputPrice).toFixed(2)}` : '-'}
         </td>
-        <td className="px-3 py-4 whitespace-nowrap">
+        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
           <QuoteDisplay 
             ticker={ticker.ticker}
             quote={quote}
@@ -2479,19 +2527,9 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
             step="0.01"
             value={editData.ptBear || ''}
             onChange={(e) => setEditData({...editData, ptBear: e.target.value})}
+            onBlur={(e) => setEditData({...editData, ptBear: formatPriceTarget(e.target.value)})}
             className="text-xs border border-gray-300 rounded px-1 py-1 w-16"
           />
-        </td>
-        <td className="px-3 py-4 whitespace-nowrap text-sm">
-          <span className={`${
-            calculatePercentChange(editData.ptBear, currentPrice).startsWith('+') 
-              ? 'text-green-600' 
-              : calculatePercentChange(editData.ptBear, currentPrice).startsWith('-')
-              ? 'text-red-600'
-              : 'text-gray-500'
-          }`}>
-            {calculatePercentChange(editData.ptBear, currentPrice) || '-'}
-          </span>
         </td>
         <td className="px-3 py-4 whitespace-nowrap">
           <input
@@ -2499,19 +2537,9 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
             step="0.01"
             value={editData.ptBase || ''}
             onChange={(e) => setEditData({...editData, ptBase: e.target.value})}
+            onBlur={(e) => setEditData({...editData, ptBase: formatPriceTarget(e.target.value)})}
             className="text-xs border border-gray-300 rounded px-1 py-1 w-16"
           />
-        </td>
-        <td className="px-3 py-4 whitespace-nowrap text-sm">
-          <span className={`${
-            calculatePercentChange(editData.ptBase, currentPrice).startsWith('+') 
-              ? 'text-green-600' 
-              : calculatePercentChange(editData.ptBase, currentPrice).startsWith('-')
-              ? 'text-red-600'
-              : 'text-gray-500'
-          }`}>
-            {calculatePercentChange(editData.ptBase, currentPrice) || '-'}
-          </span>
         </td>
         <td className="px-3 py-4 whitespace-nowrap">
           <input
@@ -2519,19 +2547,9 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
             step="0.01"
             value={editData.ptBull || ''}
             onChange={(e) => setEditData({...editData, ptBull: e.target.value})}
+            onBlur={(e) => setEditData({...editData, ptBull: formatPriceTarget(e.target.value)})}
             className="text-xs border border-gray-300 rounded px-1 py-1 w-16"
           />
-        </td>
-        <td className="px-3 py-4 whitespace-nowrap text-sm">
-          <span className={`${
-            calculatePercentChange(editData.ptBull, currentPrice).startsWith('+') 
-              ? 'text-green-600' 
-              : calculatePercentChange(editData.ptBull, currentPrice).startsWith('-')
-              ? 'text-red-600'
-              : 'text-gray-500'
-          }`}>
-            {calculatePercentChange(editData.ptBull, currentPrice) || '-'}
-          </span>
         </td>
         <td className="px-3 py-4 whitespace-nowrap">
           <input
@@ -2542,23 +2560,20 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
           />
         </td>
         <td className="px-3 py-4 whitespace-nowrap">
-          <select
+          <input
+            type="text"
             value={editData.valueOrGrowth || ''}
             onChange={(e) => setEditData({...editData, valueOrGrowth: e.target.value})}
-            className="text-xs border border-gray-300 rounded px-1 py-1 w-16"
-          >
-            <option value="">-</option>
-            <option value="Value">Value</option>
-            <option value="Growth">Growth</option>
-          </select>
+            className="text-xs border border-gray-300 rounded px-1 py-1 w-20"
+          />
         </td>
-        {/* Boolean fields - show as checkboxes */}
+        {/* M&A Characteristics */}
         <td className="px-3 py-4 whitespace-nowrap text-center">
           <input
             type="checkbox"
             checked={editData.maTargetBuyer || false}
             onChange={(e) => setEditData({...editData, maTargetBuyer: e.target.checked})}
-            className="h-3 w-3"
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
           />
         </td>
         <td className="px-3 py-4 whitespace-nowrap text-center">
@@ -2566,7 +2581,7 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
             type="checkbox"
             checked={editData.maTargetValuation || false}
             onChange={(e) => setEditData({...editData, maTargetValuation: e.target.checked})}
-            className="h-3 w-3"
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
           />
         </td>
         <td className="px-3 py-4 whitespace-nowrap text-center">
@@ -2574,15 +2589,16 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
             type="checkbox"
             checked={editData.maTargetSeller || false}
             onChange={(e) => setEditData({...editData, maTargetSeller: e.target.checked})}
-            className="h-3 w-3"
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
           />
         </td>
+        {/* Other checkboxes for all boolean fields */}
         <td className="px-3 py-4 whitespace-nowrap text-center">
           <input
             type="checkbox"
             checked={editData.bigMoveRevert || false}
             onChange={(e) => setEditData({...editData, bigMoveRevert: e.target.checked})}
-            className="h-3 w-3"
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
           />
         </td>
         <td className="px-3 py-4 whitespace-nowrap text-center">
@@ -2590,7 +2606,7 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
             type="checkbox"
             checked={editData.activist || false}
             onChange={(e) => setEditData({...editData, activist: e.target.checked})}
-            className="h-3 w-3"
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
           />
         </td>
         <td className="px-3 py-4 whitespace-nowrap text-center">
@@ -2598,7 +2614,7 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
             type="checkbox"
             checked={editData.activistPotential || false}
             onChange={(e) => setEditData({...editData, activistPotential: e.target.checked})}
-            className="h-3 w-3"
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
           />
         </td>
         <td className="px-3 py-4 whitespace-nowrap text-center">
@@ -2606,7 +2622,7 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
             type="checkbox"
             checked={editData.insiderTradeSignal || false}
             onChange={(e) => setEditData({...editData, insiderTradeSignal: e.target.checked})}
-            className="h-3 w-3"
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
           />
         </td>
         <td className="px-3 py-4 whitespace-nowrap text-center">
@@ -2614,7 +2630,7 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
             type="checkbox"
             checked={editData.newMgmt || false}
             onChange={(e) => setEditData({...editData, newMgmt: e.target.checked})}
-            className="h-3 w-3"
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
           />
         </td>
         <td className="px-3 py-4 whitespace-nowrap text-center">
@@ -2622,7 +2638,7 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
             type="checkbox"
             checked={editData.spin || false}
             onChange={(e) => setEditData({...editData, spin: e.target.checked})}
-            className="h-3 w-3"
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
           />
         </td>
         <td className="px-3 py-4 whitespace-nowrap text-center">
@@ -2630,7 +2646,7 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
             type="checkbox"
             checked={editData.bigAcq || false}
             onChange={(e) => setEditData({...editData, bigAcq: e.target.checked})}
-            className="h-3 w-3"
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
           />
         </td>
         <td className="px-3 py-4 whitespace-nowrap text-center">
@@ -2638,7 +2654,7 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
             type="checkbox"
             checked={editData.fraudRisk || false}
             onChange={(e) => setEditData({...editData, fraudRisk: e.target.checked})}
-            className="h-3 w-3"
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
           />
         </td>
         <td className="px-3 py-4 whitespace-nowrap text-center">
@@ -2646,7 +2662,7 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
             type="checkbox"
             checked={editData.regulatoryRisk || false}
             onChange={(e) => setEditData({...editData, regulatoryRisk: e.target.checked})}
-            className="h-3 w-3"
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
           />
         </td>
         <td className="px-3 py-4 whitespace-nowrap text-center">
@@ -2654,7 +2670,7 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
             type="checkbox"
             checked={editData.cyclical || false}
             onChange={(e) => setEditData({...editData, cyclical: e.target.checked})}
-            className="h-3 w-3"
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
           />
         </td>
         <td className="px-3 py-4 whitespace-nowrap text-center">
@@ -2662,7 +2678,7 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
             type="checkbox"
             checked={editData.nonCyclical || false}
             onChange={(e) => setEditData({...editData, nonCyclical: e.target.checked})}
-            className="h-3 w-3"
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
           />
         </td>
         <td className="px-3 py-4 whitespace-nowrap text-center">
@@ -2670,7 +2686,7 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
             type="checkbox"
             checked={editData.highBeta || false}
             onChange={(e) => setEditData({...editData, highBeta: e.target.checked})}
-            className="h-3 w-3"
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
           />
         </td>
         <td className="px-3 py-4 whitespace-nowrap text-center">
@@ -2678,7 +2694,7 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
             type="checkbox"
             checked={editData.momo || false}
             onChange={(e) => setEditData({...editData, momo: e.target.checked})}
-            className="h-3 w-3"
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
           />
         </td>
         <td className="px-3 py-4 whitespace-nowrap text-center">
@@ -2686,7 +2702,7 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
             type="checkbox"
             checked={editData.selfHelp || false}
             onChange={(e) => setEditData({...editData, selfHelp: e.target.checked})}
-            className="h-3 w-3"
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
           />
         </td>
         <td className="px-3 py-4 whitespace-nowrap text-center">
@@ -2694,7 +2710,7 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
             type="checkbox"
             checked={editData.rateExposure || false}
             onChange={(e) => setEditData({...editData, rateExposure: e.target.checked})}
-            className="h-3 w-3"
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
           />
         </td>
         <td className="px-3 py-4 whitespace-nowrap text-center">
@@ -2702,7 +2718,7 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
             type="checkbox"
             checked={editData.strongDollar || false}
             onChange={(e) => setEditData({...editData, strongDollar: e.target.checked})}
-            className="h-3 w-3"
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
           />
         </td>
         <td className="px-3 py-4 whitespace-nowrap text-center">
@@ -2710,33 +2726,34 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
             type="checkbox"
             checked={editData.extremeValuation || false}
             onChange={(e) => setEditData({...editData, extremeValuation: e.target.checked})}
-            className="h-3 w-3"
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
           />
         </td>
-        <td className="px-3 py-4">
+        <td className="px-3 py-4 whitespace-nowrap">
           <textarea
             value={editData.thesis || ''}
             onChange={(e) => setEditData({...editData, thesis: e.target.value})}
-            rows={2}
-            className="text-xs border border-gray-300 rounded px-1 py-1 w-full resize-none"
+            className="text-xs border border-gray-300 rounded px-1 py-1 w-40 h-20"
           />
         </td>
-        <td className="px-3 py-4 whitespace-nowrap text-sm">
-          <div className="flex space-x-2">
-            <button
-              onClick={handleSave}
-              className="text-green-600 hover:text-green-900 text-xs font-medium"
-            >
-              Save
-            </button>
-            <button
-              onClick={handleCancel}
-              className="text-red-600 hover:text-red-900 text-xs font-medium"
-            >
-              Cancel
-            </button>
-          </div>
-        </td>
+        {onUpdate && (
+          <td className="px-3 py-4 whitespace-nowrap text-sm">
+            <div className="flex space-x-2">
+              <button
+                onClick={handleSave}
+                className="text-green-600 hover:text-green-900 text-xs font-medium"
+              >
+                Save
+              </button>
+              <button
+                onClick={handleCancel}
+                className="text-red-600 hover:text-red-900 text-xs font-medium"
+              >
+                Cancel
+              </button>
+            </div>
+          </td>
+        )}
       </tr>
     );
   }
@@ -2746,8 +2763,8 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
       <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
         {ticker.ticker}
       </td>
-      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 max-w-32 truncate">
-        {ticker.name}
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 w-32" title={ticker.name}>
+        {ticker.name && ticker.name.length > 20 ? ticker.name.substring(0, 20) + '...' : ticker.name}
       </td>
       <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
         {formatDate(ticker.dateIn)}
@@ -2764,7 +2781,7 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
           {ticker.lsPosition}
         </span>
       </td>
-      <td className="px-3 py-4 whitespace-nowrap">
+      <td className="px-3 py-4 whitespace-nowrap w-16">
         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
           ticker.priority === 'A' ? 'bg-red-100 text-red-800' :
           ticker.priority === 'B' ? 'bg-yellow-100 text-yellow-800' :
@@ -2794,7 +2811,7 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
       <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
         {ticker.inputPrice ? `$${parseFloat(ticker.inputPrice).toFixed(2)}` : '-'}
       </td>
-      <td className="px-3 py-4 whitespace-nowrap">
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
         <QuoteDisplay 
           ticker={ticker.ticker}
           quote={quote}
@@ -2809,47 +2826,14 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
       <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
         {formatVolumeDollars ? formatVolumeDollars(ticker.adv3Month) : '-'}
       </td>
-      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-        {ticker.ptBear ? `${parseFloat(ticker.ptBear).toFixed(2)}` : '-'}
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
+        {ticker.ptBear ? `$${parseFloat(ticker.ptBear).toFixed(2)}` : '-'}
       </td>
-      <td className="px-3 py-4 whitespace-nowrap text-sm">
-        <span className={`${
-          calculatePercentChange(ticker.ptBear, currentPrice).startsWith('+') 
-            ? 'text-green-600' 
-            : calculatePercentChange(ticker.ptBear, currentPrice).startsWith('-')
-            ? 'text-red-600'
-            : 'text-gray-500'
-        }`}>
-          {calculatePercentChange(ticker.ptBear, currentPrice) || '-'}
-        </span>
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
+        {ticker.ptBase ? `$${parseFloat(ticker.ptBase).toFixed(2)}` : '-'}
       </td>
-      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-        {ticker.ptBase ? `${parseFloat(ticker.ptBase).toFixed(2)}` : '-'}
-      </td>
-      <td className="px-3 py-4 whitespace-nowrap text-sm">
-        <span className={`${
-          calculatePercentChange(ticker.ptBase, currentPrice).startsWith('+') 
-            ? 'text-green-600' 
-            : calculatePercentChange(ticker.ptBase, currentPrice).startsWith('-')
-            ? 'text-red-600'
-            : 'text-gray-500'
-        }`}>
-          {calculatePercentChange(ticker.ptBase, currentPrice) || '-'}
-        </span>
-      </td>
-      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-        {ticker.ptBull ? `${parseFloat(ticker.ptBull).toFixed(2)}` : '-'}
-      </td>
-      <td className="px-3 py-4 whitespace-nowrap text-sm">
-        <span className={`${
-          calculatePercentChange(ticker.ptBull, currentPrice).startsWith('+') 
-            ? 'text-green-600' 
-            : calculatePercentChange(ticker.ptBull, currentPrice).startsWith('-')
-            ? 'text-red-600'
-            : 'text-gray-500'
-        }`}>
-          {calculatePercentChange(ticker.ptBull, currentPrice) || '-'}
-        </span>
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
+        {ticker.ptBull ? `$${parseFloat(ticker.ptBull).toFixed(2)}` : '-'}
       </td>
       <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
         {ticker.catalystDate || '-'}
@@ -2857,6 +2841,7 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
       <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
         {ticker.valueOrGrowth || '-'}
       </td>
+      {/* Boolean Fields */}
       <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
         {formatBoolean(ticker.maTargetBuyer)}
       </td>
@@ -2917,368 +2902,22 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
       <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
         {formatBoolean(ticker.extremeValuation)}
       </td>
-      <td className="px-3 py-4 text-sm text-gray-500">
-        <div className="whitespace-normal break-words">
+      <td className="px-3 py-4 text-sm text-gray-500 max-w-64">
+        <div className="truncate" title={ticker.thesis}>
           {ticker.thesis}
         </div>
       </td>
       {onUpdate && (
         <td className="px-3 py-4 whitespace-nowrap text-sm">
           <button
-            onClick={() => {
-              console.log('🔥 EDIT BUTTON CLICKED for ticker:', ticker.ticker);
-              console.log('Setting isEditing to true...');
-              setIsEditing(true);
-            }}
-            className="text-blue-600 hover:text-blue-900 text-xs font-bold border border-blue-500 px-2 py-1 rounded"
+            onClick={() => setIsEditing(true)}
+            className="text-blue-600 hover:text-blue-900 text-xs"
           >
-            🔧 Edit {ticker.ticker}
+            Edit
           </button>
         </td>
       )}
     </tr>
-  );
-};
-
-// Helper function to calculate percentage change between price target and current price
-const calculatePercentChange = (priceTarget, currentPrice) => {
-  if (!priceTarget || !currentPrice || currentPrice === 0) return '';
-  const change = (parseFloat(priceTarget) / parseFloat(currentPrice) - 1) * 100;
-  return `${change >= 0 ? '+' : ''}${Math.round(change)}%`;
-};
-
-// PM Detail Page Component with quotes integration
-const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors }) => {
-  const [sortField, setSortField] = useState('');
-  const [sortDirection, setSortDirection] = useState('asc');
-  
-  const statusOrder = ['Current', 'On-Deck', 'Portfolio', 'New', 'Old'];
-  
-  const handleSort = (field) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
-    }
-  };
-
-  const sortData = (data, field) => {
-    if (!field) return data;
-    
-    return [...data].sort((a, b) => {
-      let aVal = a[field];
-      let bVal = b[field];
-      
-      if (field === 'currentPrice' || field === 'ptBear' || field === 'ptBase' || field === 'ptBull') {
-        aVal = parseFloat(aVal) || 0;
-        bVal = parseFloat(bVal) || 0;
-      } else if (typeof aVal === 'string') {
-        aVal = aVal.toLowerCase();
-        bVal = bVal.toLowerCase();
-      }
-      
-      if (sortDirection === 'asc') {
-        return aVal > bVal ? 1 : -1;
-      } else {
-        return aVal < bVal ? 1 : -1;
-      }
-    });
-  };
-
-  const SortableHeader = ({ field, children, style }) => (
-    <th 
-      className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-      onClick={() => handleSort(field)}
-      style={style || { 
-        width: field === 'ticker' ? '80px' : 
-               field === 'lsPosition' ? '50px' :
-               field === 'priority' ? '45px' :
-               field === 'analyst' ? '45px' :
-               field === 'currentPrice' ? '85px' :
-               field === 'ptBear' || field === 'ptBase' || field === 'ptBull' ? '70px' :
-               field === 'thesis' ? 'auto' : '50px' 
-      }}
-    >
-      <div className="flex items-center space-x-1">
-        <span>{children}</span>
-        {sortField === field && (
-          sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
-        )}
-      </div>
-    </th>
-  );
-
-  // Group tickers by status and create a flat array with status headers
-  const groupedData = [];
-  statusOrder.forEach(status => {
-    const statusTickers = tickers.filter(ticker => ticker.status === status);
-    if (statusTickers.length > 0) {
-      const sortedTickers = sortData(statusTickers, sortField);
-      // Add status header row
-      groupedData.push({ type: 'header', status, count: sortedTickers.length });
-      // Add ticker rows
-      sortedTickers.forEach(ticker => {
-        groupedData.push({ type: 'ticker', ticker, status });
-      });
-    }
-  });
-
-  // PDF Export Function for PM Detail
-  const exportToPDF = () => {
-    try {
-      console.log('Starting PM Detail PDF export...');
-      const doc = new jsPDF('landscape');
-      
-      // Add title
-      doc.setFontSize(18);
-      doc.text('Clearline Flow - PM Detail Output', 14, 22);
-      
-      // Add timestamp
-      doc.setFontSize(10);
-      doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
-      
-      // Prepare data for the PDF table
-      const tableData = [];
-      
-      statusOrder.forEach(status => {
-        const statusTickers = tickers.filter(ticker => ticker.status === status);
-        if (statusTickers.length > 0) {
-          const sortedTickers = sortData(statusTickers, sortField);
-          
-          // Add status header row
-          tableData.push([`${status} (${sortedTickers.length})`, '', '', '', '', '', '', '', '', '', '', '']);
-          
-          // Add ticker data rows
-          sortedTickers.forEach(ticker => {
-            const cleanSymbol = ticker.ticker.replace(' US', '');
-            const quote = quotes[cleanSymbol];
-            const currentPrice = quote ? quote.price : ticker.currentPrice;
-            
-            const row = [
-              ticker.ticker || '-',
-              ticker.lsPosition || '-',
-              ticker.priority || '-',
-              ticker.analyst || '-',
-              currentPrice ? `$${parseFloat(currentPrice).toFixed(2)}` : '-',
-              ticker.ptBear ? `$${parseFloat(ticker.ptBear).toFixed(2)}` : '-',
-              calculatePercentChange(ticker.ptBear, currentPrice) || '-',
-              ticker.ptBase ? `$${parseFloat(ticker.ptBase).toFixed(2)}` : '-',
-              calculatePercentChange(ticker.ptBase, currentPrice) || '-',
-              ticker.ptBull ? `$${parseFloat(ticker.ptBull).toFixed(2)}` : '-',
-              calculatePercentChange(ticker.ptBull, currentPrice) || '-',
-              ticker.thesis || '-'
-            ];
-            tableData.push(row);
-          });
-        }
-      });
-      
-      console.log('PM Detail table data:', tableData);
-      
-      // Create the PDF table
-      autoTable(doc, {
-        head: [['Ticker', 'L/S', 'Pri', 'Ana', 'Price', 'Bear', 'Bear %', 'Base', 'Base %', 'Bull', 'Bull %', 'Thesis']],
-        body: tableData,
-        startY: 40,
-        styles: {
-          fontSize: 6,
-          cellPadding: 2,
-        },
-        headStyles: {
-          fillColor: [75, 85, 99],
-          textColor: 255,
-          fontStyle: 'bold'
-        },
-        columnStyles: {
-          0: { cellWidth: 18 }, // Ticker
-          1: { cellWidth: 12 }, // L/S
-          2: { cellWidth: 12 }, // Priority
-          3: { cellWidth: 12 }, // Analyst
-          4: { cellWidth: 18 }, // Price
-          5: { cellWidth: 18 }, // PT Bear
-          6: { cellWidth: 15 }, // Bear %
-          7: { cellWidth: 18 }, // PT Base
-          8: { cellWidth: 15 }, // Base %
-          9: { cellWidth: 18 }, // PT Bull
-          10: { cellWidth: 15 }, // Bull %
-          11: { cellWidth: 65 }  // Thesis
-        },
-        didParseCell: function(data) {
-          // Highlight status header rows
-          if (data.cell.text[0] && (
-            data.cell.text[0].includes('Current (') || 
-            data.cell.text[0].includes('On-Deck (') || 
-            data.cell.text[0].includes('Portfolio (') ||
-            data.cell.text[0].includes('New (') ||
-            data.cell.text[0].includes('Old (')
-          )) {
-            data.cell.styles.fillColor = [229, 231, 235]; // Light gray background
-            data.cell.styles.fontStyle = 'bold';
-          }
-        }
-      });
-      
-      // Save the PDF
-      const fileName = `pm-detail-output-${new Date().toISOString().split('T')[0]}.pdf`;
-      console.log('Saving PM Detail PDF as:', fileName);
-      doc.save(fileName);
-      console.log('PM Detail PDF export completed successfully');
-    } catch (error) {
-      console.error('Error exporting PM Detail PDF:', error);
-      alert(`Error exporting PDF: ${error.message}`);
-    }
-  };
-
-  return (
-    <div className="bg-white shadow rounded-lg">
-      <div className="px-4 py-5 sm:p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg leading-6 font-medium text-gray-900">
-            PM Detail Output
-          </h3>
-          <button
-            onClick={exportToPDF}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-          >
-            <Download className="h-4 w-4" />
-            <span>Export to PDF</span>
-          </button>
-        </div>
-        
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed', width: '100%' }}>
-            <thead className="bg-gray-50">
-              <tr>
-                <SortableHeader field="ticker" style={{ width: '60px' }}>Ticker</SortableHeader>
-                <SortableHeader field="lsPosition" style={{ width: '40px' }}>L/S</SortableHeader>
-                <SortableHeader field="priority" style={{ width: '35px' }}>Pri</SortableHeader>
-                <SortableHeader field="analyst" style={{ width: '40px' }}>Ana</SortableHeader>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '75px' }}>Price</th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '60px' }}>Bear</th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '45px' }}>%</th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '60px' }}>Base</th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '45px' }}>%</th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '60px' }}>Bull</th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '45px' }}>%</th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thesis</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {groupedData.map((item, index) => {
-                if (item.type === 'header') {
-                  return (
-                    <tr key={`header-${item.status}`} className="bg-gray-100">
-                      <td colSpan="12" className="px-6 py-3 text-sm font-medium text-gray-900">
-                        {item.status} ({item.count})
-                      </td>
-                    </tr>
-                  );
-                } else {
-                  const { ticker } = item;
-                  const cleanSymbol = ticker.ticker.replace(' US', '');
-                  const quote = quotes[cleanSymbol];
-                  const currentPrice = quote ? quote.price : ticker.currentPrice;
-                  
-                  // Calculate percentage changes with color logic
-                  const bearPercent = calculatePercentChange(ticker.ptBear, currentPrice);
-                  const basePercent = calculatePercentChange(ticker.ptBase, currentPrice);
-                  const bullPercent = calculatePercentChange(ticker.ptBull, currentPrice);
-                  
-                  const getPercentColor = (percent) => {
-                    if (!percent || percent === '-') return 'text-gray-600';
-                    const isPositive = percent.startsWith('+');
-                    const isNegative = percent.startsWith('-');
-                    return isPositive ? 'text-green-600 font-medium' : 
-                           isNegative ? 'text-red-600 font-medium' : 'text-gray-600';
-                  };
-                  
-                  // Check if row should be highlighted (Long position with negative base % or Short position with positive base %)
-                  
-                  return (
-                    <tr key={ticker.id} className={((ticker.lsPosition === 'Long' && basePercent && basePercent.startsWith('-')) || (ticker.lsPosition === 'Short' && basePercent && basePercent.startsWith('+'))) ? 'bg-red-50' : ''}>
-                      <td className="px-2 py-2 whitespace-nowrap text-sm font-medium text-gray-900" style={{ width: '60px' }}>
-                        <div className="truncate" title={ticker.ticker}>
-                          {ticker.ticker}
-                        </div>
-                      </td>
-                      <td className="px-1 py-2 whitespace-nowrap text-center" style={{ width: '40px' }}>
-                        <span className={`inline-flex px-1 py-0.5 text-xs font-semibold rounded ${
-                          ticker.lsPosition === 'Long' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-red-100 text-red-800'
-                        }`}>
-                          {ticker.lsPosition === 'Long' ? 'L' : 'S'}
-                        </span>
-                      </td>
-                      <td className="px-1 py-2 whitespace-nowrap text-center" style={{ width: '35px' }}>
-                        <span className={`inline-flex w-6 h-6 items-center justify-center text-xs font-bold rounded-full ${
-                          ticker.priority === 'A' ? 'bg-red-100 text-red-800' :
-                          ticker.priority === 'B' ? 'bg-yellow-100 text-yellow-800' :
-                          ticker.priority === 'C' ? 'bg-blue-100 text-blue-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {ticker.priority}
-                        </span>
-                      </td>
-                      <td className="px-1 py-2 whitespace-nowrap text-xs text-gray-900 text-center" style={{ width: '40px' }}>
-                        <div className="truncate" title={ticker.analyst || '-'}>
-                          {ticker.analyst || '-'}
-                        </div>
-                      </td>
-                      <td className="px-2 py-2 whitespace-nowrap text-sm" style={{ width: '75px' }}>
-                        <QuoteDisplay 
-                          ticker={ticker.ticker}
-                          quote={quote}
-                          onUpdateQuote={onUpdateQuote}
-                          isLoading={isLoadingQuotes}
-                          hasError={quoteErrors[cleanSymbol]}
-                        />
-                      </td>
-                      <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-900" style={{ width: '60px' }}>
-                        {ticker.ptBear ? `$${parseFloat(ticker.ptBear).toFixed(2)}` : '-'}
-                      </td>
-                      <td className="px-1 py-2 whitespace-nowrap text-xs" style={{ width: '45px' }}>
-                        <span className={getPercentColor(bearPercent)}>
-                          {bearPercent || '-'}
-                        </span>
-                      </td>
-                      <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-900" style={{ width: '60px' }}>
-                        {ticker.ptBase ? `$${parseFloat(ticker.ptBase).toFixed(2)}` : '-'}
-                      </td>
-                      <td className="px-1 py-2 whitespace-nowrap text-xs" style={{ width: '45px' }}>
-                        <span className={getPercentColor(basePercent)}>
-                          {basePercent || '-'}
-                        </span>
-                      </td>
-                      <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-900" style={{ width: '60px' }}>
-                        {ticker.ptBull ? `$${parseFloat(ticker.ptBull).toFixed(2)}` : '-'}
-                      </td>
-                      <td className="px-1 py-2 whitespace-nowrap text-xs" style={{ width: '45px' }}>
-                        <span className={getPercentColor(bullPercent)}>
-                          {bullPercent || '-'}
-                        </span>
-                      </td>
-                      <td className="px-2 py-2 text-sm text-gray-900">
-                        <div className="break-words whitespace-normal" title={ticker.thesis}>
-                          {ticker.thesis}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                }
-              })}
-            </tbody>
-          </table>
-        </div>
-        
-        {groupedData.length === 0 && (
-          <div className="text-center py-8">
-            <p className="text-gray-500">No investment ideas found.</p>
-          </div>
-        )}
-      </div>
-    </div>
   );
 };
 
@@ -3383,7 +3022,7 @@ const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst
           const sortedTickers = sortData(statusTickers, sortField);
           
           // Add status header row
-          tableData.push([`${status} (${sortedTickers.length})`, '', '', '', '', '', '', '', '', '', '']);
+          tableData.push([`${status} (${sortedTickers.length})`, '', '', '', '', '', '', '', '', '', '', '']);
           
           // Add ticker data rows
           sortedTickers.forEach(ticker => {
@@ -3544,6 +3183,8 @@ const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst
                            isNegative ? 'text-red-600 font-medium' : 'text-gray-600';
                   };
                   
+                  // Check if row should be highlighted (Long position with negative base % or Short position with positive base %)
+                  
                   return (
                     <tr key={ticker.id} className={((ticker.lsPosition === 'Long' && basePercent && basePercent.startsWith('-')) || (ticker.lsPosition === 'Short' && basePercent && basePercent.startsWith('+'))) ? 'bg-red-50' : ''}>
                       <td className="px-2 py-2 whitespace-nowrap text-sm font-medium text-gray-900" style={{ width: '60px' }}>
@@ -3574,8 +3215,9 @@ const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst
                         <QuoteDisplay 
                           ticker={ticker.ticker}
                           quote={quote}
-                          isLoading={false}
-                          hasError={false}
+                          onUpdateQuote={onUpdateQuote}
+                          isLoading={isLoadingQuotes}
+                          hasError={quoteErrors[cleanSymbol]}
                         />
                       </td>
                       <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-900" style={{ width: '60px' }}>
