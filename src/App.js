@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Database, Users, TrendingUp, BarChart3, LogOut, ChevronUp, ChevronDown, RefreshCw, Download, CheckSquare } from 'lucide-react';
+import { Plus, Database, Users, TrendingUp, BarChart3, LogOut, ChevronUp, ChevronDown, RefreshCw, Download, CheckSquare, User } from 'lucide-react';
 import { DatabaseService } from './databaseService';
+import { AuthService } from './services/authService';
+import LoginScreen from './components/LoginScreen';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -251,10 +253,13 @@ const QuoteService = {
 const ClearlineFlow = () => {
   console.log('🚀 ClearlineFlow component loaded');
   
-  // Authentication state
+  // Authentication state - using Supabase Auth
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
   const [userRole, setUserRole] = useState(''); // 'readwrite' or 'readonly'
   const [activeTab, setActiveTab] = useState('input');
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authError, setAuthError] = useState('');
 
   // Data state
   const [tickers, setTickers] = useState([]);
@@ -284,6 +289,63 @@ const ClearlineFlow = () => {
   
   // Tab switching state
   const [isTabSwitching, setIsTabSwitching] = useState(false);
+
+  // Initialize authentication state and listen for auth changes
+  useEffect(() => {
+    const initializeAuth = async () => {
+      try {
+        // Check if user is already logged in
+        const session = await AuthService.getCurrentSession();
+        const user = await AuthService.getCurrentUser();
+        
+        if (session && user) {
+          console.log('✅ User already authenticated:', user);
+          setCurrentUser(user);
+          setUserRole(AuthService.getUserRole(user));
+          setIsAuthenticated(true);
+        } else {
+          console.log('🔓 No active session found');
+          setIsAuthenticated(false);
+        }
+      } catch (error) {
+        console.error('❌ Error initializing auth:', error);
+        setAuthError('Failed to initialize authentication');
+      } finally {
+        setAuthLoading(false);
+      }
+    };
+
+    initializeAuth();
+
+    // Listen for auth state changes
+    const { data: { subscription } } = AuthService.onAuthStateChange(async (event, session) => {
+      console.log('🔄 Auth state changed:', event, session);
+      
+      if (event === 'SIGNED_IN' && session) {
+        const user = session.user;
+        console.log('✅ User signed in:', user);
+        setCurrentUser(user);
+        setUserRole(AuthService.getUserRole(user));
+        setIsAuthenticated(true);
+        setAuthError('');
+      } else if (event === 'SIGNED_OUT') {
+        console.log('🚪 User signed out');
+        setCurrentUser(null);
+        setUserRole('');
+        setIsAuthenticated(false);
+        setActiveTab('input');
+        setAuthError('');
+      } else if (event === 'TOKEN_REFRESHED' && session) {
+        console.log('🔄 Token refreshed');
+        setCurrentUser(session.user);
+      }
+    });
+
+    // Cleanup subscription on unmount
+    return () => {
+      subscription?.unsubscribe();
+    };
+  }, []);
 
   // Load data from Supabase on component mount
   useEffect(() => {
@@ -360,12 +422,13 @@ const ClearlineFlow = () => {
     }
   }, [isAuthenticated]);
 
-  // Mock login
-  const handleLogin = (role) => {
-    console.log('🔑 handleLogin called with role:', role);
+  // Handle successful authentication
+  const handleAuthSuccess = (user, session) => {
+    console.log('🔑 Authentication successful:', user);
+    setCurrentUser(user);
+    setUserRole(AuthService.getUserRole(user));
     setIsAuthenticated(true);
-    setUserRole(role);
-    console.log('🔑 After setIsAuthenticated(true)');
+    setAuthError('');
     
     // Update all live quotes immediately after login
     setTimeout(() => {
@@ -373,12 +436,16 @@ const ClearlineFlow = () => {
     }, 1000);
   };
 
-  const handleLogout = () => {
-    console.log('🚪 handleLogout called');
-    setIsAuthenticated(false);
-    setUserRole('');
-    setActiveTab('input');
-    setIsTabSwitching(false); // Reset tab switching state
+  // Handle logout
+  const handleLogout = async () => {
+    console.log('🚪 Logging out...');
+    try {
+      await AuthService.signOut();
+      // State will be updated by the auth state change listener
+    } catch (error) {
+      console.error('❌ Error signing out:', error);
+      setAuthError('Failed to sign out');
+    }
   };
 
   // Refresh data from database
@@ -818,73 +885,68 @@ const ClearlineFlow = () => {
     }
   };
 
+  // Show loading while checking auth state
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col justify-center items-center">
+        <div className="flex justify-center mb-4">
+          <TrendingUp className="h-12 w-12 text-blue-600" />
+        </div>
+        <div className="text-lg font-medium text-gray-900 mb-2">Clearline Flow</div>
+        <div className="text-sm text-gray-600">Loading...</div>
+      </div>
+    );
+  }
+
+  // Show login screen if not authenticated
   if (!isAuthenticated) {
-    return <LoginScreen onLogin={handleLogin} />;
+    return (
+      <LoginScreen 
+        onAuthSuccess={handleAuthSuccess} 
+        authError={authError}
+        isLoading={authLoading}
+      />
+    );
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
+      <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-2">
-              <TrendingUp className="h-8 w-8 text-blue-600" />
+          <div className="flex justify-between items-center py-6">
+            <div className="flex items-center">
+              <TrendingUp className="h-8 w-8 text-blue-600 mr-3" />
               <h1 className="text-2xl font-bold text-gray-900">Clearline Flow</h1>
-            </div>
-            <div className="flex items-center space-x-4">
-              {/* Quote Update Controls */}
-              <div className="flex items-center space-x-2 text-sm text-gray-600">
-                {lastQuoteUpdate && (
-                  <span>Last updated: {lastQuoteUpdate.toLocaleTimeString()}</span>
-                )}
-                <button
-                  onClick={() => updateQuotes()}
-                  disabled={isLoadingQuotes}
-                  className={`flex items-center space-x-1 px-2 py-1 rounded text-sm ${
-                    isLoadingQuotes 
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-                      : 'bg-blue-100 text-blue-600 hover:bg-blue-200'
-                  }`}
-                >
-                  <RefreshCw className={`h-4 w-4 ${isLoadingQuotes ? 'animate-spin' : ''}`} />
-                  <span>Update Quotes</span>
-                </button>
-              </div>
-              {/* Data Refresh Controls */}
-              <div className="flex items-center space-x-2 text-sm text-gray-600">
-                {lastDataRefresh && (
-                  <span>Data refreshed: {lastDataRefresh.toLocaleTimeString()}</span>
-                )}
-                <button
-                  onClick={refreshData}
-                  disabled={isRefreshingData || isTabSwitching}
-                  className={`flex items-center space-x-1 px-2 py-1 rounded text-sm ${
-                    isRefreshingData || isTabSwitching
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-                      : 'bg-green-100 text-green-600 hover:bg-green-200'
-                  }`}
-                >
-                  <RefreshCw className={`h-4 w-4 ${isRefreshingData || isTabSwitching ? 'animate-spin' : ''}`} />
-                  <span>Refresh Data</span>
-                </button>
-              </div>
-              {/* Tab Switching Indicator */}
               {isTabSwitching && (
-                <div className="flex items-center space-x-2 text-sm text-blue-600">
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                  <span>Loading fresh data...</span>
+                <div className="ml-4 text-sm text-blue-600 animate-pulse">
+                  Refreshing data...
                 </div>
               )}
-              <span className="text-sm text-gray-600">
-                {userRole === 'readwrite' ? 'Read/Write Access' : 'Read Only'}
-              </span>
+            </div>
+            <div className="flex items-center space-x-4">
+              {/* User info */}
+              <div className="flex items-center space-x-2 text-sm">
+                <User className="h-4 w-4 text-gray-400" />
+                <span className="text-gray-600">
+                  {AuthService.getUserFullName(currentUser)}
+                </span>
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                  userRole === 'readwrite' || userRole === 'admin' 
+                    ? 'bg-green-100 text-green-800'
+                    : 'bg-gray-100 text-gray-800'
+                }`}>
+                  {userRole === 'readwrite' || userRole === 'admin' ? 'Read/Write' : 'Read Only'}
+                </span>
+              </div>
+              
+              {/* Logout Button */}
               <button
                 onClick={handleLogout}
-                className="flex items-center space-x-1 text-sm text-gray-600 hover:text-gray-900"
+                className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >
-                <LogOut className="h-4 w-4" />
-                <span>Logout</span>
+                <LogOut className="h-4 w-4 mr-2" />
+                Logout
               </button>
             </div>
           </div>
@@ -1022,8 +1084,18 @@ const ClearlineFlow = () => {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-        {activeTab === 'input' && userRole === 'readwrite' && (
+        {activeTab === 'input' && (userRole === 'readwrite' || userRole === 'admin') && (
           <InputPage onAddTicker={addTicker} analysts={analysts} />
+        )}
+        {activeTab === 'input' && userRole === 'readonly' && (
+          <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+            <div className="px-4 py-6 sm:px-0">
+              <div className="text-center">
+                <div className="text-gray-500 text-lg">Input functionality requires Read/Write access</div>
+                <div className="text-gray-400 text-sm mt-2">Contact your administrator for access</div>
+              </div>
+            </div>
+          </div>
         )}
         {activeTab === 'database' && (
           <DatabasePage 
@@ -1031,7 +1103,7 @@ const ClearlineFlow = () => {
             onSort={handleSort}
             sortField={sortField}
             sortDirection={sortDirection}
-            onUpdate={userRole === 'readwrite' ? updateTicker : null}
+            onUpdate={(userRole === 'readwrite' || userRole === 'admin') ? updateTicker : null}
             analysts={analysts}
             quotes={quotes}
             onUpdateQuote={updateSingleQuote}
@@ -1045,7 +1117,7 @@ const ClearlineFlow = () => {
             onSort={handleSort}
             sortField={sortField}
             sortDirection={sortDirection}
-            onUpdate={userRole === 'readwrite' ? updateTicker : null}
+            onUpdate={(userRole === 'readwrite' || userRole === 'admin') ? updateTicker : null}
             analysts={analysts}
             quotes={quotes}
             onUpdateQuote={updateSingleQuote}
@@ -1104,144 +1176,6 @@ const ClearlineFlow = () => {
     </div>
   );
 };
-
-// Login Screen Component
-const LoginScreen = ({ onLogin }) => {
-  const [showPasswordForm, setShowPasswordForm] = useState(false);
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-
-  // Secure password for read/write access (in production, this should be environment variable)
-  const READWRITE_PASSWORD = process.env.REACT_APP_READWRITE_PASSWORD || 'ClearlineFlow2024!';
-
-  const handleReadWriteLogin = async (e) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError('');
-
-    // Simulate a small delay for security
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    if (password === READWRITE_PASSWORD) {
-      onLogin('readwrite');
-    } else {
-      setError('Invalid password. Please try again.');
-      setPassword('');
-    }
-    setIsLoading(false);
-  };
-
-  const handleReadOnlyLogin = () => {
-    onLogin('readonly');
-  };
-
-  const resetForm = () => {
-    setShowPasswordForm(false);
-    setPassword('');
-    setError('');
-  };
-
-  return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="flex justify-center">
-          <TrendingUp className="h-12 w-12 text-blue-600" />
-        </div>
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-          Clearline Flow
-        </h2>
-        <p className="mt-2 text-center text-sm text-gray-600">
-          Hedge Fund Workflow Management
-        </p>
-      </div>
-
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-          {!showPasswordForm ? (
-            <div className="space-y-4">
-              <button
-                onClick={() => setShowPasswordForm(true)}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                Login with Read/Write Access
-              </button>
-              <button
-                onClick={handleReadOnlyLogin}
-                className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                Login with Read Only Access
-              </button>
-            </div>
-          ) : (
-            <form onSubmit={handleReadWriteLogin} className="space-y-6">
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                  Password for Read/Write Access
-                </label>
-                <div className="mt-1">
-                  <input
-                    id="password"
-                    name="password"
-                    type="password"
-                    autoComplete="current-password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    placeholder="Enter password"
-                    autoFocus
-                  />
-                </div>
-              </div>
-
-              {error && (
-                <div className="rounded-md bg-red-50 p-4">
-                  <div className="text-sm text-red-700">{error}</div>
-                </div>
-              )}
-
-              <div className="flex space-x-3">
-                <button
-                  type="submit"
-                  disabled={isLoading || !password}
-                  className={`flex-1 flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
-                    isLoading || !password
-                      ? 'bg-gray-400 cursor-not-allowed'
-                      : 'bg-blue-600 hover:bg-blue-700'
-                  } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
-                >
-                  {isLoading ? 'Verifying...' : 'Login'}
-                </button>
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="flex-1 flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  Cancel
-                </button>
-              </div>
-
-              <div className="text-center">
-                <button
-                  type="button"
-                  onClick={handleReadOnlyLogin}
-                  className="text-sm text-blue-600 hover:text-blue-500"
-                >
-                  Continue with Read Only Access instead
-                </button>
-              </div>
-            </form>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Enhanced Quote Display Component
-const QuoteDisplay = ({ ticker, quote, onUpdateQuote, isLoading, hasError }) => {
-  const cleanSymbol = ticker.replace(' US', '');
   
   if (!quote) {
     return (
