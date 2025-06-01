@@ -1177,35 +1177,6 @@ const ClearlineFlow = () => {
   );
 };
   
-  if (!quote) {
-    return (
-      <div className="text-sm text-gray-500">
-        ${ticker?.currentPrice || '-'}
-        {hasError && (
-          <div className="text-xs text-red-500">Quote error</div>
-        )}
-      </div>
-    );
-  }
-  
-  return (
-    <div className="text-sm">
-      <div className="font-medium text-gray-900 flex items-center">
-        ${quote.price.toFixed(2)}
-        {onUpdateQuote && (
-          <button
-            onClick={() => onUpdateQuote(cleanSymbol)}
-            disabled={isLoading}
-            className="ml-1 text-xs text-blue-600 hover:text-blue-800 disabled:text-gray-400"
-          >
-            <RefreshCw className={`h-3 w-3 inline ${isLoading ? 'animate-spin' : ''}`} />
-          </button>
-        )}
-      </div>
-    </div>
-  );
-};
-
 // Input Page Component
 const InputPage = ({ onAddTicker, analysts }) => {
   const [formData, setFormData] = useState({
@@ -4332,6 +4303,39 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, 
         </td>
       )}
     </tr>
+  );
+};
+
+// Enhanced Quote Display Component
+const QuoteDisplay = ({ ticker, quote, onUpdateQuote, isLoading, hasError }) => {
+  const cleanSymbol = ticker.replace(' US', '');
+  
+  if (!quote) {
+    return (
+      <div className="text-sm text-gray-500">
+        ${ticker?.currentPrice || '-'}
+        {hasError && (
+          <div className="text-xs text-red-500">Quote error</div>
+        )}
+      </div>
+    );
+  }
+  
+  return (
+    <div className="text-sm">
+      <div className="font-medium text-gray-900 flex items-center">
+        ${quote.price.toFixed(2)}
+        {onUpdateQuote && (
+          <button
+            onClick={() => onUpdateQuote(cleanSymbol)}
+            disabled={isLoading}
+            className="ml-1 text-xs text-blue-600 hover:text-blue-800 disabled:text-gray-400"
+          >
+            <RefreshCw className={`h-3 w-3 inline ${isLoading ? 'animate-spin' : ''}`} />
+          </button>
+        )}
+      </div>
+    </div>
   );
 };
 
