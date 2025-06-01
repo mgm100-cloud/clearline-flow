@@ -935,13 +935,17 @@ const ClearlineFlow = () => {
           try {
             console.log(`🔄 Fetching market data for ${cleanSymbol}...`);
             
-            const [companyOverview, volumeData] = await Promise.all([
+            const [companyOverview, volumeData, quoteData] = await Promise.all([
               QuoteService.getCompanyOverview(cleanSymbol).catch(error => {
                 console.warn(`Could not fetch company overview for ${cleanSymbol}:`, error.message);
                 return null;
               }),
               QuoteService.getDailyVolumeData(cleanSymbol).catch(error => {
                 console.warn(`Could not fetch volume data for ${cleanSymbol}:`, error.message);
+                return null;
+              }),
+              QuoteService.getQuote(cleanSymbol).catch(error => {
+                console.warn(`Could not fetch quote data for ${cleanSymbol}:`, error.message);
                 return null;
               })
             ]);
@@ -954,6 +958,10 @@ const ClearlineFlow = () => {
             
             if (volumeData?.averageDollarVolume) {
               updates.adv3Month = volumeData.averageDollarVolume;
+            }
+            
+            if (quoteData?.price) {
+              updates.currentPrice = quoteData.price;
             }
             
             if (Object.keys(updates).length > 0) {
