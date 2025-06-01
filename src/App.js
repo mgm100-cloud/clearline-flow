@@ -1341,6 +1341,8 @@ const ClearlineFlow = () => {
             onUpdateQuote={updateSingleQuote}
             isLoadingQuotes={isLoadingQuotes}
             quoteErrors={quoteErrors}
+            formatMarketCap={formatMarketCap}
+            formatVolumeDollars={formatVolumeDollars}
           />
         )}
         {activeTab === 'pm-detail' && (
@@ -2020,10 +2022,10 @@ const EnhancedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
           />
         </td>
         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
-          {formatMarketCap ? formatMarketCap(ticker.marketCap) : (ticker.marketCap || '-')}
+          {formatMarketCap ? formatMarketCap(ticker.marketCap) : (ticker.marketCap ? `${(ticker.marketCap / 1000000).toFixed(0)}M` : '-')}
         </td>
         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
-          {formatVolumeDollars ? formatVolumeDollars(ticker.adv3Month) : (ticker.adv3Month || '-')}
+          {formatVolumeDollars ? formatVolumeDollars(ticker.adv3Month) : (ticker.adv3Month ? `${(ticker.adv3Month / 1000000).toFixed(1)}M` : '-')}
         </td>
         <td className="px-6 py-4 whitespace-nowrap text-sm">
           <div className="flex space-x-2">
@@ -2099,10 +2101,10 @@ const EnhancedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
         />
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
-        {formatMarketCap ? formatMarketCap(ticker.marketCap) : (ticker.marketCap || '-')}
+        {formatMarketCap ? formatMarketCap(ticker.marketCap) : (ticker.marketCap ? `${(ticker.marketCap / 1000000).toFixed(0)}M` : '-')}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
-        {formatVolumeDollars ? formatVolumeDollars(ticker.adv3Month) : (ticker.adv3Month || '-')}
+        {formatVolumeDollars ? formatVolumeDollars(ticker.adv3Month) : (ticker.adv3Month ? `${(ticker.adv3Month / 1000000).toFixed(1)}M` : '-')}
       </td>
       {onUpdate && (
         <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -2119,7 +2121,7 @@ const EnhancedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
 };
 
 // Database Detailed Page Component - Shows all fields with quotes integration
-const DatabaseDetailedPage = ({ tickers, onSort, sortField, sortDirection, onUpdate, analysts, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors }) => {
+const DatabaseDetailedPage = ({ tickers, onSort, sortField, sortDirection, onUpdate, analysts, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors, formatMarketCap, formatVolumeDollars }) => {
   const SortableHeader = ({ field, children }) => (
     <th
       className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
@@ -2156,8 +2158,28 @@ const DatabaseDetailedPage = ({ tickers, onSort, sortField, sortDirection, onUpd
                 <SortableHeader field="source">Source</SortableHeader>
                 <SortableHeader field="inputPrice">Input Price</SortableHeader>
                 <SortableHeader field="currentPrice">Current Price</SortableHeader>
-                <SortableHeader field="marketCap">Market Cap</SortableHeader>
-                <SortableHeader field="adv3Month">ADV 3M</SortableHeader>
+                <th
+                  className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => onSort('marketCap')}
+                >
+                  <div className="flex items-center justify-end space-x-1">
+                    <span>Market Cap (M)</span>
+                    {sortField === 'marketCap' && (
+                      sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+                    )}
+                  </div>
+                </th>
+                <th
+                  className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => onSort('adv3Month')}
+                >
+                  <div className="flex items-center justify-end space-x-1">
+                    <span>ADV 3M ($M)</span>
+                    {sortField === 'adv3Month' && (
+                      sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+                    )}
+                  </div>
+                </th>
                 <SortableHeader field="ptBear">PT Bear</SortableHeader>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bear %</th>
                 <SortableHeader field="ptBase">PT Base</SortableHeader>
@@ -2201,6 +2223,8 @@ const DatabaseDetailedPage = ({ tickers, onSort, sortField, sortDirection, onUpd
                   onUpdateQuote={onUpdateQuote}
                   isLoadingQuotes={isLoadingQuotes}
                   quoteErrors={quoteErrors}
+                  formatMarketCap={formatMarketCap}
+                  formatVolumeDollars={formatVolumeDollars}
                 />
               ))}
             </tbody>
@@ -2218,7 +2242,7 @@ const DatabaseDetailedPage = ({ tickers, onSort, sortField, sortDirection, onUpd
 };
 
 // Detailed Ticker Row Component for inline editing in detailed view with quotes
-const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors }) => {
+const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors, formatMarketCap, formatVolumeDollars }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState(ticker);
 
