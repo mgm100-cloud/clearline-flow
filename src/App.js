@@ -2022,10 +2022,10 @@ const EnhancedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
           />
         </td>
         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
-          {formatMarketCap ? formatMarketCap(ticker.marketCap) : (ticker.marketCap ? `${(ticker.marketCap / 1000000).toFixed(0)}M` : '-')}
+          {formatMarketCap ? formatMarketCap(ticker.marketCap) : '-'}
         </td>
         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
-          {formatVolumeDollars ? formatVolumeDollars(ticker.adv3Month) : (ticker.adv3Month ? `${(ticker.adv3Month / 1000000).toFixed(1)}M` : '-')}
+          {formatVolumeDollars ? formatVolumeDollars(ticker.adv3Month) : '-'}
         </td>
         <td className="px-6 py-4 whitespace-nowrap text-sm">
           <div className="flex space-x-2">
@@ -2101,10 +2101,10 @@ const EnhancedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
         />
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
-        {formatMarketCap ? formatMarketCap(ticker.marketCap) : (ticker.marketCap ? `${(ticker.marketCap / 1000000).toFixed(0)}M` : '-')}
+        {formatMarketCap ? formatMarketCap(ticker.marketCap) : '-'}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
-        {formatVolumeDollars ? formatVolumeDollars(ticker.adv3Month) : (ticker.adv3Month ? `${(ticker.adv3Month / 1000000).toFixed(1)}M` : '-')}
+        {formatVolumeDollars ? formatVolumeDollars(ticker.adv3Month) : '-'}
       </td>
       {onUpdate && (
         <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -2365,11 +2365,11 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
             hasError={hasQuoteError}
           />
         </td>
-        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
-          {ticker.marketCap ? `${(ticker.marketCap / 1000000).toFixed(0)}M` : '-'}
+        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
+          {formatMarketCap ? formatMarketCap(ticker.marketCap) : '-'}
         </td>
-        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
-          {ticker.adv3Month ? `${(ticker.adv3Month / 1000000).toFixed(1)}M` : '-'}
+        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
+          {formatVolumeDollars ? formatVolumeDollars(ticker.adv3Month) : '-'}
         </td>
         <td className="px-3 py-4 whitespace-nowrap">
           <input
@@ -2701,11 +2701,11 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
           hasError={hasQuoteError}
         />
       </td>
-      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
-        {ticker.marketCap ? `${(ticker.marketCap / 1000000).toFixed(0)}M` : '-'}
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
+        {formatMarketCap ? formatMarketCap(ticker.marketCap) : '-'}
       </td>
-      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
-        {ticker.adv3Month ? `${(ticker.adv3Month / 1000000).toFixed(1)}M` : '-'}
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
+        {formatVolumeDollars ? formatVolumeDollars(ticker.adv3Month) : '-'}
       </td>
       <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
         {ticker.ptBear ? `${parseFloat(ticker.ptBear).toFixed(2)}` : '-'}
