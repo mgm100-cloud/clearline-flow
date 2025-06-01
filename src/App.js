@@ -2743,6 +2743,7 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
                 <SortableHeader field="ticker" style={{ width: '60px' }}>Ticker</SortableHeader>
                 <SortableHeader field="lsPosition" style={{ width: '40px' }}>L/S</SortableHeader>
                 <SortableHeader field="priority" style={{ width: '35px' }}>Pri</SortableHeader>
+                <SortableHeader field="analyst" style={{ width: '40px' }}>Ana</SortableHeader>
                 <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '75px' }}>Price</th>
                 <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '60px' }}>Bear</th>
                 <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '45px' }}>%</th>
