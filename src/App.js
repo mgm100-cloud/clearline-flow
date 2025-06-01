@@ -1875,8 +1875,28 @@ const DatabasePage = ({ tickers, onSort, sortField, sortDirection, onUpdate, ana
                 <SortableHeader field="status">Status</SortableHeader>
                 <SortableHeader field="analyst">Analyst</SortableHeader>
                 <SortableHeader field="currentPrice">Current Price</SortableHeader>
-                <SortableHeader field="marketCap">Market Cap (M)</SortableHeader>
-                <SortableHeader field="adv3Month">ADV 3M ($M)</SortableHeader>
+                <th
+                  className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => onSort('marketCap')}
+                >
+                  <div className="flex items-center justify-end space-x-1">
+                    <span>Market Cap (M)</span>
+                    {sortField === 'marketCap' && (
+                      sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+                    )}
+                  </div>
+                </th>
+                <th
+                  className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => onSort('adv3Month')}
+                >
+                  <div className="flex items-center justify-end space-x-1">
+                    <span>ADV 3M ($M)</span>
+                    {sortField === 'adv3Month' && (
+                      sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+                    )}
+                  </div>
+                </th>
                 {onUpdate && <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>}
               </tr>
             </thead>
@@ -1999,10 +2019,10 @@ const EnhancedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
             hasError={hasQuoteError}
           />
         </td>
-        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
           {formatMarketCap ? formatMarketCap(ticker.marketCap) : (ticker.marketCap || '-')}
         </td>
-        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
           {formatVolumeDollars ? formatVolumeDollars(ticker.adv3Month) : (ticker.adv3Month || '-')}
         </td>
         <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -2078,10 +2098,10 @@ const EnhancedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
           hasError={hasQuoteError}
         />
       </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
         {formatMarketCap ? formatMarketCap(ticker.marketCap) : (ticker.marketCap || '-')}
       </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
         {formatVolumeDollars ? formatVolumeDollars(ticker.adv3Month) : (ticker.adv3Month || '-')}
       </td>
       {onUpdate && (
