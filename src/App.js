@@ -10,6 +10,13 @@ import autoTable from 'jspdf-autotable';
 const ALPHA_VANTAGE_API_KEY = process.env.REACT_APP_ALPHA_VANTAGE_API_KEY || 'YOUR_API_KEY_HERE';
 const ALPHA_VANTAGE_BASE_URL = 'https://www.alphavantage.co/query';
 
+// Helper function to calculate percentage change between price targets and current price
+const calculatePercentChange = (priceTarget, currentPrice) => {
+  if (!priceTarget || !currentPrice || currentPrice === 0) return '';
+  const change = (parseFloat(priceTarget) / parseFloat(currentPrice) - 1) * 100;
+  return `${change >= 0 ? '+' : ''}${Math.round(change)}%`;
+};
+
 // Quote service for Alpha Vantage integration
 const QuoteService = {
   async getQuote(symbol) {
@@ -372,13 +379,6 @@ const ClearlineFlow = () => {
     if (!name) return '-';
     if (name.length <= maxLength) return name;
     return name.substring(0, maxLength) + '...';
-  };
-
-  // Helper function to calculate percentage change between price targets and current price
-  const calculatePercentChange = (priceTarget, currentPrice) => {
-    if (!priceTarget || !currentPrice || currentPrice === 0) return '';
-    const change = (parseFloat(priceTarget) / parseFloat(currentPrice) - 1) * 100;
-    return `${change >= 0 ? '+' : ''}${Math.round(change)}%`;
   };
 
   // Initialize authentication state and listen for auth changes
