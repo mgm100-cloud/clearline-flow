@@ -3197,7 +3197,7 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
                   const shouldHighlight = ticker.lsPosition === 'Long' && basePercent && basePercent.startsWith('-');
                   
                   return (
-                    <tr key={ticker.id} className={shouldHighlight ? 'bg-red-50' : ''}>
+                    <tr key={ticker.id} className={(ticker.lsPosition === 'Long' && basePercent && basePercent.startsWith('-')) ? 'bg-red-50' : ''}>
                       <td className="px-2 py-2 whitespace-nowrap text-sm font-medium text-gray-900" style={{ width: '60px' }}>
                         <div className="truncate" title={ticker.ticker}>
                           {ticker.ticker}
@@ -3546,7 +3546,7 @@ const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst
                   };
                   
                   return (
-                    <tr key={ticker.id}>
+                    <tr key={ticker.id} className={(ticker.lsPosition === 'Long' && basePercent && basePercent.startsWith('-')) ? 'bg-red-50' : ''}>
                       <td className="px-2 py-2 whitespace-nowrap text-sm font-medium text-gray-900" style={{ width: '60px' }}>
                         <div className="truncate" title={ticker.ticker}>
                           {ticker.ticker}
