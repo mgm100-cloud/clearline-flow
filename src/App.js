@@ -123,11 +123,14 @@ const QuoteService = {
         return {
           symbol: data['Symbol'],
           name: data['Name'] || `${symbol} Company Ltd`,
-          marketCap: parseInt(data['MarketCapitalization']) || Math.round(Math.random() * 50000000000),
+          marketCap: parseInt(data['MarketCapitalization']) || null,
           description: data['Description'],
           sector: data['Sector'],
           industry: data['Industry'],
-          exchange: data['Exchange']
+          exchange: data['Exchange'],
+          sharesOutstanding: parseInt(data['SharesOutstanding']) || null,
+          _50DayMovingAverage: parseFloat(data['50DayMovingAverage']) || null,
+          _200DayMovingAverage: parseFloat(data['200DayMovingAverage']) || null
         };
       } else if (data['Error Message']) {
         throw new Error(`Alpha Vantage Error: ${data['Error Message']}`);
@@ -138,7 +141,7 @@ const QuoteService = {
         return {
           symbol: symbol,
           name: `${symbol} Company Ltd`,
-          marketCap: Math.round(Math.random() * 50000000000)
+          marketCap: null
         };
       }
     } catch (error) {
@@ -147,8 +150,63 @@ const QuoteService = {
       return {
         symbol: symbol,
         name: `${symbol} Company Ltd`,
-        marketCap: Math.round(Math.random() * 50000000000)
+        marketCap: null
       };
+    }
+  },
+
+  async getDailyVolumeData(symbol) {
+    if (!ALPHA_VANTAGE_API_KEY || ALPHA_VANTAGE_API_KEY === 'YOUR_API_KEY_HERE') {
+      throw new Error('Alpha Vantage API key not configured');
+    }
+
+    try {
+      const url = `${ALPHA_VANTAGE_BASE_URL}?function=TIME_SERIES_DAILY&symbol=${symbol}&outputsize=compact&apikey=${ALPHA_VANTAGE_API_KEY}`;
+      console.log(`Fetching daily volume data for ${symbol} from:`, url);
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      console.log(`Alpha Vantage daily data response for ${symbol}:`, data);
+      
+      if (data['Time Series (Daily)']) {
+        const timeSeries = data['Time Series (Daily)'];
+        const dates = Object.keys(timeSeries).slice(0, 90); // Get last 90 days (~3 months)
+        
+        let totalVolume = 0;
+        let totalValue = 0;
+        let validDays = 0;
+        
+        dates.forEach(date => {
+          const dayData = timeSeries[date];
+          const volume = parseInt(dayData['5. volume']);
+          const close = parseFloat(dayData['4. close']);
+          
+          if (volume && close && volume > 0) {
+            totalVolume += volume;
+            totalValue += (volume * close);
+            validDays++;
+          }
+        });
+        
+        if (validDays > 0) {
+          const avgVolume = totalVolume / validDays;
+          const avgDollarVolume = totalValue / validDays;
+          
+          return {
+            symbol: symbol,
+            averageVolume: Math.round(avgVolume),
+            averageDollarVolume: Math.round(avgDollarVolume),
+            daysCalculated: validDays
+          };
+        }
+      }
+      
+      return null;
+      
+    } catch (error) {
+      console.error(`Error fetching volume data for ${symbol}:`, error);
+      return null;
     }
   },
 
@@ -286,9 +344,33 @@ const ClearlineFlow = () => {
   // Data refresh state
   const [isRefreshingData, setIsRefreshingData] = useState(false);
   const [lastDataRefresh, setLastDataRefresh] = useState(null);
+  const [isRefreshingMarketData, setIsRefreshingMarketData] = useState(false);
   
   // Tab switching state
   const [isTabSwitching, setIsTabSwitching] = useState(false);
+
+  // Utility functions for formatting market data
+  const formatMarketCap = (marketCapValue) => {
+    if (!marketCapValue || marketCapValue === 0) return '-';
+    
+    // Convert to millions with 1 decimal place and add commas
+    const millions = marketCapValue / 1000000;
+    return millions.toLocaleString('en-US', {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1
+    });
+  };
+
+  const formatVolumeDollars = (volumeValue) => {
+    if (!volumeValue || volumeValue === 0) return '-';
+    
+    // Convert to millions with 1 decimal place and add commas
+    const millions = volumeValue / 1000000;
+    return millions.toLocaleString('en-US', {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1
+    });
+  };
 
   // Initialize authentication state and listen for auth changes
   useEffect(() => {
@@ -633,14 +715,18 @@ const ClearlineFlow = () => {
     try {
       console.log(`🏢 Fetching company data for ${cleanSymbol}...`);
       
-      // Get both quote and company overview data
-      const [quote, companyOverview] = await Promise.all([
+      // Get quote, company overview, and volume data
+      const [quote, companyOverview, volumeData] = await Promise.all([
         QuoteService.getQuote(cleanSymbol).catch(error => {
           console.warn(`Could not fetch quote for ${cleanSymbol}:`, error.message);
           return null;
         }),
         QuoteService.getCompanyOverview(cleanSymbol).catch(error => {
           console.warn(`Could not fetch company overview for ${cleanSymbol}:`, error.message);
+          return null;
+        }),
+        QuoteService.getDailyVolumeData(cleanSymbol).catch(error => {
+          console.warn(`Could not fetch volume data for ${cleanSymbol}:`, error.message);
           return null;
         })
       ]);
@@ -650,27 +736,27 @@ const ClearlineFlow = () => {
         setQuotes(prev => ({ ...prev, [cleanSymbol]: quote }));
       }
       
-      // Use real data when available, fallback to mock data
+      // Use real data when available, fallback to null
       const stockData = {
         name: companyOverview?.name || `${ticker} Company Ltd`,
         price: quote?.price || Math.round((Math.random() * 200 + 50) * 100) / 100,
-        adv3Month: Math.round(Math.random() * 10000000), // This would need a different API
-        marketCap: companyOverview?.marketCap || Math.round(Math.random() * 50000000000)
+        marketCap: companyOverview?.marketCap || null,
+        adv3Month: volumeData?.averageDollarVolume || null
       };
       
       console.log(`✅ Successfully fetched data for ${cleanSymbol}:`, stockData);
       return stockData;
       
     } catch (error) {
-      // Fallback to mock data if both APIs fail
+      // Fallback to mock data if APIs fail
       console.warn(`Could not fetch real data for ${ticker}, using mock data:`, error.message);
       setQuoteErrors(prev => ({ ...prev, [cleanSymbol]: error.message }));
       
       return {
         name: `${ticker} Company Ltd`,
         price: Math.round((Math.random() * 200 + 50) * 100) / 100,
-        adv3Month: Math.round(Math.random() * 10000000),
-        marketCap: Math.round(Math.random() * 50000000000)
+        marketCap: null,
+        adv3Month: null
       };
     }
   };
@@ -823,6 +909,79 @@ const ClearlineFlow = () => {
     } catch (error) {
       console.error('Error refreshing earnings dates:', error);
       throw error;
+    }
+  };
+
+  // Refresh market cap and average daily volume for all tickers
+  const refreshMarketData = async () => {
+    if (tickers.length === 0) return { success: 0, errors: {} };
+
+    setIsRefreshingMarketData(true);
+    
+    try {
+      console.log(`🔄 Refreshing market data for ${tickers.length} tickers...`);
+      
+      let successCount = 0;
+      const errors = {};
+      
+      // Process tickers in batches to avoid overwhelming the API
+      const batchSize = 5;
+      for (let i = 0; i < tickers.length; i += batchSize) {
+        const batch = tickers.slice(i, i + batchSize);
+        
+        await Promise.all(batch.map(async (ticker) => {
+          const cleanSymbol = ticker.ticker.replace(' US', '');
+          
+          try {
+            console.log(`🔄 Fetching market data for ${cleanSymbol}...`);
+            
+            const [companyOverview, volumeData] = await Promise.all([
+              QuoteService.getCompanyOverview(cleanSymbol).catch(error => {
+                console.warn(`Could not fetch company overview for ${cleanSymbol}:`, error.message);
+                return null;
+              }),
+              QuoteService.getDailyVolumeData(cleanSymbol).catch(error => {
+                console.warn(`Could not fetch volume data for ${cleanSymbol}:`, error.message);
+                return null;
+              })
+            ]);
+            
+            const updates = {};
+            
+            if (companyOverview?.marketCap) {
+              updates.marketCap = companyOverview.marketCap;
+            }
+            
+            if (volumeData?.averageDollarVolume) {
+              updates.adv3Month = volumeData.averageDollarVolume;
+            }
+            
+            if (Object.keys(updates).length > 0) {
+              await updateTicker(ticker.id, updates);
+              successCount++;
+              console.log(`✅ Updated market data for ${ticker.ticker}:`, updates);
+            }
+            
+          } catch (error) {
+            console.error(`Error refreshing market data for ${ticker.ticker}:`, error);
+            errors[ticker.ticker] = error.message;
+          }
+        }));
+        
+        // Add a small delay between batches to be respectful to the API
+        if (i + batchSize < tickers.length) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+      
+      console.log(`🎉 Successfully updated market data for ${successCount} tickers`);
+      return { success: successCount, errors };
+      
+    } catch (error) {
+      console.error('Error refreshing market data:', error);
+      throw error;
+    } finally {
+      setIsRefreshingMarketData(false);
     }
   };
 
@@ -1164,6 +1323,10 @@ const ClearlineFlow = () => {
             onUpdateQuote={updateSingleQuote}
             isLoadingQuotes={isLoadingQuotes}
             quoteErrors={quoteErrors}
+            onRefreshMarketData={refreshMarketData}
+            isRefreshingMarketData={isRefreshingMarketData}
+            formatMarketCap={formatMarketCap}
+            formatVolumeDollars={formatVolumeDollars}
           />
         )}
         {activeTab === 'database-detailed' && (
@@ -1652,7 +1815,7 @@ const InputPage = ({ onAddTicker, analysts, currentUser }) => {
 };
 
 // Enhanced Database Page Component with quotes
-const DatabasePage = ({ tickers, onSort, sortField, sortDirection, onUpdate, analysts, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors }) => {
+const DatabasePage = ({ tickers, onSort, sortField, sortDirection, onUpdate, analysts, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors, onRefreshMarketData, isRefreshingMarketData, formatMarketCap, formatVolumeDollars }) => {
   const SortableHeader = ({ field, children }) => (
     <th
       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
@@ -1670,9 +1833,35 @@ const DatabasePage = ({ tickers, onSort, sortField, sortDirection, onUpdate, ana
   return (
     <div className="bg-white shadow rounded-lg">
       <div className="px-4 py-5 sm:p-6">
-        <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
-          Investment Idea Database ({tickers.length} ideas)
-        </h3>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg leading-6 font-medium text-gray-900">
+            Investment Idea Database ({tickers.length} ideas)
+          </h3>
+          
+          {onRefreshMarketData && (
+            <button
+              onClick={onRefreshMarketData}
+              disabled={isRefreshingMarketData}
+              className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${
+                isRefreshingMarketData 
+                  ? 'bg-gray-400 cursor-not-allowed' 
+                  : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
+              }`}
+            >
+              {isRefreshingMarketData ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-3 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Refreshing...
+                </>
+              ) : (
+                'Refresh Market Data'
+              )}
+            </button>
+          )}
+        </div>
         
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
@@ -1686,6 +1875,8 @@ const DatabasePage = ({ tickers, onSort, sortField, sortDirection, onUpdate, ana
                 <SortableHeader field="status">Status</SortableHeader>
                 <SortableHeader field="analyst">Analyst</SortableHeader>
                 <SortableHeader field="currentPrice">Current Price</SortableHeader>
+                <SortableHeader field="marketCap">Market Cap (M)</SortableHeader>
+                <SortableHeader field="adv3Month">ADV 3M ($M)</SortableHeader>
                 {onUpdate && <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>}
               </tr>
             </thead>
@@ -1700,6 +1891,8 @@ const DatabasePage = ({ tickers, onSort, sortField, sortDirection, onUpdate, ana
                   onUpdateQuote={onUpdateQuote}
                   isLoadingQuotes={isLoadingQuotes}
                   quoteErrors={quoteErrors}
+                  formatMarketCap={formatMarketCap}
+                  formatVolumeDollars={formatVolumeDollars}
                 />
               ))}
             </tbody>
@@ -1717,7 +1910,7 @@ const DatabasePage = ({ tickers, onSort, sortField, sortDirection, onUpdate, ana
 };
 
 // Enhanced Ticker Row Component with quote integration
-const EnhancedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors }) => {
+const EnhancedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors, formatMarketCap, formatVolumeDollars }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState(ticker);
 
@@ -1806,6 +1999,12 @@ const EnhancedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
             hasError={hasQuoteError}
           />
         </td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+          {formatMarketCap ? formatMarketCap(ticker.marketCap) : (ticker.marketCap || '-')}
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+          {formatVolumeDollars ? formatVolumeDollars(ticker.adv3Month) : (ticker.adv3Month || '-')}
+        </td>
         <td className="px-6 py-4 whitespace-nowrap text-sm">
           <div className="flex space-x-2">
             <button
@@ -1858,17 +2057,17 @@ const EnhancedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-          ticker.status === 'Current' ? 'bg-green-100 text-green-800' :
-          ticker.status === 'Portfolio' ? 'bg-blue-100 text-blue-800' :
-          ticker.status === 'On-Deck' ? 'bg-yellow-100 text-yellow-800' :
+          ticker.status === 'Portfolio' ? 'bg-green-100 text-green-800' :
+          ticker.status === 'Current' ? 'bg-blue-100 text-blue-800' :
           ticker.status === 'New' ? 'bg-purple-100 text-purple-800' :
+          ticker.status === 'On-Deck' ? 'bg-yellow-100 text-yellow-800' :
           'bg-gray-100 text-gray-800'
         }`}>
           {ticker.status}
         </span>
       </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-        {ticker.analyst || '-'}
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        {ticker.analyst}
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
         <QuoteDisplay 
@@ -1879,17 +2078,19 @@ const EnhancedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
           hasError={hasQuoteError}
         />
       </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        {formatMarketCap ? formatMarketCap(ticker.marketCap) : (ticker.marketCap || '-')}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        {formatVolumeDollars ? formatVolumeDollars(ticker.adv3Month) : (ticker.adv3Month || '-')}
+      </td>
       {onUpdate && (
         <td className="px-6 py-4 whitespace-nowrap text-sm">
           <button
-            onClick={() => {
-              console.log('🔥 EDIT BUTTON CLICKED for ticker:', ticker.ticker);
-              console.log('Setting isEditing to true...');
-              setIsEditing(true);
-            }}
-            className="text-blue-600 hover:text-blue-900 text-xs font-bold border border-blue-500 px-2 py-1 rounded"
+            onClick={() => setIsEditing(true)}
+            className="text-indigo-600 hover:text-indigo-900"
           >
-            🔧 Edit {ticker.ticker}
+            Edit
           </button>
         </td>
       )}
