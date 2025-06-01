@@ -301,11 +301,25 @@ const ClearlineFlow = () => {
         if (session && user) {
           console.log('✅ User already authenticated:', user);
           const role = AuthService.getUserRole(user);
+          const analystCode = AuthService.getUserAnalystCode(user);
           console.log('👤 User role determined:', role);
+          console.log('👤 User analyst code:', analystCode);
           console.log('📋 User metadata:', user?.user_metadata);
           setCurrentUser(user);
           setUserRole(role);
           setIsAuthenticated(true);
+          
+          // Set default analyst selections based on user's analyst_code
+          if (analystCode && analysts.includes(analystCode)) {
+            setSelectedAnalyst(analystCode);
+            setSelectedTodoAnalyst(analystCode);
+            // For earnings tracking, set to 'All Analysts' if user is MM, otherwise use their analyst code
+            if (analystCode === 'MM') {
+              setSelectedEarningsAnalyst('All Analysts');
+            } else {
+              setSelectedEarningsAnalyst(analystCode);
+            }
+          }
         } else {
           console.log('🔓 No active session found');
           setIsAuthenticated(false);
@@ -328,12 +342,26 @@ const ClearlineFlow = () => {
         const user = session.user;
         console.log('✅ User signed in:', user);
         const role = AuthService.getUserRole(user);
+        const analystCode = AuthService.getUserAnalystCode(user);
         console.log('👤 User role determined:', role);
+        console.log('👤 User analyst code:', analystCode);
         console.log('📋 User metadata:', user?.user_metadata);
         setCurrentUser(user);
         setUserRole(role);
         setIsAuthenticated(true);
         setAuthError('');
+        
+        // Set default analyst selections based on user's analyst_code
+        if (analystCode && analysts.includes(analystCode)) {
+          setSelectedAnalyst(analystCode);
+          setSelectedTodoAnalyst(analystCode);
+          // For earnings tracking, set to 'All Analysts' if user is MM, otherwise use their analyst code
+          if (analystCode === 'MM') {
+            setSelectedEarningsAnalyst('All Analysts');
+          } else {
+            setSelectedEarningsAnalyst(analystCode);
+          }
+        }
       } else if (event === 'SIGNED_OUT') {
         console.log('🚪 User signed out');
         setCurrentUser(null);
@@ -341,6 +369,10 @@ const ClearlineFlow = () => {
         setIsAuthenticated(false);
         setActiveTab('input');
         setAuthError('');
+        // Reset to default values
+        setSelectedAnalyst('LT');
+        setSelectedTodoAnalyst('');
+        setSelectedEarningsAnalyst('');
       } else if (event === 'TOKEN_REFRESHED' && session) {
         console.log('🔄 Token refreshed');
         setCurrentUser(session.user);
@@ -432,12 +464,26 @@ const ClearlineFlow = () => {
   const handleAuthSuccess = (user, session) => {
     console.log('🔑 Authentication successful:', user);
     const role = AuthService.getUserRole(user);
+    const analystCode = AuthService.getUserAnalystCode(user);
     console.log('👤 User role determined:', role);
+    console.log('👤 User analyst code:', analystCode);
     console.log('📋 User metadata:', user?.user_metadata);
     setCurrentUser(user);
     setUserRole(role);
     setIsAuthenticated(true);
     setAuthError('');
+    
+    // Set default analyst selections based on user's analyst_code
+    if (analystCode && analysts.includes(analystCode)) {
+      setSelectedAnalyst(analystCode);
+      setSelectedTodoAnalyst(analystCode);
+      // For earnings tracking, set to 'All Analysts' if user is MM, otherwise use their analyst code
+      if (analystCode === 'MM') {
+        setSelectedEarningsAnalyst('All Analysts');
+      } else {
+        setSelectedEarningsAnalyst(analystCode);
+      }
+    }
     
     // Update all live quotes immediately after login
     setTimeout(() => {
@@ -1094,7 +1140,7 @@ const ClearlineFlow = () => {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         {activeTab === 'input' && (userRole === 'readwrite' || userRole === 'admin') && (
-          <InputPage onAddTicker={addTicker} analysts={analysts} />
+          <InputPage onAddTicker={addTicker} analysts={analysts} currentUser={currentUser} />
         )}
         {activeTab === 'input' && userRole === 'readonly' && (
           <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
@@ -1187,7 +1233,7 @@ const ClearlineFlow = () => {
 };
   
 // Input Page Component
-const InputPage = ({ onAddTicker, analysts }) => {
+const InputPage = ({ onAddTicker, analysts, currentUser }) => {
   const [formData, setFormData] = useState({
     ticker: '',
     lsPosition: 'Long',
@@ -1227,6 +1273,19 @@ const InputPage = ({ onAddTicker, analysts }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState('');
 
+  // Set analyst field based on current user's analyst_code
+  useEffect(() => {
+    if (currentUser) {
+      const analystCode = AuthService.getUserAnalystCode(currentUser);
+      if (analystCode && analysts.includes(analystCode)) {
+        setFormData(prev => ({
+          ...prev,
+          analyst: analystCode
+        }));
+      }
+    }
+  }, [currentUser, analysts]);
+
   // Helper function to format price targets to 2 decimal places
   const formatPriceTarget = (value) => {
     if (!value || value === '') return '';
@@ -1251,14 +1310,18 @@ const InputPage = ({ onAddTicker, analysts }) => {
       await onAddTicker(formData);
       setSubmitMessage('Investment idea added successfully!');
       
-      // Reset form
+      // Get the current user's analyst code to preserve it after reset
+      const currentAnalyst = currentUser ? AuthService.getUserAnalystCode(currentUser) : '';
+      const preserveAnalyst = currentAnalyst && analysts.includes(currentAnalyst) ? currentAnalyst : '';
+      
+      // Reset form but preserve analyst selection
       const resetData = {
         ticker: '',
         lsPosition: 'Long',
         thesis: '',
         priority: 'A',
         status: 'New',
-        analyst: '',
+        analyst: preserveAnalyst,
         source: '',
         ptBear: '',
         ptBase: '',

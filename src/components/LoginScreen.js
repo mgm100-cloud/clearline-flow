@@ -120,20 +120,23 @@ const LoginScreen = ({ onAuthSuccess, authError, isLoading }) => {
   const handlePasswordReset = async (e) => {
     e.preventDefault();
     if (!formData.email) {
-      setError('Email is required');
+      setError('Please enter your email address');
       return;
     }
 
     setIsSubmitting(true);
     setError('');
+    setSuccess('');
 
     try {
-      await AuthService.resetPassword(formData.email);
+      const { error } = await AuthService.resetPassword(formData.email);
+      if (error) throw error;
+      
       setSuccess('Password reset email sent! Check your inbox.');
-      setMode('signin');
+      console.log('Password reset email sent successfully to:', formData.email);
     } catch (error) {
-      console.error('❌ Password reset error:', error);
-      setError(error.message || 'Failed to send reset email. Please try again.');
+      console.error('Password reset error:', error);
+      setError(error.message || 'Failed to send reset email');
     } finally {
       setIsSubmitting(false);
     }
