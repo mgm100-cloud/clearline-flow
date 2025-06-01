@@ -2248,7 +2248,17 @@ const DatabaseDetailedPage = ({ tickers, onSort, sortField, sortDirection, onUpd
                 <SortableHeader field="status">Status</SortableHeader>
                 <SortableHeader field="analyst">Analyst</SortableHeader>
                 <SortableHeader field="source">Source</SortableHeader>
-                <SortableHeader field="inputPrice">Input Price</SortableHeader>
+                <th
+                  className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  onClick={() => onSort('inputPrice')}
+                >
+                  <div className="flex items-center justify-end space-x-1">
+                    <span>Input Price</span>
+                    {sortField === 'inputPrice' && (
+                      sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+                    )}
+                  </div>
+                </th>
                 <SortableHeader field="currentPrice">Current Price</SortableHeader>
                 <th
                   className="px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
@@ -2445,8 +2455,13 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
             className="text-xs border border-gray-300 rounded px-1 py-1 w-20"
           />
         </td>
-        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+        <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
           ${ticker.inputPrice || '-'}
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap">
+          <QuoteDisplay 
+            ticker={ticker.ticker}
+          {ticker.inputPrice ? `$${parseFloat(ticker.inputPrice).toFixed(2)}` : '-'}
         </td>
         <td className="px-3 py-4 whitespace-nowrap">
           <QuoteDisplay 
