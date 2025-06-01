@@ -319,6 +319,15 @@ const ClearlineFlow = () => {
           setTodos([]);
         }
         
+        // Load quotes for all tickers after data is loaded
+        if (tickersData && tickersData.length > 0) {
+          console.log('📈 Loading quotes for initial data...');
+          setTimeout(() => {
+            const symbols = tickersData.map(ticker => ticker.ticker.replace(' US', ''));
+            updateQuotes(symbols);
+          }, 1000);
+        }
+        
       } catch (error) {
         console.error('❌ Error loading data from database:', error);
         // Fallback to localStorage if database fails
@@ -329,7 +338,18 @@ const ClearlineFlow = () => {
         console.log('💾 localStorage tickers:', savedTickers);
         console.log('💾 localStorage earnings:', savedEarnings);
         
-        if (savedTickers) setTickers(JSON.parse(savedTickers));
+        if (savedTickers) {
+          const localTickers = JSON.parse(savedTickers);
+          setTickers(localTickers);
+          
+          // Load quotes for localStorage tickers too
+          if (localTickers && localTickers.length > 0) {
+            setTimeout(() => {
+              const symbols = localTickers.map(ticker => ticker.ticker.replace(' US', ''));
+              updateQuotes(symbols);
+            }, 1000);
+          }
+        }
         if (savedEarnings) setEarningsData(JSON.parse(savedEarnings));
       }
     };
@@ -774,22 +794,25 @@ const ClearlineFlow = () => {
 
   // Handle tab switching with automatic data refresh
   const handleTabSwitch = async (newTab) => {
-    console.log(`🔄 Switching to tab: ${newTab} - Auto-refreshing data...`);
+    console.log(`🔄 Switching to tab: ${newTab} - Auto-refreshing data and quotes...`);
     
     // Only refresh if switching to a different tab
     if (newTab !== activeTab) {
       setIsTabSwitching(true);
       
       try {
-        // Refresh data before switching tabs
-        await refreshData();
+        // Refresh data and quotes before switching tabs
+        await Promise.all([
+          refreshData(),
+          updateQuotes()
+        ]);
         
         // Set the new active tab
         setActiveTab(newTab);
         
-        console.log(`✅ Tab switched to: ${newTab} with fresh data`);
+        console.log(`✅ Tab switched to: ${newTab} with fresh data and quotes`);
       } catch (error) {
-        console.error('❌ Error refreshing data during tab switch:', error);
+        console.error('❌ Error refreshing data/quotes during tab switch:', error);
         // Still switch tabs even if refresh fails
         setActiveTab(newTab);
       } finally {
