@@ -2872,226 +2872,345 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
 
 // Analyst Detail Page Component with quotes integration
 const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst, quotes }) => {
- const statusOrder = ['Current', 'On-Deck', 'Portfolio', 'New', 'Old'];
- 
- const analystTickers = tickers.filter(ticker => ticker.analyst === selectedAnalyst);
- const groupedTickers = statusOrder.reduce((acc, status) => {
-   acc[status] = analystTickers.filter(ticker => ticker.status === status);
-   return acc;
- }, {});
+  const [sortField, setSortField] = useState('');
+  const [sortDirection, setSortDirection] = useState('asc');
+  
+  const statusOrder = ['Current', 'On-Deck', 'Portfolio', 'New', 'Old'];
+  
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
 
- // PDF Export Function for Analyst Detail
- const exportToPDF = () => {
-   try {
-     console.log('Starting Analyst Detail PDF export...');
-     const doc = new jsPDF('landscape');
-     
-     // Add title
-     doc.setFontSize(18);
-     doc.text(`Clearline Flow - Analyst Detail: ${selectedAnalyst}`, 14, 22);
-     
-     // Add timestamp
-     doc.setFontSize(10);
-     doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
-     
-     // Prepare data for the PDF table
-     const tableData = [];
-     
-     statusOrder.forEach(status => {
-       const statusTickers = groupedTickers[status];
-       if (statusTickers.length > 0) {
-         // Add status header row
-         tableData.push([`${status} (${statusTickers.length})`, '', '', '', '', '']);
-         
-         // Add ticker data rows
-         statusTickers.forEach(ticker => {
-           const cleanSymbol = ticker.ticker.replace(' US', '');
-           const quote = quotes[cleanSymbol];
-           const currentPrice = quote ? quote.price : ticker.currentPrice;
-           
-           const row = [
-             ticker.ticker || '-',
-             ticker.name || '-',
-             ticker.lsPosition || '-',
-             ticker.priority || '-',
-             currentPrice ? `$${parseFloat(currentPrice).toFixed(2)}` : '-',
-             ticker.thesis || '-'
-           ];
-           tableData.push(row);
-         });
-       }
-     });
-     
-     console.log('Analyst Detail table data:', tableData);
-     
-     // Create the PDF table
-     autoTable(doc, {
-       head: [['Ticker', 'Name', 'L/S', 'Priority', 'Current Price', 'Thesis']],
-       body: tableData,
-       startY: 40,
-       styles: {
-         fontSize: 8,
-         cellPadding: 3,
-       },
-       headStyles: {
-         fillColor: [75, 85, 99],
-         textColor: 255,
-         fontStyle: 'bold'
-       },
-       columnStyles: {
-         0: { cellWidth: 25 }, // Ticker
-         1: { cellWidth: 50 }, // Name
-         2: { cellWidth: 20 }, // L/S
-         3: { cellWidth: 20 }, // Priority
-         4: { cellWidth: 25 }, // Current Price
-         5: { cellWidth: 115 } // Thesis
-       },
-       didParseCell: function(data) {
-         // Highlight status header rows
-         if (data.cell.text[0] && (
-           data.cell.text[0].includes('Current (') || 
-           data.cell.text[0].includes('On-Deck (') || 
-           data.cell.text[0].includes('Portfolio (') ||
-           data.cell.text[0].includes('New (') ||
-           data.cell.text[0].includes('Old (')
-         )) {
-           data.cell.styles.fillColor = [229, 231, 235]; // Light gray background
-           data.cell.styles.fontStyle = 'bold';
-         }
-       }
-     });
-     
-     // Save the PDF
-     const fileName = `analyst-detail-${selectedAnalyst.replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.pdf`;
-     console.log('Saving Analyst Detail PDF as:', fileName);
-     doc.save(fileName);
-     console.log('Analyst Detail PDF export completed successfully');
-   } catch (error) {
-     console.error('Error exporting Analyst Detail PDF:', error);
-     alert(`Error exporting PDF: ${error.message}`);
-   }
- };
+  const sortData = (data, field) => {
+    if (!field) return data;
+    
+    return [...data].sort((a, b) => {
+      let aVal = a[field];
+      let bVal = b[field];
+      
+      if (field === 'currentPrice' || field === 'ptBear' || field === 'ptBase' || field === 'ptBull') {
+        aVal = parseFloat(aVal) || 0;
+        bVal = parseFloat(bVal) || 0;
+      } else if (typeof aVal === 'string') {
+        aVal = aVal.toLowerCase();
+        bVal = bVal.toLowerCase();
+      }
+      
+      if (sortDirection === 'asc') {
+        return aVal > bVal ? 1 : -1;
+      } else {
+        return aVal < bVal ? 1 : -1;
+      }
+    });
+  };
 
- return (
-   <div className="space-y-6">
-     <div className="flex items-center justify-between">
-       <h3 className="text-lg leading-6 font-medium text-gray-900">
-         Analyst Detail Output
-       </h3>
-       <div className="flex items-center space-x-4">
-         <button
-           onClick={exportToPDF}
-           className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-         >
-           <Download className="h-4 w-4" />
-           <span>Export to PDF</span>
-         </button>
-         <div className="flex items-center space-x-2">
-           <label className="text-sm font-medium text-gray-700">Select Analyst:</label>
-           <select
-             value={selectedAnalyst}
-             onChange={(e) => onSelectAnalyst(e.target.value)}
-             className="border border-gray-300 rounded-md px-3 py-1 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-           >
-             {analysts.map(analyst => (
-               <option key={analyst} value={analyst}>{analyst}</option>
-             ))}
-           </select>
-         </div>
-       </div>
-     </div>
-     
-     <div className="bg-gray-100 px-4 py-2 rounded">
-       <p className="text-sm text-gray-600">
-         Showing {analystTickers.length} ideas for analyst {selectedAnalyst}
-       </p>
-     </div>
-     
-     {statusOrder.map(status => {
-       const statusTickers = groupedTickers[status];
-       if (statusTickers.length === 0) return null;
-       
-       return (
-         <div key={status} className="bg-white shadow rounded-lg">
-           <div className="px-4 py-3 border-b border-gray-200">
-             <h4 className="text-md font-medium text-gray-900">
-               {status} ({statusTickers.length})
-             </h4>
-           </div>
-           <div className="overflow-x-auto">
-             <table className="min-w-full divide-y divide-gray-200">
-               <thead className="bg-gray-50">
-                 <tr>
-                   <th className="w-24 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ticker</th>
-                   <th className="w-48 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                   <th className="w-20 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">L/S</th>
-                   <th className="w-20 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
-                   <th className="w-28 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Current Price</th>
-                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thesis</th>
-                 </tr>
-               </thead>
-               <tbody className="bg-white divide-y divide-gray-200">
-                 {statusTickers.map((ticker) => {
-                   const cleanSymbol = ticker.ticker.replace(' US', '');
-                   const quote = quotes[cleanSymbol];
-                   
-                   return (
-                     <tr key={ticker.id}>
-                       <td className="w-24 px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                         {ticker.ticker}
-                       </td>
-                       <td className="w-48 px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                         {ticker.name}
-                       </td>
-                       <td className="w-20 px-6 py-4 whitespace-nowrap">
-                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                           ticker.lsPosition === 'Long' 
-                             ? 'bg-green-100 text-green-800' 
-                             : 'bg-red-100 text-red-800'
-                         }`}>
-                           {ticker.lsPosition}
-                         </span>
-                       </td>
-                       <td className="w-20 px-6 py-4 whitespace-nowrap">
-                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                           ticker.priority === 'A' ? 'bg-red-100 text-red-800' :
-                           ticker.priority === 'B' ? 'bg-yellow-100 text-yellow-800' :
-                           ticker.priority === 'C' ? 'bg-blue-100 text-blue-800' :
-                           'bg-gray-100 text-gray-800'
-                         }`}>
-                           {ticker.priority}
-                         </span>
-                       </td>
-                       <td className="w-28 px-6 py-4 whitespace-nowrap">
-                         <QuoteDisplay 
-                           ticker={ticker.ticker}
-                           quote={quote}
-                           isLoading={false}
-                           hasError={false}
-                         />
-                       </td>
-                       <td className="px-6 py-4 text-sm text-gray-500">
-                         <div className="break-words">
-                           {ticker.thesis}
-                         </div>
-                       </td>
-                     </tr>
-                   );
-                 })}
-               </tbody>
-             </table>
-           </div>
-         </div>
-       );
-     })}
-     
-     {analystTickers.length === 0 && (
-       <div className="bg-white shadow rounded-lg p-6">
-         <p className="text-center text-gray-500">No ideas assigned to analyst {selectedAnalyst}</p>
-       </div>
-     )}
-   </div>
- );
+  const SortableHeader = ({ field, children, style }) => (
+    <th 
+      className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+      onClick={() => handleSort(field)}
+      style={style || { 
+        width: field === 'ticker' ? '80px' : 
+               field === 'lsPosition' ? '50px' :
+               field === 'priority' ? '45px' :
+               field === 'currentPrice' ? '85px' :
+               field === 'ptBear' || field === 'ptBase' || field === 'ptBull' ? '70px' :
+               field === 'thesis' ? 'auto' : '50px' 
+      }}
+    >
+      <div className="flex items-center space-x-1">
+        <span>{children}</span>
+        {sortField === field && (
+          sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+        )}
+      </div>
+    </th>
+  );
+
+  const analystTickers = tickers.filter(ticker => ticker.analyst === selectedAnalyst);
+  
+  // Group tickers by status and create a flat array with status headers
+  const groupedData = [];
+  statusOrder.forEach(status => {
+    const statusTickers = analystTickers.filter(ticker => ticker.status === status);
+    if (statusTickers.length > 0) {
+      const sortedTickers = sortData(statusTickers, sortField);
+      // Add status header row
+      groupedData.push({ type: 'header', status, count: sortedTickers.length });
+      // Add ticker rows
+      sortedTickers.forEach(ticker => {
+        groupedData.push({ type: 'ticker', ticker, status });
+      });
+    }
+  });
+
+  // PDF Export Function for Analyst Detail
+  const exportToPDF = () => {
+    try {
+      console.log('Starting Analyst Detail PDF export...');
+      const doc = new jsPDF('landscape');
+      
+      // Add title
+      doc.setFontSize(18);
+      doc.text(`Clearline Flow - Analyst Detail: ${selectedAnalyst}`, 14, 22);
+      
+      // Add timestamp
+      doc.setFontSize(10);
+      doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
+      
+      // Prepare data for the PDF table
+      const tableData = [];
+      
+      statusOrder.forEach(status => {
+        const statusTickers = analystTickers.filter(ticker => ticker.status === status);
+        if (statusTickers.length > 0) {
+          const sortedTickers = sortData(statusTickers, sortField);
+          
+          // Add status header row
+          tableData.push([`${status} (${sortedTickers.length})`, '', '', '', '', '', '', '', '', '', '']);
+          
+          // Add ticker data rows
+          sortedTickers.forEach(ticker => {
+            const cleanSymbol = ticker.ticker.replace(' US', '');
+            const quote = quotes[cleanSymbol];
+            const currentPrice = quote ? quote.price : ticker.currentPrice;
+            
+            const row = [
+              ticker.ticker || '-',
+              ticker.lsPosition || '-',
+              ticker.priority || '-',
+              currentPrice ? `$${parseFloat(currentPrice).toFixed(2)}` : '-',
+              ticker.ptBear ? `$${parseFloat(ticker.ptBear).toFixed(2)}` : '-',
+              calculatePercentChange(ticker.ptBear, currentPrice) || '-',
+              ticker.ptBase ? `$${parseFloat(ticker.ptBase).toFixed(2)}` : '-',
+              calculatePercentChange(ticker.ptBase, currentPrice) || '-',
+              ticker.ptBull ? `$${parseFloat(ticker.ptBull).toFixed(2)}` : '-',
+              calculatePercentChange(ticker.ptBull, currentPrice) || '-',
+              ticker.thesis || '-'
+            ];
+            tableData.push(row);
+          });
+        }
+      });
+      
+      // Create the PDF table
+      autoTable(doc, {
+        head: [['Ticker', 'L/S', 'Pri', 'Price', 'Bear', 'Bear %', 'Base', 'Base %', 'Bull', 'Bull %', 'Thesis']],
+        body: tableData,
+        startY: 40,
+        styles: {
+          fontSize: 6,
+          cellPadding: 2,
+        },
+        headStyles: {
+          fillColor: [75, 85, 99],
+          textColor: 255,
+          fontStyle: 'bold'
+        },
+        columnStyles: {
+          0: { cellWidth: 18 }, // Ticker
+          1: { cellWidth: 12 }, // L/S
+          2: { cellWidth: 12 }, // Priority
+          3: { cellWidth: 18 }, // Price
+          4: { cellWidth: 18 }, // PT Bear
+          5: { cellWidth: 15 }, // Bear %
+          6: { cellWidth: 18 }, // PT Base
+          7: { cellWidth: 15 }, // Base %
+          8: { cellWidth: 18 }, // PT Bull
+          9: { cellWidth: 15 }, // Bull %
+          10: { cellWidth: 85 }  // Thesis (wider since no analyst column)
+        },
+        didParseCell: function(data) {
+          // Highlight status header rows
+          if (data.cell.text[0] && (
+            data.cell.text[0].includes('Current (') || 
+            data.cell.text[0].includes('On-Deck (') || 
+            data.cell.text[0].includes('Portfolio (') ||
+            data.cell.text[0].includes('New (') ||
+            data.cell.text[0].includes('Old (')
+          )) {
+            data.cell.styles.fillColor = [229, 231, 235]; // Light gray background
+            data.cell.styles.fontStyle = 'bold';
+          }
+        }
+      });
+      
+      // Save the PDF
+      const fileName = `analyst-detail-${selectedAnalyst.replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.pdf`;
+      console.log('Saving Analyst Detail PDF as:', fileName);
+      doc.save(fileName);
+      console.log('Analyst Detail PDF export completed successfully');
+    } catch (error) {
+      console.error('Error exporting Analyst Detail PDF:', error);
+      alert(`Error exporting PDF: ${error.message}`);
+    }
+  };
+
+  return (
+    <div className="bg-white shadow rounded-lg">
+      <div className="px-4 py-5 sm:p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg leading-6 font-medium text-gray-900">
+            Analyst Detail Output - {selectedAnalyst}
+          </h3>
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={exportToPDF}
+              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            >
+              <Download className="h-4 w-4" />
+              <span>Export to PDF</span>
+            </button>
+            <div className="flex items-center space-x-2">
+              <label className="text-sm font-medium text-gray-700">Select Analyst:</label>
+              <select
+                value={selectedAnalyst}
+                onChange={(e) => onSelectAnalyst(e.target.value)}
+                className="border border-gray-300 rounded-md px-3 py-1 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              >
+                {analysts.map(analyst => (
+                  <option key={analyst} value={analyst}>{analyst}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+        
+        <div className="mb-4 bg-gray-100 px-4 py-2 rounded">
+          <p className="text-sm text-gray-600">
+            Showing {analystTickers.length} ideas for analyst {selectedAnalyst}
+          </p>
+        </div>
+        
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed', width: '100%' }}>
+            <thead className="bg-gray-50">
+              <tr>
+                <SortableHeader field="ticker" style={{ width: '80px' }}>Ticker</SortableHeader>
+                <SortableHeader field="lsPosition" style={{ width: '50px' }}>L/S</SortableHeader>
+                <SortableHeader field="priority" style={{ width: '45px' }}>Pri</SortableHeader>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '85px' }}>Price</th>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '70px' }}>Bear</th>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '50px' }}>%</th>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '70px' }}>Base</th>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '50px' }}>%</th>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '70px' }}>Bull</th>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '50px' }}>%</th>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thesis</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {groupedData.map((item, index) => {
+                if (item.type === 'header') {
+                  return (
+                    <tr key={`header-${item.status}`} className="bg-gray-100">
+                      <td colSpan="11" className="px-6 py-3 text-sm font-medium text-gray-900">
+                        {item.status} ({item.count})
+                      </td>
+                    </tr>
+                  );
+                } else {
+                  const { ticker } = item;
+                  const cleanSymbol = ticker.ticker.replace(' US', '');
+                  const quote = quotes[cleanSymbol];
+                  const currentPrice = quote ? quote.price : ticker.currentPrice;
+                  
+                  // Calculate percentage changes with color logic
+                  const bearPercent = calculatePercentChange(ticker.ptBear, currentPrice);
+                  const basePercent = calculatePercentChange(ticker.ptBase, currentPrice);
+                  const bullPercent = calculatePercentChange(ticker.ptBull, currentPrice);
+                  
+                  const getPercentColor = (percent) => {
+                    if (!percent || percent === '-') return 'text-gray-600';
+                    const isPositive = percent.startsWith('+');
+                    const isNegative = percent.startsWith('-');
+                    return isPositive ? 'text-green-600 font-medium' : 
+                           isNegative ? 'text-red-600 font-medium' : 'text-gray-600';
+                  };
+                  
+                  return (
+                    <tr key={ticker.id}>
+                      <td className="px-2 py-2 whitespace-nowrap text-sm font-medium text-gray-900" style={{ width: '80px' }}>
+                        <div className="truncate" title={ticker.ticker}>
+                          {ticker.ticker}
+                        </div>
+                      </td>
+                      <td className="px-1 py-2 whitespace-nowrap text-center" style={{ width: '50px' }}>
+                        <span className={`inline-flex px-1 py-0.5 text-xs font-semibold rounded ${
+                          ticker.lsPosition === 'Long' 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {ticker.lsPosition === 'Long' ? 'L' : 'S'}
+                        </span>
+                      </td>
+                      <td className="px-1 py-2 whitespace-nowrap text-center" style={{ width: '45px' }}>
+                        <span className={`inline-flex w-6 h-6 items-center justify-center text-xs font-bold rounded-full ${
+                          ticker.priority === 'A' ? 'bg-red-100 text-red-800' :
+                          ticker.priority === 'B' ? 'bg-yellow-100 text-yellow-800' :
+                          ticker.priority === 'C' ? 'bg-blue-100 text-blue-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {ticker.priority}
+                        </span>
+                      </td>
+                      <td className="px-2 py-2 whitespace-nowrap text-sm" style={{ width: '85px' }}>
+                        <QuoteDisplay 
+                          ticker={ticker.ticker}
+                          quote={quote}
+                          isLoading={false}
+                          hasError={false}
+                        />
+                      </td>
+                      <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-900" style={{ width: '70px' }}>
+                        {ticker.ptBear ? `$${parseFloat(ticker.ptBear).toFixed(2)}` : '-'}
+                      </td>
+                      <td className="px-1 py-2 whitespace-nowrap text-xs" style={{ width: '50px' }}>
+                        <span className={getPercentColor(bearPercent)}>
+                          {bearPercent || '-'}
+                        </span>
+                      </td>
+                      <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-900" style={{ width: '70px' }}>
+                        {ticker.ptBase ? `$${parseFloat(ticker.ptBase).toFixed(2)}` : '-'}
+                      </td>
+                      <td className="px-1 py-2 whitespace-nowrap text-xs" style={{ width: '50px' }}>
+                        <span className={getPercentColor(basePercent)}>
+                          {basePercent || '-'}
+                        </span>
+                      </td>
+                      <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-900" style={{ width: '70px' }}>
+                        {ticker.ptBull ? `$${parseFloat(ticker.ptBull).toFixed(2)}` : '-'}
+                      </td>
+                      <td className="px-1 py-2 whitespace-nowrap text-xs" style={{ width: '50px' }}>
+                        <span className={getPercentColor(bullPercent)}>
+                          {bullPercent || '-'}
+                        </span>
+                      </td>
+                      <td className="px-2 py-2 text-sm text-gray-900">
+                        <div className="break-words whitespace-normal max-w-xs" title={ticker.thesis}>
+                          {ticker.thesis}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                }
+              })}
+            </tbody>
+          </table>
+        </div>
+        
+        {groupedData.length === 0 && (
+          <div className="text-center py-8">
+            <p className="text-gray-500">No ideas assigned to analyst {selectedAnalyst}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 };
 
 // Team Output Page Component
