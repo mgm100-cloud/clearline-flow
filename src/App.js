@@ -1325,6 +1325,8 @@ const ClearlineFlow = () => {
             quoteErrors={quoteErrors}
             onRefreshMarketData={refreshMarketData}
             isRefreshingMarketData={isRefreshingMarketData}
+            onRefreshData={refreshData}
+            isRefreshingData={isRefreshingData}
             formatMarketCap={formatMarketCap}
             formatVolumeDollars={formatVolumeDollars}
           />
@@ -1343,6 +1345,8 @@ const ClearlineFlow = () => {
             quoteErrors={quoteErrors}
             onRefreshMarketData={refreshMarketData}
             isRefreshingMarketData={isRefreshingMarketData}
+            onRefreshData={refreshData}
+            isRefreshingData={isRefreshingData}
             formatMarketCap={formatMarketCap}
             formatVolumeDollars={formatVolumeDollars}
           />
@@ -1819,7 +1823,7 @@ const InputPage = ({ onAddTicker, analysts, currentUser }) => {
 };
 
 // Enhanced Database Page Component with quotes
-const DatabasePage = ({ tickers, onSort, sortField, sortDirection, onUpdate, analysts, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors, onRefreshMarketData, isRefreshingMarketData, formatMarketCap, formatVolumeDollars }) => {
+const DatabasePage = ({ tickers, onSort, sortField, sortDirection, onUpdate, analysts, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors, onRefreshMarketData, isRefreshingMarketData, onRefreshData, isRefreshingData, formatMarketCap, formatVolumeDollars }) => {
   const SortableHeader = ({ field, children }) => (
     <th
       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
@@ -1842,29 +1846,55 @@ const DatabasePage = ({ tickers, onSort, sortField, sortDirection, onUpdate, ana
             Investment Idea Database ({tickers.length} ideas)
           </h3>
           
-          {onRefreshMarketData && (
-            <button
-              onClick={onRefreshMarketData}
-              disabled={isRefreshingMarketData}
-              className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${
-                isRefreshingMarketData 
-                  ? 'bg-gray-400 cursor-not-allowed' 
-                  : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
-              }`}
-            >
-              {isRefreshingMarketData ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-3 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Refreshing...
-                </>
-              ) : (
-                'Refresh Market Data'
-              )}
-            </button>
-          )}
+          <div className="flex space-x-3">
+            {onRefreshData && (
+              <button
+                onClick={onRefreshData}
+                disabled={isRefreshingData}
+                className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${
+                  isRefreshingData 
+                    ? 'bg-gray-400 cursor-not-allowed' 
+                    : 'bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500'
+                }`}
+              >
+                {isRefreshingData ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-3 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 818-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 714 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Refreshing...
+                  </>
+                ) : (
+                  'Refresh Data'
+                )}
+              </button>
+            )}
+            
+            {onRefreshMarketData && (
+              <button
+                onClick={onRefreshMarketData}
+                disabled={isRefreshingMarketData}
+                className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${
+                  isRefreshingMarketData 
+                    ? 'bg-gray-400 cursor-not-allowed' 
+                    : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
+                }`}
+              >
+                {isRefreshingMarketData ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-3 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 818-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 714 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Refreshing...
+                  </>
+                ) : (
+                  'Refresh Market Data'
+                )}
+              </button>
+            )}
+          </div>
         </div>
         
         <div className="overflow-x-auto">
@@ -2123,7 +2153,7 @@ const EnhancedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
 };
 
 // Database Detailed Page Component - Shows all fields with quotes integration
-const DatabaseDetailedPage = ({ tickers, onSort, sortField, sortDirection, onUpdate, analysts, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors, onRefreshMarketData, isRefreshingMarketData, formatMarketCap, formatVolumeDollars }) => {
+const DatabaseDetailedPage = ({ tickers, onSort, sortField, sortDirection, onUpdate, analysts, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors, onRefreshMarketData, isRefreshingMarketData, onRefreshData, isRefreshingData, formatMarketCap, formatVolumeDollars }) => {
   const SortableHeader = ({ field, children }) => (
     <th
       className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
@@ -2146,29 +2176,55 @@ const DatabaseDetailedPage = ({ tickers, onSort, sortField, sortDirection, onUpd
             Investment Idea Database - Detailed View ({tickers.length} ideas)
           </h3>
           
-          {onRefreshMarketData && (
-            <button
-              onClick={onRefreshMarketData}
-              disabled={isRefreshingMarketData}
-              className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${
-                isRefreshingMarketData 
-                  ? 'bg-gray-400 cursor-not-allowed' 
-                  : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
-              }`}
-            >
-              {isRefreshingMarketData ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-3 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Refreshing...
-                </>
-              ) : (
-                'Refresh Market Data'
-              )}
-            </button>
-          )}
+          <div className="flex space-x-3">
+            {onRefreshData && (
+              <button
+                onClick={onRefreshData}
+                disabled={isRefreshingData}
+                className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${
+                  isRefreshingData 
+                    ? 'bg-gray-400 cursor-not-allowed' 
+                    : 'bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500'
+                }`}
+              >
+                {isRefreshingData ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-3 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 818-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 714 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Refreshing...
+                  </>
+                ) : (
+                  'Refresh Data'
+                )}
+              </button>
+            )}
+            
+            {onRefreshMarketData && (
+              <button
+                onClick={onRefreshMarketData}
+                disabled={isRefreshingMarketData}
+                className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${
+                  isRefreshingMarketData 
+                    ? 'bg-gray-400 cursor-not-allowed' 
+                    : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
+                }`}
+              >
+                {isRefreshingMarketData ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-3 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 818-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 714 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Refreshing...
+                  </>
+                ) : (
+                  'Refresh Market Data'
+                )}
+              </button>
+            )}
+          </div>
         </div>
         
         <div className="overflow-x-auto">
