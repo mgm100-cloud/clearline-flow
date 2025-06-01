@@ -2740,17 +2740,16 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
           <table className="min-w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed', width: '100%' }}>
             <thead className="bg-gray-50">
               <tr>
-                <SortableHeader field="ticker" style={{ width: '80px' }}>Ticker</SortableHeader>
-                <SortableHeader field="lsPosition" style={{ width: '50px' }}>L/S</SortableHeader>
-                <SortableHeader field="priority" style={{ width: '45px' }}>Pri</SortableHeader>
-                <SortableHeader field="analyst" style={{ width: '45px' }}>Ana</SortableHeader>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '85px' }}>Price</th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '70px' }}>Bear</th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '50px' }}>%</th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '70px' }}>Base</th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '50px' }}>%</th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '70px' }}>Bull</th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '50px' }}>%</th>
+                <SortableHeader field="ticker" style={{ width: '60px' }}>Ticker</SortableHeader>
+                <SortableHeader field="lsPosition" style={{ width: '40px' }}>L/S</SortableHeader>
+                <SortableHeader field="priority" style={{ width: '35px' }}>Pri</SortableHeader>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '75px' }}>Price</th>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '60px' }}>Bear</th>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '45px' }}>%</th>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '60px' }}>Base</th>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '45px' }}>%</th>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '60px' }}>Bull</th>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '45px' }}>%</th>
                 <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thesis</th>
               </tr>
             </thead>
@@ -2785,12 +2784,12 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
                   
                   return (
                     <tr key={ticker.id}>
-                      <td className="px-2 py-2 whitespace-nowrap text-sm font-medium text-gray-900" style={{ width: '80px' }}>
+                      <td className="px-2 py-2 whitespace-nowrap text-sm font-medium text-gray-900" style={{ width: '60px' }}>
                         <div className="truncate" title={ticker.ticker}>
                           {ticker.ticker}
                         </div>
                       </td>
-                      <td className="px-1 py-2 whitespace-nowrap text-center" style={{ width: '50px' }}>
+                      <td className="px-1 py-2 whitespace-nowrap text-center" style={{ width: '40px' }}>
                         <span className={`inline-flex px-1 py-0.5 text-xs font-semibold rounded ${
                           ticker.lsPosition === 'Long' 
                             ? 'bg-green-100 text-green-800' 
@@ -2799,7 +2798,7 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
                           {ticker.lsPosition === 'Long' ? 'L' : 'S'}
                         </span>
                       </td>
-                      <td className="px-1 py-2 whitespace-nowrap text-center" style={{ width: '45px' }}>
+                      <td className="px-1 py-2 whitespace-nowrap text-center" style={{ width: '35px' }}>
                         <span className={`inline-flex w-6 h-6 items-center justify-center text-xs font-bold rounded-full ${
                           ticker.priority === 'A' ? 'bg-red-100 text-red-800' :
                           ticker.priority === 'B' ? 'bg-yellow-100 text-yellow-800' :
@@ -2809,12 +2808,12 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
                           {ticker.priority}
                         </span>
                       </td>
-                      <td className="px-1 py-2 whitespace-nowrap text-xs text-gray-900 text-center" style={{ width: '45px' }}>
+                      <td className="px-1 py-2 whitespace-nowrap text-xs text-gray-900 text-center" style={{ width: '40px' }}>
                         <div className="truncate" title={ticker.analyst || '-'}>
                           {ticker.analyst || '-'}
                         </div>
                       </td>
-                      <td className="px-2 py-2 whitespace-nowrap text-sm" style={{ width: '85px' }}>
+                      <td className="px-2 py-2 whitespace-nowrap text-sm" style={{ width: '75px' }}>
                         <QuoteDisplay 
                           ticker={ticker.ticker}
                           quote={quote}
@@ -2823,32 +2822,32 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
                           hasError={quoteErrors[cleanSymbol]}
                         />
                       </td>
-                      <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-900" style={{ width: '70px' }}>
+                      <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-900" style={{ width: '60px' }}>
                         {ticker.ptBear ? `$${parseFloat(ticker.ptBear).toFixed(2)}` : '-'}
                       </td>
-                      <td className="px-1 py-2 whitespace-nowrap text-xs" style={{ width: '50px' }}>
+                      <td className="px-1 py-2 whitespace-nowrap text-xs" style={{ width: '45px' }}>
                         <span className={getPercentColor(bearPercent)}>
                           {bearPercent || '-'}
                         </span>
                       </td>
-                      <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-900" style={{ width: '70px' }}>
+                      <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-900" style={{ width: '60px' }}>
                         {ticker.ptBase ? `$${parseFloat(ticker.ptBase).toFixed(2)}` : '-'}
                       </td>
-                      <td className="px-1 py-2 whitespace-nowrap text-xs" style={{ width: '50px' }}>
+                      <td className="px-1 py-2 whitespace-nowrap text-xs" style={{ width: '45px' }}>
                         <span className={getPercentColor(basePercent)}>
                           {basePercent || '-'}
                         </span>
                       </td>
-                      <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-900" style={{ width: '70px' }}>
+                      <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-900" style={{ width: '60px' }}>
                         {ticker.ptBull ? `$${parseFloat(ticker.ptBull).toFixed(2)}` : '-'}
                       </td>
-                      <td className="px-1 py-2 whitespace-nowrap text-xs" style={{ width: '50px' }}>
+                      <td className="px-1 py-2 whitespace-nowrap text-xs" style={{ width: '45px' }}>
                         <span className={getPercentColor(bullPercent)}>
                           {bullPercent || '-'}
                         </span>
                       </td>
                       <td className="px-2 py-2 text-sm text-gray-900">
-                        <div className="break-words whitespace-normal max-w-xs" title={ticker.thesis}>
+                        <div className="break-words whitespace-normal" title={ticker.thesis}>
                           {ticker.thesis}
                         </div>
                       </td>
@@ -2914,12 +2913,12 @@ const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst
       className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
       onClick={() => handleSort(field)}
       style={style || { 
-        width: field === 'ticker' ? '80px' : 
-               field === 'lsPosition' ? '50px' :
-               field === 'priority' ? '45px' :
-               field === 'currentPrice' ? '85px' :
-               field === 'ptBear' || field === 'ptBase' || field === 'ptBull' ? '70px' :
-               field === 'thesis' ? 'auto' : '50px' 
+        width: field === 'ticker' ? '70px' : 
+               field === 'lsPosition' ? '40px' :
+               field === 'priority' ? '35px' :
+               field === 'currentPrice' ? '75px' :
+               field === 'ptBear' || field === 'ptBase' || field === 'ptBull' ? '60px' :
+               field === 'thesis' ? 'auto' : '45px' 
       }}
     >
       <div className="flex items-center space-x-1">
@@ -3090,16 +3089,16 @@ const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst
           <table className="min-w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed', width: '100%' }}>
             <thead className="bg-gray-50">
               <tr>
-                <SortableHeader field="ticker" style={{ width: '80px' }}>Ticker</SortableHeader>
-                <SortableHeader field="lsPosition" style={{ width: '50px' }}>L/S</SortableHeader>
-                <SortableHeader field="priority" style={{ width: '45px' }}>Pri</SortableHeader>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '85px' }}>Price</th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '70px' }}>Bear</th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '50px' }}>%</th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '70px' }}>Base</th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '50px' }}>%</th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '70px' }}>Bull</th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '50px' }}>%</th>
+                <SortableHeader field="ticker" style={{ width: '60px' }}>Ticker</SortableHeader>
+                <SortableHeader field="lsPosition" style={{ width: '40px' }}>L/S</SortableHeader>
+                <SortableHeader field="priority" style={{ width: '35px' }}>Pri</SortableHeader>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '75px' }}>Price</th>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '60px' }}>Bear</th>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '45px' }}>%</th>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '60px' }}>Base</th>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '45px' }}>%</th>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '60px' }}>Bull</th>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '45px' }}>%</th>
                 <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thesis</th>
               </tr>
             </thead>
@@ -3134,12 +3133,12 @@ const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst
                   
                   return (
                     <tr key={ticker.id}>
-                      <td className="px-2 py-2 whitespace-nowrap text-sm font-medium text-gray-900" style={{ width: '80px' }}>
+                      <td className="px-2 py-2 whitespace-nowrap text-sm font-medium text-gray-900" style={{ width: '60px' }}>
                         <div className="truncate" title={ticker.ticker}>
                           {ticker.ticker}
                         </div>
                       </td>
-                      <td className="px-1 py-2 whitespace-nowrap text-center" style={{ width: '50px' }}>
+                      <td className="px-1 py-2 whitespace-nowrap text-center" style={{ width: '40px' }}>
                         <span className={`inline-flex px-1 py-0.5 text-xs font-semibold rounded ${
                           ticker.lsPosition === 'Long' 
                             ? 'bg-green-100 text-green-800' 
@@ -3148,7 +3147,7 @@ const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst
                           {ticker.lsPosition === 'Long' ? 'L' : 'S'}
                         </span>
                       </td>
-                      <td className="px-1 py-2 whitespace-nowrap text-center" style={{ width: '45px' }}>
+                      <td className="px-1 py-2 whitespace-nowrap text-center" style={{ width: '35px' }}>
                         <span className={`inline-flex w-6 h-6 items-center justify-center text-xs font-bold rounded-full ${
                           ticker.priority === 'A' ? 'bg-red-100 text-red-800' :
                           ticker.priority === 'B' ? 'bg-yellow-100 text-yellow-800' :
@@ -3158,7 +3157,7 @@ const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst
                           {ticker.priority}
                         </span>
                       </td>
-                      <td className="px-2 py-2 whitespace-nowrap text-sm" style={{ width: '85px' }}>
+                      <td className="px-2 py-2 whitespace-nowrap text-sm" style={{ width: '75px' }}>
                         <QuoteDisplay 
                           ticker={ticker.ticker}
                           quote={quote}
@@ -3166,32 +3165,32 @@ const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst
                           hasError={false}
                         />
                       </td>
-                      <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-900" style={{ width: '70px' }}>
+                      <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-900" style={{ width: '60px' }}>
                         {ticker.ptBear ? `$${parseFloat(ticker.ptBear).toFixed(2)}` : '-'}
                       </td>
-                      <td className="px-1 py-2 whitespace-nowrap text-xs" style={{ width: '50px' }}>
+                      <td className="px-1 py-2 whitespace-nowrap text-xs" style={{ width: '45px' }}>
                         <span className={getPercentColor(bearPercent)}>
                           {bearPercent || '-'}
                         </span>
                       </td>
-                      <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-900" style={{ width: '70px' }}>
+                      <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-900" style={{ width: '60px' }}>
                         {ticker.ptBase ? `$${parseFloat(ticker.ptBase).toFixed(2)}` : '-'}
                       </td>
-                      <td className="px-1 py-2 whitespace-nowrap text-xs" style={{ width: '50px' }}>
+                      <td className="px-1 py-2 whitespace-nowrap text-xs" style={{ width: '45px' }}>
                         <span className={getPercentColor(basePercent)}>
                           {basePercent || '-'}
                         </span>
                       </td>
-                      <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-900" style={{ width: '70px' }}>
+                      <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-900" style={{ width: '60px' }}>
                         {ticker.ptBull ? `$${parseFloat(ticker.ptBull).toFixed(2)}` : '-'}
                       </td>
-                      <td className="px-1 py-2 whitespace-nowrap text-xs" style={{ width: '50px' }}>
+                      <td className="px-1 py-2 whitespace-nowrap text-xs" style={{ width: '45px' }}>
                         <span className={getPercentColor(bullPercent)}>
                           {bullPercent || '-'}
                         </span>
                       </td>
                       <td className="px-2 py-2 text-sm text-gray-900">
-                        <div className="break-words whitespace-normal max-w-xs" title={ticker.thesis}>
+                        <div className="break-words whitespace-normal" title={ticker.thesis}>
                           {ticker.thesis}
                         </div>
                       </td>
