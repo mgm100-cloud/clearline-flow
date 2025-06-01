@@ -3193,11 +3193,10 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
                            isNegative ? 'text-red-600 font-medium' : 'text-gray-600';
                   };
                   
-                  // Check if row should be highlighted (Long position with negative base %)
-                  const shouldHighlight = ticker.lsPosition === 'Long' && basePercent && basePercent.startsWith('-');
+                  // Check if row should be highlighted (Long position with negative base % or Short position with positive base %)
                   
                   return (
-                    <tr key={ticker.id} className={(ticker.lsPosition === 'Long' && basePercent && basePercent.startsWith('-')) ? 'bg-red-50' : ''}>
+                    <tr key={ticker.id} className={((ticker.lsPosition === 'Long' && basePercent && basePercent.startsWith('-')) || (ticker.lsPosition === 'Short' && basePercent && basePercent.startsWith('+'))) ? 'bg-red-50' : ''}>
                       <td className="px-2 py-2 whitespace-nowrap text-sm font-medium text-gray-900" style={{ width: '60px' }}>
                         <div className="truncate" title={ticker.ticker}>
                           {ticker.ticker}
@@ -3546,7 +3545,7 @@ const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst
                   };
                   
                   return (
-                    <tr key={ticker.id} className={(ticker.lsPosition === 'Long' && basePercent && basePercent.startsWith('-')) ? 'bg-red-50' : ''}>
+                    <tr key={ticker.id} className={((ticker.lsPosition === 'Long' && basePercent && basePercent.startsWith('-')) || (ticker.lsPosition === 'Short' && basePercent && basePercent.startsWith('+'))) ? 'bg-red-50' : ''}>
                       <td className="px-2 py-2 whitespace-nowrap text-sm font-medium text-gray-900" style={{ width: '60px' }}>
                         <div className="truncate" title={ticker.ticker}>
                           {ticker.ticker}
