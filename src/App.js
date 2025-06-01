@@ -1233,36 +1233,11 @@ const QuoteDisplay = ({ ticker, quote, onUpdateQuote, isLoading, hasError }) => 
       </div>
     );
   }
-
-  // Format the last updated time
-  const formatLastUpdated = (timestamp) => {
-    if (!timestamp) return '';
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffMinutes = Math.floor((now - date) / (1000 * 60));
-    
-    if (diffMinutes < 60) {
-      return `${diffMinutes}m ago`;
-    } else if (diffMinutes < 1440) { // 24 hours
-      return `${Math.floor(diffMinutes / 60)}h ago`;
-    } else {
-      return date.toLocaleDateString();
-    }
-  };
-
-  // Determine if this is current market data or previous close
-  const isCurrentData = quote.isIntraday;
-  const changeColor = quote.change >= 0 ? 'text-green-600' : 'text-red-600';
   
   return (
     <div className="text-sm">
       <div className="font-medium text-gray-900 flex items-center">
         ${quote.price.toFixed(2)}
-        {isCurrentData && (
-          <span className="ml-1 px-1 py-0.5 text-xs bg-green-100 text-green-700 rounded">
-            LIVE
-          </span>
-        )}
         {onUpdateQuote && (
           <button
             onClick={() => onUpdateQuote(cleanSymbol)}
@@ -1273,16 +1248,6 @@ const QuoteDisplay = ({ ticker, quote, onUpdateQuote, isLoading, hasError }) => 
           </button>
         )}
       </div>
-      {quote.change !== undefined && (
-        <div className={`text-xs ${changeColor}`}>
-          {quote.change >= 0 ? '+' : ''}${quote.change.toFixed(2)} ({quote.changePercent >= 0 ? '+' : ''}{quote.changePercent.toFixed(2)}%)
-        </div>
-      )}
-      {quote.lastUpdated && (
-        <div className="text-xs text-gray-400">
-          {formatLastUpdated(quote.lastUpdated)}
-        </div>
-      )}
     </div>
   );
 };
