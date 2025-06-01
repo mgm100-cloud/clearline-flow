@@ -2456,11 +2456,6 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
           />
         </td>
         <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-          ${ticker.inputPrice || '-'}
-        </td>
-        <td className="px-3 py-4 whitespace-nowrap">
-          <QuoteDisplay 
-            ticker={ticker.ticker}
           {ticker.inputPrice ? `$${parseFloat(ticker.inputPrice).toFixed(2)}` : '-'}
         </td>
         <td className="px-3 py-4 whitespace-nowrap">
@@ -2796,8 +2791,8 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
       <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
         {ticker.source || '-'}
       </td>
-      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
-        ${ticker.inputPrice || '-'}
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+        {ticker.inputPrice ? `$${parseFloat(ticker.inputPrice).toFixed(2)}` : '-'}
       </td>
       <td className="px-3 py-4 whitespace-nowrap">
         <QuoteDisplay 
