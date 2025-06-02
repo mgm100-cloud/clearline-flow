@@ -1936,11 +1936,11 @@ const DatabasePage = ({ tickers, onSort, sortField, sortDirection, onUpdate, ana
                 <SortableHeader field="dateIn">Date In</SortableHeader>
                 <SortableHeader field="lsPosition">L/S</SortableHeader>
                 <th
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 w-20"
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 w-12"
                   onClick={() => onSort('priority')}
                 >
                   <div className="flex items-center space-x-1">
-                    <span>Priority</span>
+                    <span>PRI</span>
                     {sortField === 'priority' && (
                       sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
                     )}
@@ -2139,7 +2139,7 @@ const EnhancedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
           {ticker.lsPosition}
         </span>
       </td>
-      <td className="px-6 py-4 whitespace-nowrap w-20">
+      <td className="px-6 py-4 whitespace-nowrap w-12">
         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
           ticker.priority === 'A' ? 'bg-red-100 text-red-800' :
           ticker.priority === 'B' ? 'bg-yellow-100 text-yellow-800' :
@@ -2287,11 +2287,11 @@ const DatabaseDetailedPage = ({ tickers, onSort, sortField, sortDirection, onUpd
                 <SortableHeader field="pokeDate">Poke Date</SortableHeader>
                 <SortableHeader field="lsPosition">L/S</SortableHeader>
                 <th
-                  className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 w-16"
+                  className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 w-12"
                   onClick={() => onSort('priority')}
                 >
                   <div className="flex items-center space-x-1">
-                    <span>Priority</span>
+                    <span>PRI</span>
                     {sortField === 'priority' && (
                       sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
                     )}
@@ -2468,7 +2468,7 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
             <option value="Short">Short</option>
           </select>
         </td>
-        <td className="px-3 py-4 whitespace-nowrap w-16">
+        <td className="px-3 py-4 whitespace-nowrap w-12">
           <select
             value={editData.priority}
             onChange={(e) => setEditData({...editData, priority: e.target.value})}
@@ -2791,7 +2791,7 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
           {ticker.lsPosition}
         </span>
       </td>
-      <td className="px-3 py-4 whitespace-nowrap w-16">
+      <td className="px-3 py-4 whitespace-nowrap w-12">
         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
           ticker.priority === 'A' ? 'bg-red-100 text-red-800' :
           ticker.priority === 'B' ? 'bg-yellow-100 text-yellow-800' :
@@ -4535,7 +4535,7 @@ const QuoteDisplay = ({ ticker, quote, onUpdateQuote, isLoading, hasError }) => 
 
 // PM Detail Page Component - Shows status-grouped view with price target analysis
 const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors }) => {
-  const [sortField, setSortField] = useState('ticker');
+  const [sortField, setSortField] = useState('');
   const [sortDirection, setSortDirection] = useState('asc');
   
   const statusOrder = ['Current', 'On-Deck', 'Portfolio', 'New', 'Old'];
@@ -4550,29 +4550,41 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
   };
 
   const sortData = (data, field) => {
+    if (!field) return data;
+    
     return [...data].sort((a, b) => {
-      let aVal, bVal;
+      let aVal = a[field];
+      let bVal = b[field];
       
       if (field === 'currentPrice' || field === 'ptBear' || field === 'ptBase' || field === 'ptBull') {
-        aVal = parseFloat(a[field]) || 0;
-        bVal = parseFloat(b[field]) || 0;
-      } else {
-        aVal = a[field] || '';
-        bVal = b[field] || '';
+        aVal = parseFloat(aVal) || 0;
+        bVal = parseFloat(bVal) || 0;
+      } else if (typeof aVal === 'string') {
+        aVal = aVal.toLowerCase();
+        bVal = bVal.toLowerCase();
       }
       
       if (sortDirection === 'asc') {
-        return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+        return aVal > bVal ? 1 : -1;
       } else {
-        return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
+        return aVal < bVal ? 1 : -1;
       }
     });
   };
 
-  const SortableHeader = ({ field, children }) => (
-    <th
-      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+  const SortableHeader = ({ field, children, style }) => (
+    <th 
+      className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
       onClick={() => handleSort(field)}
+      style={style || { 
+        width: field === 'ticker' ? '60px' : 
+               field === 'lsPosition' ? '40px' :
+               field === 'priority' ? '35px' :
+               field === 'analyst' ? '60px' :
+               field === 'currentPrice' ? '75px' :
+               field === 'ptBear' || field === 'ptBase' || field === 'ptBull' ? '60px' :
+               field === 'thesis' ? 'auto' : '45px' 
+      }}
     >
       <div className="flex items-center space-x-1">
         <span>{children}</span>
@@ -4583,144 +4595,166 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
     </th>
   );
 
-  const groupedTickers = statusOrder.reduce((acc, status) => {
+  // Group tickers by status and create a flat array with status headers
+  const groupedData = [];
+  statusOrder.forEach(status => {
     const statusTickers = tickers.filter(ticker => ticker.status === status);
     if (statusTickers.length > 0) {
-      acc[status] = sortData(statusTickers, sortField);
+      const sortedTickers = sortData(statusTickers, sortField);
+      // Add status header row
+      groupedData.push({ type: 'header', status, count: sortedTickers.length });
+      // Add ticker rows
+      sortedTickers.forEach(ticker => {
+        groupedData.push({ type: 'ticker', ticker, status });
+      });
     }
-    return acc;
-  }, {});
+  });
 
   return (
-    <div className="space-y-6">
-      <h3 className="text-lg leading-6 font-medium text-gray-900">
-        PM Detail Output
-      </h3>
-      
-      {statusOrder.map(status => {
-        const statusTickers = groupedTickers[status];
-        if (!statusTickers || statusTickers.length === 0) return null;
+    <div className="bg-white shadow rounded-lg">
+      <div className="px-4 py-5 sm:p-6">
+        <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+          PM Detail Output
+        </h3>
         
-        return (
-          <div key={status} className="bg-white shadow rounded-lg">
-            <div className="px-4 py-3 border-b border-gray-200">
-              <h4 className="text-md font-medium text-gray-900">
-                {status} ({statusTickers.length})
-              </h4>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <SortableHeader field="ticker">Ticker</SortableHeader>
-                    <SortableHeader field="lsPosition">L/S</SortableHeader>
-                    <SortableHeader field="currentPrice">Current Price</SortableHeader>
-                    <SortableHeader field="priority">Priority</SortableHeader>
-                    <SortableHeader field="analyst">Analyst</SortableHeader>
-                    <SortableHeader field="ptBear">PT Bear</SortableHeader>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bear %</th>
-                    <SortableHeader field="ptBase">PT Base</SortableHeader>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Base %</th>
-                    <SortableHeader field="ptBull">PT Bull</SortableHeader>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bull %</th>
-                    <SortableHeader field="thesis">Thesis</SortableHeader>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {statusTickers.map((ticker) => {
-                    const cleanSymbol = ticker.ticker.replace(' US', '');
-                    const quote = quotes ? quotes[cleanSymbol] : null;
-                    const currentPrice = quote ? quote.price : ticker.currentPrice;
-                    
-                    // Calculate percentage changes with color logic
-                    const bearPercent = calculatePercentChange(ticker.ptBear, currentPrice);
-                    const basePercent = calculatePercentChange(ticker.ptBase, currentPrice);
-                    const bullPercent = calculatePercentChange(ticker.ptBull, currentPrice);
-                    
-                    const getPercentColor = (percent) => {
-                      if (!percent || percent === '-') return 'text-gray-600';
-                      const isPositive = percent.startsWith('+');
-                      const isNegative = percent.startsWith('-');
-                      return isPositive ? 'text-green-600 font-medium' : 
-                             isNegative ? 'text-red-600 font-medium' : 'text-gray-600';
-                    };
-                    
-                    // Check if row should be highlighted (Long position with negative base % or Short position with positive base %)
-                    
-                    return (
-                      <tr key={ticker.id} className={((ticker.lsPosition === 'Long' && basePercent && basePercent.startsWith('-')) || (ticker.lsPosition === 'Short' && basePercent && basePercent.startsWith('+'))) ? 'bg-red-50' : ''}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+        <div className="mb-4 bg-gray-100 px-4 py-2 rounded">
+          <p className="text-sm text-gray-600">
+            Showing {tickers.length} total ideas across all analysts
+          </p>
+        </div>
+        
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed', width: '100%' }}>
+            <thead className="bg-gray-50">
+              <tr>
+                <SortableHeader field="ticker" style={{ width: '60px' }}>Ticker</SortableHeader>
+                <SortableHeader field="lsPosition" style={{ width: '40px' }}>L/S</SortableHeader>
+                <SortableHeader field="priority" style={{ width: '35px' }}>Pri</SortableHeader>
+                <SortableHeader field="analyst" style={{ width: '60px' }}>Analyst</SortableHeader>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '75px' }}>Price</th>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '60px' }}>Bear</th>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '45px' }}>%</th>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '60px' }}>Base</th>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '45px' }}>%</th>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '60px' }}>Bull</th>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '45px' }}>%</th>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thesis</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {groupedData.map((item, index) => {
+                if (item.type === 'header') {
+                  return (
+                    <tr key={`header-${item.status}`} className="bg-gray-100">
+                      <td colSpan="12" className="px-6 py-3 text-sm font-medium text-gray-900">
+                        {item.status} ({item.count})
+                      </td>
+                    </tr>
+                  );
+                } else {
+                  const { ticker } = item;
+                  const cleanSymbol = ticker.ticker.replace(' US', '');
+                  const quote = quotes ? quotes[cleanSymbol] : null;
+                  const currentPrice = quote ? quote.price : ticker.currentPrice;
+                  
+                  // Calculate percentage changes with color logic
+                  const bearPercent = calculatePercentChange(ticker.ptBear, currentPrice);
+                  const basePercent = calculatePercentChange(ticker.ptBase, currentPrice);
+                  const bullPercent = calculatePercentChange(ticker.ptBull, currentPrice);
+                  
+                  const getPercentColor = (percent) => {
+                    if (!percent || percent === '-') return 'text-gray-600';
+                    const isPositive = percent.startsWith('+');
+                    const isNegative = percent.startsWith('-');
+                    return isPositive ? 'text-green-600 font-medium' : 
+                           isNegative ? 'text-red-600 font-medium' : 'text-gray-600';
+                  };
+                  
+                  // Check if row should be highlighted (Long position with negative base % or Short position with positive base %)
+                  
+                  return (
+                    <tr key={ticker.id} className={((ticker.lsPosition === 'Long' && basePercent && basePercent.startsWith('-')) || (ticker.lsPosition === 'Short' && basePercent && basePercent.startsWith('+'))) ? 'bg-red-50' : ''}>
+                      <td className="px-2 py-2 whitespace-nowrap text-sm font-medium text-gray-900" style={{ width: '60px' }}>
+                        <div className="truncate" title={ticker.ticker}>
                           {ticker.ticker}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            ticker.lsPosition === 'Long' 
-                              ? 'bg-green-100 text-green-800' 
-                              : 'bg-red-100 text-red-800'
-                          }`}>
-                            {ticker.lsPosition}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          <QuoteDisplay 
-                            ticker={ticker.ticker}
-                            quote={quote}
-                            onUpdateQuote={onUpdateQuote}
-                            isLoading={isLoadingQuotes}
-                            hasError={quoteErrors[cleanSymbol]}
-                          />
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            ticker.priority === 'A' ? 'bg-red-100 text-red-800' :
-                            ticker.priority === 'B' ? 'bg-yellow-100 text-yellow-800' :
-                            ticker.priority === 'C' ? 'bg-blue-100 text-blue-800' :
-                            'bg-gray-100 text-gray-800'
-                          }`}>
-                            {ticker.priority}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        </div>
+                      </td>
+                      <td className="px-1 py-2 whitespace-nowrap text-center" style={{ width: '40px' }}>
+                        <span className={`inline-flex px-1 py-0.5 text-xs font-semibold rounded ${
+                          ticker.lsPosition === 'Long' 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {ticker.lsPosition === 'Long' ? 'L' : 'S'}
+                        </span>
+                      </td>
+                      <td className="px-1 py-2 whitespace-nowrap text-center" style={{ width: '35px' }}>
+                        <span className={`inline-flex w-6 h-6 items-center justify-center text-xs font-bold rounded-full ${
+                          ticker.priority === 'A' ? 'bg-red-100 text-red-800' :
+                          ticker.priority === 'B' ? 'bg-yellow-100 text-yellow-800' :
+                          ticker.priority === 'C' ? 'bg-blue-100 text-blue-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {ticker.priority}
+                        </span>
+                      </td>
+                      <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-900" style={{ width: '60px' }}>
+                        <div className="truncate" title={ticker.analyst}>
                           {ticker.analyst || '-'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {ticker.ptBear ? `$${parseFloat(ticker.ptBear).toFixed(2)}` : '-'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          <span className={getPercentColor(bearPercent)}>
-                            {bearPercent || '-'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {ticker.ptBase ? `$${parseFloat(ticker.ptBase).toFixed(2)}` : '-'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          <span className={getPercentColor(basePercent)}>
-                            {basePercent || '-'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {ticker.ptBull ? `$${parseFloat(ticker.ptBull).toFixed(2)}` : '-'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          <span className={getPercentColor(bullPercent)}>
-                            {bullPercent || '-'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-500">
-                          <div className="max-w-xs truncate">
-                            {ticker.thesis}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                        </div>
+                      </td>
+                      <td className="px-2 py-2 whitespace-nowrap text-sm" style={{ width: '75px' }}>
+                        <QuoteDisplay 
+                          ticker={ticker.ticker}
+                          quote={quote}
+                          onUpdateQuote={onUpdateQuote}
+                          isLoading={isLoadingQuotes}
+                          hasError={quoteErrors[cleanSymbol]}
+                        />
+                      </td>
+                      <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-900" style={{ width: '60px' }}>
+                        {ticker.ptBear ? `$${parseFloat(ticker.ptBear).toFixed(2)}` : '-'}
+                      </td>
+                      <td className="px-1 py-2 whitespace-nowrap text-xs" style={{ width: '45px' }}>
+                        <span className={getPercentColor(bearPercent)}>
+                          {bearPercent || '-'}
+                        </span>
+                      </td>
+                      <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-900" style={{ width: '60px' }}>
+                        {ticker.ptBase ? `$${parseFloat(ticker.ptBase).toFixed(2)}` : '-'}
+                      </td>
+                      <td className="px-1 py-2 whitespace-nowrap text-xs" style={{ width: '45px' }}>
+                        <span className={getPercentColor(basePercent)}>
+                          {basePercent || '-'}
+                        </span>
+                      </td>
+                      <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-900" style={{ width: '60px' }}>
+                        {ticker.ptBull ? `$${parseFloat(ticker.ptBull).toFixed(2)}` : '-'}
+                      </td>
+                      <td className="px-1 py-2 whitespace-nowrap text-xs" style={{ width: '45px' }}>
+                        <span className={getPercentColor(bullPercent)}>
+                          {bullPercent || '-'}
+                        </span>
+                      </td>
+                      <td className="px-2 py-2 text-sm text-gray-900">
+                        <div className="break-words whitespace-normal" title={ticker.thesis}>
+                          {ticker.thesis}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                }
+              })}
+            </tbody>
+          </table>
+        </div>
+        
+        {groupedData.length === 0 && (
+          <div className="text-center py-8">
+            <p className="text-gray-500">No investment ideas found.</p>
           </div>
-        );
-      })}
+        )}
+      </div>
     </div>
   );
 };
