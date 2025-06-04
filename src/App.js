@@ -2334,6 +2334,7 @@ const DatabasePage = ({ tickers, onSort, sortField, sortDirection, onUpdate, ana
                   </div>
                 </th>
                 <SortableHeader field="dateIn">Date In</SortableHeader>
+                <SortableHeader field="pokeDate">Poke Date</SortableHeader>
                 <SortableHeader field="lsPosition">L/S</SortableHeader>
                 <th
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 w-12"
@@ -2437,6 +2438,9 @@ const EnhancedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
           {ticker.dateIn}
         </td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+          {ticker.pokeDate}
+        </td>
         <td className="px-6 py-4 whitespace-nowrap">
           <select
             value={editData.lsPosition}
@@ -2529,6 +2533,9 @@ const EnhancedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
         {ticker.dateIn}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        {ticker.pokeDate}
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -3184,6 +3191,9 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
         {ticker.dateIn}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        {formatDate(ticker.pokeDate)}
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
