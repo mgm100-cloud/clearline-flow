@@ -3420,7 +3420,7 @@ const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst
       className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
       onClick={() => handleSort(field)}
       style={style || { 
-        width: field === 'ticker' ? '70px' : 
+        width: field === 'ticker' ? '85px' : 
                field === 'lsPosition' ? '40px' :
                field === 'priority' ? '35px' :
                field === 'currentPrice' ? '75px' :
@@ -3596,7 +3596,7 @@ const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst
           <table className="min-w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed', width: '100%' }}>
             <thead className="bg-gray-50">
               <tr>
-                <SortableHeader field="ticker" style={{ width: '60px' }}>Ticker</SortableHeader>
+                <SortableHeader field="ticker" style={{ width: '85px' }}>Ticker</SortableHeader>
                 <SortableHeader field="lsPosition" style={{ width: '40px' }}>L/S</SortableHeader>
                 <SortableHeader field="priority" style={{ width: '35px' }}>Pri</SortableHeader>
                 <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '75px' }}>Price</th>
@@ -3642,7 +3642,7 @@ const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst
                   
                   return (
                     <tr key={ticker.id} className={((ticker.lsPosition === 'Long' && basePercent && basePercent.startsWith('-')) || (ticker.lsPosition === 'Short' && basePercent && basePercent.startsWith('+'))) ? 'bg-red-50' : ''}>
-                      <td className="px-2 py-2 whitespace-nowrap text-sm font-medium text-gray-900" style={{ width: '60px' }}>
+                      <td className="px-2 py-2 whitespace-nowrap text-sm font-medium text-gray-900" style={{ width: '85px' }}>
                         <div className="truncate" title={ticker.ticker}>
                           {ticker.ticker}
                         </div>
@@ -5022,7 +5022,7 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
       className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
       onClick={() => handleSort(field)}
       style={style || { 
-        width: field === 'ticker' ? '60px' : 
+        width: field === 'ticker' ? '85px' : 
                field === 'lsPosition' ? '40px' :
                field === 'priority' ? '35px' :
                field === 'analyst' ? '60px' :
@@ -5072,7 +5072,7 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
           <table className="min-w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed', width: '100%' }}>
             <thead className="bg-gray-50">
               <tr>
-                <SortableHeader field="ticker" style={{ width: '60px' }}>Ticker</SortableHeader>
+                <SortableHeader field="ticker" style={{ width: '85px' }}>Ticker</SortableHeader>
                 <SortableHeader field="lsPosition" style={{ width: '40px' }}>L/S</SortableHeader>
                 <SortableHeader field="priority" style={{ width: '35px' }}>Pri</SortableHeader>
                 <SortableHeader field="analyst" style={{ width: '60px' }}>Analyst</SortableHeader>
@@ -5119,7 +5119,7 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
                   
                   return (
                     <tr key={ticker.id} className={((ticker.lsPosition === 'Long' && basePercent && basePercent.startsWith('-')) || (ticker.lsPosition === 'Short' && basePercent && basePercent.startsWith('+'))) ? 'bg-red-50' : ''}>
-                      <td className="px-2 py-2 whitespace-nowrap text-sm font-medium text-gray-900" style={{ width: '60px' }}>
+                      <td className="px-2 py-2 whitespace-nowrap text-sm font-medium text-gray-900" style={{ width: '85px' }}>
                         <div className="truncate" title={ticker.ticker}>
                           {ticker.ticker}
                         </div>
