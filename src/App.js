@@ -19,20 +19,78 @@ const calculatePercentChange = (priceTarget, currentPrice) => {
 
 // Quote service for Alpha Vantage integration
 const QuoteService = {
+  // Bloomberg to Alpha Vantage suffix mapping
+  bloombergToAlphaVantageMap: {
+    'LN': '.LON',      // London Stock Exchange
+    'GR': '.DEX',      // Germany XETRA
+    'GY': '.DEX',      // Germany XETRA (alternative)
+    'CN': '.TRT',      // Canada Toronto Stock Exchange
+    'CT': '.TRV',      // Canada Toronto Venture Exchange
+    'JP': '.TYO',      // Japan Tokyo Stock Exchange
+    'JT': '.TYO',      // Japan Tokyo Stock Exchange (alternative)
+    'HK': '.HKG',      // Hong Kong Stock Exchange
+    'AU': '.AUS',      // Australia ASX
+    'FP': '.EPA',      // France Euronext Paris
+    'IM': '.MIL',      // Italy Borsa Italiana
+    'SM': '.MCE',      // Spain Madrid Stock Exchange
+    'SW': '.SWX',      // Switzerland SIX Swiss Exchange
+    'SS': '.SHH',      // China Shanghai Stock Exchange
+    'SZ': '.SHZ',      // China Shenzhen Stock Exchange
+    'IN': '.BSE',      // India Bombay Stock Exchange
+    'KS': '.SEO',      // South Korea Seoul Stock Exchange
+    'TB': '.BKK',      // Thailand Bangkok Stock Exchange
+    'MK': '.KLS',      // Malaysia Kuala Lumpur Stock Exchange
+    'SP': '.SIN',      // Singapore Stock Exchange
+    'TT': '.TWO',      // Taiwan Stock Exchange
+  },
+
+  // Convert Bloomberg format symbol to Alpha Vantage format
+  convertBloombergToAlphaVantage(symbol) {
+    if (!symbol || typeof symbol !== 'string') {
+      return symbol;
+    }
+
+    // Clean the symbol and convert to uppercase
+    const cleanSymbol = symbol.trim().toUpperCase();
+    
+    // Check if symbol has a space-separated suffix (Bloomberg format)
+    const parts = cleanSymbol.split(' ');
+    
+    if (parts.length === 2) {
+      const [ticker, bloombergSuffix] = parts;
+      const alphaVantageSuffix = this.bloombergToAlphaVantageMap[bloombergSuffix];
+      
+      if (alphaVantageSuffix) {
+        const convertedSymbol = ticker + alphaVantageSuffix;
+        console.log(`Converted Bloomberg symbol "${symbol}" to Alpha Vantage format "${convertedSymbol}"`);
+        return convertedSymbol;
+      } else {
+        console.warn(`Unknown Bloomberg suffix "${bloombergSuffix}" for symbol "${symbol}". Using original symbol.`);
+        return cleanSymbol;
+      }
+    }
+    
+    // If no Bloomberg suffix detected, return original symbol
+    return cleanSymbol;
+  },
+
   async getQuote(symbol) {
     if (!ALPHA_VANTAGE_API_KEY || ALPHA_VANTAGE_API_KEY === 'YOUR_API_KEY_HERE') {
       throw new Error('Alpha Vantage API key not configured');
     }
 
+    // Convert Bloomberg format to Alpha Vantage format
+    const convertedSymbol = this.convertBloombergToAlphaVantage(symbol);
+
     try {
       // Use intraday data for current market prices (15-min delay)
-      const url = `${ALPHA_VANTAGE_BASE_URL}?function=TIME_SERIES_INTRADAY&symbol=${symbol}&interval=1min&outputsize=compact&apikey=${ALPHA_VANTAGE_API_KEY}`;
-      console.log(`Fetching current quote for ${symbol} from:`, url);
+      const url = `${ALPHA_VANTAGE_BASE_URL}?function=TIME_SERIES_INTRADAY&symbol=${convertedSymbol}&interval=1min&outputsize=compact&apikey=${ALPHA_VANTAGE_API_KEY}`;
+      console.log(`Fetching current quote for ${convertedSymbol} (original: ${symbol}) from:`, url);
       
       const response = await fetch(url);
       const data = await response.json();
       
-      console.log(`Alpha Vantage intraday response for ${symbol}:`, data);
+      console.log(`Alpha Vantage intraday response for ${convertedSymbol}:`, data);
       
       if (data['Time Series (1min)']) {
         const timeSeries = data['Time Series (1min)'];
@@ -45,7 +103,8 @@ const QuoteService = {
           const previousPrice = timestamps.length > 1 ? parseFloat(timeSeries[timestamps[1]]['4. close']) : currentPrice;
           
           return {
-            symbol: symbol,
+            symbol: convertedSymbol,
+            originalSymbol: symbol, // Keep track of original symbol
             price: currentPrice,
             change: currentPrice - previousPrice,
             changePercent: previousPrice > 0 ? ((currentPrice - previousPrice) / previousPrice * 100) : 0,
@@ -67,13 +126,13 @@ const QuoteService = {
         return await this.getGlobalQuote(symbol);
       }
     } catch (error) {
-      console.error(`Error fetching intraday quote for ${symbol}:`, error);
+      console.error(`Error fetching intraday quote for ${convertedSymbol} (original: ${symbol}):`, error);
       // Fallback to daily quote if intraday fails
       try {
         console.log('Attempting fallback to daily quote...');
         return await this.getGlobalQuote(symbol);
       } catch (fallbackError) {
-        console.error(`Fallback also failed for ${symbol}:`, fallbackError);
+        console.error(`Fallback also failed for ${convertedSymbol} (original: ${symbol}):`, fallbackError);
         throw error;
       }
     }
@@ -81,9 +140,12 @@ const QuoteService = {
 
   // Fallback method for daily quotes when intraday is not available
   async getGlobalQuote(symbol) {
+    // Convert Bloomberg format to Alpha Vantage format
+    const convertedSymbol = this.convertBloombergToAlphaVantage(symbol);
+
     try {
-      const url = `${ALPHA_VANTAGE_BASE_URL}?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${ALPHA_VANTAGE_API_KEY}`;
-      console.log(`Fetching daily quote for ${symbol} from:`, url);
+      const url = `${ALPHA_VANTAGE_BASE_URL}?function=GLOBAL_QUOTE&symbol=${convertedSymbol}&apikey=${ALPHA_VANTAGE_API_KEY}`;
+      console.log(`Fetching daily quote for ${convertedSymbol} (original: ${symbol}) from:`, url);
       
       const response = await fetch(url);
       const data = await response.json();
@@ -91,7 +153,8 @@ const QuoteService = {
       if (data['Global Quote']) {
         const quote = data['Global Quote'];
         return {
-          symbol: quote['01. symbol'],
+          symbol: convertedSymbol,
+          originalSymbol: symbol, // Keep track of original symbol
           price: parseFloat(quote['05. price']),
           change: parseFloat(quote['09. change']),
           changePercent: parseFloat(quote['10. change percent'].replace('%', '')),
@@ -107,7 +170,7 @@ const QuoteService = {
         throw new Error('No quote data available');
       }
     } catch (error) {
-      console.error(`Error fetching global quote for ${symbol}:`, error);
+      console.error(`Error fetching global quote for ${convertedSymbol} (original: ${symbol}):`, error);
       throw error;
     }
   },
@@ -117,18 +180,22 @@ const QuoteService = {
       throw new Error('Alpha Vantage API key not configured');
     }
 
+    // Convert Bloomberg format to Alpha Vantage format
+    const convertedSymbol = this.convertBloombergToAlphaVantage(symbol);
+
     try {
-      const url = `${ALPHA_VANTAGE_BASE_URL}?function=OVERVIEW&symbol=${symbol}&apikey=${ALPHA_VANTAGE_API_KEY}`;
-      console.log(`Fetching company overview for ${symbol} from:`, url);
+      const url = `${ALPHA_VANTAGE_BASE_URL}?function=OVERVIEW&symbol=${convertedSymbol}&apikey=${ALPHA_VANTAGE_API_KEY}`;
+      console.log(`Fetching company overview for ${convertedSymbol} (original: ${symbol}) from:`, url);
       
       const response = await fetch(url);
       const data = await response.json();
       
-      console.log(`Alpha Vantage company overview response for ${symbol}:`, data);
+      console.log(`Alpha Vantage company overview response for ${convertedSymbol}:`, data);
       
       if (data['Symbol']) {
         return {
-          symbol: data['Symbol'],
+          symbol: convertedSymbol,
+          originalSymbol: symbol, // Keep track of original symbol
           name: data['Name'] || `${symbol} Company Ltd`,
           marketCap: parseInt(data['MarketCapitalization']) || null,
           description: data['Description'],
@@ -146,16 +213,18 @@ const QuoteService = {
       } else {
         console.warn('No company overview data found, using fallback');
         return {
-          symbol: symbol,
+          symbol: convertedSymbol,
+          originalSymbol: symbol,
           name: `${symbol} Company Ltd`,
           marketCap: null
         };
       }
     } catch (error) {
-      console.error(`Error fetching company overview for ${symbol}:`, error);
+      console.error(`Error fetching company overview for ${convertedSymbol} (original: ${symbol}):`, error);
       // Return fallback data instead of throwing
       return {
-        symbol: symbol,
+        symbol: convertedSymbol,
+        originalSymbol: symbol,
         name: `${symbol} Company Ltd`,
         marketCap: null
       };
@@ -167,14 +236,17 @@ const QuoteService = {
       throw new Error('Alpha Vantage API key not configured');
     }
 
+    // Convert Bloomberg format to Alpha Vantage format
+    const convertedSymbol = this.convertBloombergToAlphaVantage(symbol);
+
     try {
-      const url = `${ALPHA_VANTAGE_BASE_URL}?function=TIME_SERIES_DAILY&symbol=${symbol}&outputsize=compact&apikey=${ALPHA_VANTAGE_API_KEY}`;
-      console.log(`Fetching daily volume data for ${symbol} from:`, url);
+      const url = `${ALPHA_VANTAGE_BASE_URL}?function=TIME_SERIES_DAILY&symbol=${convertedSymbol}&outputsize=compact&apikey=${ALPHA_VANTAGE_API_KEY}`;
+      console.log(`Fetching daily volume data for ${convertedSymbol} (original: ${symbol}) from:`, url);
       
       const response = await fetch(url);
       const data = await response.json();
       
-      console.log(`Alpha Vantage daily data response for ${symbol}:`, data);
+      console.log(`Alpha Vantage daily data response for ${convertedSymbol}:`, data);
       
       if (data['Time Series (Daily)']) {
         const timeSeries = data['Time Series (Daily)'];
@@ -201,7 +273,8 @@ const QuoteService = {
           const avgDollarVolume = totalValue / validDays;
           
           return {
-            symbol: symbol,
+            symbol: convertedSymbol,
+            originalSymbol: symbol,
             averageVolume: Math.round(avgVolume),
             averageDollarVolume: Math.round(avgDollarVolume),
             daysCalculated: validDays
@@ -212,7 +285,7 @@ const QuoteService = {
       return null;
       
     } catch (error) {
-      console.error(`Error fetching volume data for ${symbol}:`, error);
+      console.error(`Error fetching volume data for ${convertedSymbol} (original: ${symbol}):`, error);
       return null;
     }
   },
@@ -222,14 +295,17 @@ const QuoteService = {
       throw new Error('Alpha Vantage API key not configured');
     }
 
+    // Convert Bloomberg format to Alpha Vantage format
+    const convertedSymbol = this.convertBloombergToAlphaVantage(symbol);
+
     try {
-      const url = `${ALPHA_VANTAGE_BASE_URL}?function=EARNINGS&symbol=${symbol}&apikey=${ALPHA_VANTAGE_API_KEY}`;
-      console.log(`Fetching earnings data for ${symbol} from:`, url);
+      const url = `${ALPHA_VANTAGE_BASE_URL}?function=EARNINGS&symbol=${convertedSymbol}&apikey=${ALPHA_VANTAGE_API_KEY}`;
+      console.log(`Fetching earnings data for ${convertedSymbol} (original: ${symbol}) from:`, url);
       
       const response = await fetch(url);
       const data = await response.json();
       
-      console.log(`Alpha Vantage earnings response for ${symbol}:`, data);
+      console.log(`Alpha Vantage earnings response for ${convertedSymbol}:`, data);
       
       if (data['quarterlyEarnings'] && data['quarterlyEarnings'].length > 0) {
         // Find the next upcoming earnings date
@@ -240,7 +316,8 @@ const QuoteService = {
         
         if (upcomingEarnings.length > 0) {
           return {
-            symbol: symbol,
+            symbol: convertedSymbol,
+            originalSymbol: symbol,
             nextEarningsDate: upcomingEarnings[0].reportedDate,
             estimatedEPS: upcomingEarnings[0].estimatedEPS,
             reportedEPS: upcomingEarnings[0].reportedEPS
@@ -257,7 +334,8 @@ const QuoteService = {
             estimatedNext.setMonth(estimatedNext.getMonth() + 3);
             
             return {
-              symbol: symbol,
+              symbol: convertedSymbol,
+              originalSymbol: symbol,
               nextEarningsDate: estimatedNext.toISOString().split('T')[0],
               estimatedEPS: null,
               reportedEPS: null,
@@ -271,7 +349,7 @@ const QuoteService = {
       return null;
       
     } catch (error) {
-      console.error(`Error fetching earnings data for ${symbol}:`, error);
+      console.error(`Error fetching earnings data for ${convertedSymbol} (original: ${symbol}):`, error);
       throw error;
     }
   },
@@ -285,7 +363,9 @@ const QuoteService = {
       const symbol = symbols[i];
       try {
         const quote = await this.getQuote(symbol);
-        quotes[symbol] = quote;
+        // Use the converted symbol as the key but store original for reference
+        const keySymbol = quote.originalSymbol || symbol;
+        quotes[keySymbol] = quote;
       } catch (error) {
         errors[symbol] = error.message;
       }
@@ -304,7 +384,9 @@ const QuoteService = {
       try {
         const earningsData = await this.getEarningsData(symbol);
         if (earningsData) {
-          earnings[symbol] = earningsData;
+          // Use the original symbol as the key
+          const keySymbol = earningsData.originalSymbol || symbol;
+          earnings[keySymbol] = earningsData;
         }
       } catch (error) {
         errors[symbol] = error.message;
@@ -312,6 +394,46 @@ const QuoteService = {
     }
     
     return { earnings, errors };
+  },
+
+  // Symbol search for finding international stocks
+  async searchSymbols(keywords) {
+    if (!ALPHA_VANTAGE_API_KEY || ALPHA_VANTAGE_API_KEY === 'YOUR_API_KEY_HERE') {
+      throw new Error('Alpha Vantage API key not configured');
+    }
+
+    try {
+      const url = `${ALPHA_VANTAGE_BASE_URL}?function=SYMBOL_SEARCH&keywords=${encodeURIComponent(keywords)}&apikey=${ALPHA_VANTAGE_API_KEY}`;
+      console.log(`Searching symbols for "${keywords}" from:`, url);
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      console.log(`Alpha Vantage symbol search response for "${keywords}":`, data);
+      
+      if (data['bestMatches']) {
+        return data['bestMatches'].map(match => ({
+          symbol: match['1. symbol'],
+          name: match['2. name'],
+          type: match['3. type'],
+          region: match['4. region'],
+          marketOpen: match['5. marketOpen'],
+          marketClose: match['6. marketClose'],
+          timezone: match['7. timezone'],
+          currency: match['8. currency'],
+          matchScore: parseFloat(match['9. matchScore'])
+        }));
+      } else if (data['Error Message']) {
+        throw new Error(`Alpha Vantage Error: ${data['Error Message']}`);
+      } else if (data['Note']) {
+        throw new Error('API call frequency limit reached. Please try again later.');
+      } else {
+        return [];
+      }
+    } catch (error) {
+      console.error(`Error searching symbols for "${keywords}":`, error);
+      throw error;
+    }
   }
 };
 
@@ -651,7 +773,7 @@ const ClearlineFlow = () => {
       
       console.log('Batch quotes response:', { newQuotes, errors });
       
-      // Update quotes state
+      // Update quotes state - using original symbols as keys
       setQuotes(prev => ({ ...prev, ...newQuotes }));
       
       // Update errors state
@@ -676,7 +798,9 @@ const ClearlineFlow = () => {
     
     try {
       const quote = await QuoteService.getQuote(cleanSymbol);
-      setQuotes(prev => ({ ...prev, [cleanSymbol]: quote }));
+      // Use the original symbol as the key
+      const keySymbol = quote.originalSymbol || cleanSymbol;
+      setQuotes(prev => ({ ...prev, [keySymbol]: quote }));
       
       // Update the ticker's current price
       setTickers(prev => prev.map(ticker => {
@@ -740,9 +864,10 @@ const ClearlineFlow = () => {
         })
       ]);
       
-      // Store quote in state if we got it
+      // Store quote in state if we got it (using original symbol as key)
       if (quote) {
-        setQuotes(prev => ({ ...prev, [cleanSymbol]: quote }));
+        const keySymbol = quote.originalSymbol || cleanSymbol;
+        setQuotes(prev => ({ ...prev, [keySymbol]: quote }));
       }
       
       // Use real data when available, fallback to null
@@ -971,27 +1096,33 @@ const ClearlineFlow = () => {
             
             if (quoteData?.price) {
               updates.currentPrice = quoteData.price;
+              updates.lastQuoteUpdate = new Date().toISOString();
+              
+              // Store quote in state (using original symbol as key)
+              const keySymbol = quoteData.originalSymbol || cleanSymbol;
+              setQuotes(prev => ({ ...prev, [keySymbol]: quoteData }));
             }
             
+            // Update ticker in database if we have updates
             if (Object.keys(updates).length > 0) {
               await updateTicker(ticker.id, updates);
               successCount++;
-              console.log(`✅ Updated market data for ${ticker.ticker}:`, updates);
+              console.log(`✅ Updated market data for ${cleanSymbol}:`, updates);
             }
             
           } catch (error) {
-            console.error(`Error refreshing market data for ${ticker.ticker}:`, error);
-            errors[ticker.ticker] = error.message;
+            console.error(`Error refreshing market data for ${cleanSymbol}:`, error);
+            errors[cleanSymbol] = error.message;
           }
         }));
         
-        // Add a small delay between batches to be respectful to the API
+        // Small delay between batches to be respectful to the API
         if (i + batchSize < tickers.length) {
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
       }
       
-      console.log(`🎉 Successfully updated market data for ${successCount} tickers`);
+      console.log(`🎉 Market data refresh completed: ${successCount} successful, ${Object.keys(errors).length} errors`);
       return { success: successCount, errors };
       
     } catch (error) {
