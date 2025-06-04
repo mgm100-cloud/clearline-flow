@@ -3228,6 +3228,12 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
         {ticker.analyst}
       </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        {ticker.source || '-'}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+        {ticker.inputPrice ? `$${parseFloat(ticker.inputPrice).toFixed(2)}` : '-'}
+      </td>
       <td className="px-6 py-4 whitespace-nowrap">
         <QuoteDisplay 
           ticker={ticker.ticker}
@@ -3270,6 +3276,91 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
             )}
           </span>
         )}
+      </td>
+      {/* Price Targets */}
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+        {ticker.ptBear ? formatPriceTarget(ticker.ptBear) : '-'}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+        {ticker.ptBase ? formatPriceTarget(ticker.ptBase) : '-'}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+        {ticker.ptBull ? formatPriceTarget(ticker.ptBull) : '-'}
+      </td>
+      {/* Additional Info */}
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        {formatDate(ticker.catalystDate)}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        {ticker.valueOrGrowth || '-'}
+      </td>
+      {/* M&A Characteristics */}
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+        {formatBoolean(ticker.maTargetBuyer)}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+        {formatBoolean(ticker.maTargetValuation)}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+        {formatBoolean(ticker.maTargetSeller)}
+      </td>
+      {/* Other Investment Characteristics */}
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+        {formatBoolean(ticker.bigMoveRevert)}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+        {formatBoolean(ticker.activist)}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+        {formatBoolean(ticker.activistPotential)}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+        {formatBoolean(ticker.insiderTradeSignal)}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+        {formatBoolean(ticker.newMgmt)}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+        {formatBoolean(ticker.spin)}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+        {formatBoolean(ticker.bigAcq)}
+      </td>
+      {/* Risk Factors */}
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+        {formatBoolean(ticker.fraudRisk)}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+        {formatBoolean(ticker.regulatoryRisk)}
+      </td>
+      {/* Market Characteristics */}
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+        {formatBoolean(ticker.cyclical)}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+        {formatBoolean(ticker.nonCyclical)}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+        {formatBoolean(ticker.highBeta)}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+        {formatBoolean(ticker.momo)}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+        {formatBoolean(ticker.selfHelp)}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+        {formatBoolean(ticker.rateExposure)}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+        {formatBoolean(ticker.strongDollar)}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+        {formatBoolean(ticker.extremeValuation)}
+      </td>
+      {/* Thesis */}
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500" title={ticker.thesis}>
+        {ticker.thesis && ticker.thesis.length > 50 ? ticker.thesis.substring(0, 50) + '...' : ticker.thesis || '-'}
       </td>
       {onUpdate && (
         <td className="px-6 py-4 whitespace-nowrap text-sm">
