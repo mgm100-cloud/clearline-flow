@@ -341,7 +341,8 @@ const QuoteService = {
     }
   },
 
-  async getEarningsData(symbol) {
+  // Get upcoming earnings date using EARNINGS_CALENDAR function
+  async getUpcomingEarningsDate(symbol) {
     if (!ALPHA_VANTAGE_API_KEY || ALPHA_VANTAGE_API_KEY === 'YOUR_API_KEY_HERE') {
       throw new Error('Alpha Vantage API key not configured');
     }
@@ -350,59 +351,80 @@ const QuoteService = {
     const convertedSymbol = this.convertBloombergToAlphaVantage(symbol);
 
     try {
-      const url = `${ALPHA_VANTAGE_BASE_URL}?function=EARNINGS&symbol=${convertedSymbol}&apikey=${ALPHA_VANTAGE_API_KEY}`;
-      console.log(`Fetching earnings data for ${convertedSymbol} (original: ${symbol}) from:`, url);
+      const url = `${ALPHA_VANTAGE_BASE_URL}?function=EARNINGS_CALENDAR&symbol=${convertedSymbol}&apikey=${ALPHA_VANTAGE_API_KEY}`;
+      console.log(`Fetching upcoming earnings for ${convertedSymbol} (original: ${symbol}) from:`, url);
       
       const response = await fetch(url);
-      const data = await response.json();
+      const text = await response.text();
       
-      console.log(`Alpha Vantage earnings response for ${convertedSymbol}:`, data);
+      console.log(`Alpha Vantage earnings calendar response for ${convertedSymbol}:`, text.substring(0, 500) + '...');
       
-      if (data['quarterlyEarnings'] && data['quarterlyEarnings'].length > 0) {
-        // Find the next upcoming earnings date
-        const today = new Date();
-        const upcomingEarnings = data['quarterlyEarnings']
-          .filter(earning => new Date(earning.reportedDate) > today)
-          .sort((a, b) => new Date(a.reportedDate) - new Date(b.reportedDate));
-        
-        if (upcomingEarnings.length > 0) {
-          return {
-            symbol: convertedSymbol,
-            originalSymbol: symbol,
-            nextEarningsDate: upcomingEarnings[0].reportedDate,
-            estimatedEPS: upcomingEarnings[0].estimatedEPS,
-            reportedEPS: upcomingEarnings[0].reportedEPS
-          };
-        } else {
-          // If no upcoming earnings, get the most recent one and estimate next quarter
-          const recentEarnings = data['quarterlyEarnings']
-            .sort((a, b) => new Date(b.reportedDate) - new Date(a.reportedDate));
+      // EARNINGS_CALENDAR returns CSV format
+      if (!text || text.trim() === '') {
+        console.warn(`No earnings calendar data found for ${convertedSymbol}`);
+        return null;
+      }
+
+      // Parse CSV response
+      const lines = text.trim().split('\n');
+      if (lines.length < 2) {
+        console.warn(`Insufficient earnings calendar data for ${convertedSymbol}`);
+        return null;
+      }
+
+      // First line is headers: symbol,name,reportDate,fiscalDateEnding,estimate,currency
+      const headers = lines[0].split(',');
+      
+      // Find the first upcoming earnings date for this symbol
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Normalize to start of day for comparison
+      
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',');
+        if (values.length >= 6) {
+          const lineSymbol = values[0];
+          const name = values[1];
+          const reportDate = values[2];
+          const fiscalDateEnding = values[3];
+          const estimate = values[4];
+          const currency = values[5];
           
-          if (recentEarnings.length > 0) {
-            const lastDate = new Date(recentEarnings[0].reportedDate);
-            // Estimate next earnings ~3 months later
-            const estimatedNext = new Date(lastDate);
-            estimatedNext.setMonth(estimatedNext.getMonth() + 3);
+          // Check if this line matches our symbol
+          if (lineSymbol.toUpperCase() === convertedSymbol.toUpperCase()) {
+            const earningsDate = new Date(reportDate);
             
-            return {
-              symbol: convertedSymbol,
-              originalSymbol: symbol,
-              nextEarningsDate: estimatedNext.toISOString().split('T')[0],
-              estimatedEPS: null,
-              reportedEPS: null,
-              isEstimated: true
-            };
+            // Only return future earnings dates
+            if (earningsDate >= today) {
+              return {
+                symbol: convertedSymbol,
+                originalSymbol: symbol,
+                nextEarningsDate: reportDate,
+                estimatedEPS: estimate && estimate !== 'None' ? parseFloat(estimate) : null,
+                fiscalDateEnding: fiscalDateEnding,
+                currency: currency || 'USD',
+                companyName: name,
+                isActual: true, // This is from the actual earnings calendar, not estimated
+                daysUntilEarnings: Math.ceil((earningsDate - today) / (1000 * 60 * 60 * 24))
+              };
+            }
           }
         }
       }
       
-      // If no earnings data found, return null
+      // If no upcoming earnings found, return null
+      console.log(`No upcoming earnings found for ${convertedSymbol} in earnings calendar`);
       return null;
       
     } catch (error) {
-      console.error(`Error fetching earnings data for ${convertedSymbol} (original: ${symbol}):`, error);
+      console.error(`Error fetching earnings calendar for ${convertedSymbol} (original: ${symbol}):`, error);
       throw error;
     }
+  },
+
+  // Legacy earnings data function (kept for backward compatibility)
+  async getEarningsData(symbol) {
+    console.warn('getEarningsData is deprecated, use getUpcomingEarningsDate instead');
+    return this.getUpcomingEarningsDate(symbol);
   },
 
   async getBatchQuotes(symbols) {
@@ -433,7 +455,7 @@ const QuoteService = {
     for (let i = 0; i < symbols.length; i++) {
       const symbol = symbols[i];
       try {
-        const earningsData = await this.getEarningsData(symbol);
+        const earningsData = await this.getUpcomingEarningsDate(symbol);
         if (earningsData) {
           // Use the original symbol as the key
           const keySymbol = earningsData.originalSymbol || symbol;
@@ -578,6 +600,25 @@ const QuoteService = {
           note: 'Symbol search failed ❌'
         };
         console.error('❌ Symbol Search failed:', error.message);
+      }
+      
+      // Test Earnings Calendar API
+      console.log('📅 Testing Earnings Calendar API...');
+      try {
+        const earnings = await this.getUpcomingEarningsDate(convertedSymbol);
+        results.earningsCalendar = {
+          success: true,
+          data: earnings,
+          note: earnings ? 'Upcoming earnings date found ✅' : 'No upcoming earnings found ⚠️'
+        };
+        console.log('✅ Earnings Calendar API successful:', earnings);
+      } catch (error) {
+        results.earningsCalendar = {
+          success: false,
+          error: error.message,
+          note: 'Earnings calendar failed ❌'
+        };
+        console.error('❌ Earnings Calendar API failed:', error.message);
       }
       
       // Summary
