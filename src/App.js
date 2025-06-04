@@ -2276,36 +2276,6 @@ const DatabasePage = ({ tickers, onSort, sortField, sortDirection, onUpdate, ana
           </div>
         </div>
         
-        {/* International Stock Information Panel */}
-        {tickers.some(ticker => ticker.ticker.includes('.') || ticker.ticker.includes(' ')) && (
-          <div className="mb-4 bg-yellow-50 border border-yellow-200 rounded-md p-4">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <span className="text-yellow-600 text-lg">🌍</span>
-              </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-yellow-800">
-                  International Stock Data Notice
-                </h3>
-                <div className="mt-2 text-sm text-yellow-700">
-                  <p>
-                    International stocks (marked with 🌍) may have limited fundamental data due to Alpha Vantage API restrictions:
-                  </p>
-                  <ul className="list-disc list-inside mt-1 space-y-1">
-                    <li><strong>Market Cap:</strong> Not available for most non-US stocks</li>
-                    <li><strong>3M ADV:</strong> Volume data may be limited or unavailable</li>
-                    <li><strong>Company Info:</strong> Limited company overview data</li>
-                    <li><strong>Stock Prices:</strong> ✅ Available and updating normally</li>
-                  </ul>
-                  <p className="mt-2 text-xs">
-                    Look for the ⓘ icon next to unavailable data fields for more information.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-        
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
