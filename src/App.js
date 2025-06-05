@@ -1404,6 +1404,18 @@ const ClearlineFlow = () => {
     }
   };
 
+  const refreshTodos = async () => {
+    try {
+      console.log('🔄 Refreshing todos...');
+      const todosData = await DatabaseService.getTodos();
+      console.log('✅ Successfully refreshed todos:', todosData);
+      setTodos(todosData);
+    } catch (error) {
+      console.error('❌ Error refreshing todos:', error);
+      throw error;
+    }
+  };
+
   const updateTodo = async (id, updates) => {
     try {
       // If closing the todo, set the date closed
@@ -1474,28 +1486,40 @@ const ClearlineFlow = () => {
   };
 
   // Handle tab switching with automatic data refresh
-  const handleTabSwitch = async (newTab) => {
-    console.log(`🔄 Switching to tab: ${newTab} - Auto-refreshing data...`);
+  const handleTabSwitch = async (tab) => {
+    setActiveTab(tab);
+    setSelectedTodoAnalyst(null);
     
-    // Only refresh if switching to a different tab
-    if (newTab !== activeTab) {
-      setIsTabSwitching(true);
-      
-      try {
-        // Refresh data before switching tabs
-        await refreshData();
-        
-        // Set the new active tab
-        setActiveTab(newTab);
-        
-        console.log(`✅ Tab switched to: ${newTab} with fresh data`);
-      } catch (error) {
-        console.error('❌ Error refreshing data during tab switch:', error);
-        // Still switch tabs even if refresh fails
-        setActiveTab(newTab);
-      } finally {
-        setIsTabSwitching(false);
+    // Refresh data based on the selected tab
+    try {
+      switch (tab) {
+        case 'database':
+          await Promise.all([
+            refreshDatabaseData(),
+            refreshAnalysts()
+          ]);
+          break;
+        case 'databaseDetailed':
+          await Promise.all([
+            refreshDatabaseData(),
+            refreshAnalysts()
+          ]);
+          break;
+        case 'todoList':
+          await Promise.all([
+            refreshTodos(),
+            refreshAnalysts()
+          ]);
+          break;
+        case 'analysts':
+          await refreshAnalysts();
+          break;
+        case 'settings':
+          await refreshAnalysts();
+          break;
       }
+    } catch (error) {
+      console.error('Error refreshing data:', error);
     }
   };
 
@@ -1799,6 +1823,7 @@ const ClearlineFlow = () => {
             onDeleteTodo={deleteTodo}
             analysts={analysts}
             userRole={userRole}
+            onRefreshTodos={refreshTodos}
           />
         )}
       </main>
@@ -4469,16 +4494,42 @@ const EarningsTrackingRow = ({ ticker, cyq, earningsData, onUpdateEarnings, form
 };
 
 // Todo List Page Component
-const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTodo, onUpdateTodo, onDeleteTodo, analysts, userRole }) => {
+const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTodo, onUpdateTodo, onDeleteTodo, analysts, userRole, onRefreshTodos }) => {
   const [sortField, setSortField] = useState('dateEntered');
   const [sortDirection, setSortDirection] = useState('desc');
   const [showAddForm, setShowAddForm] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [newTodo, setNewTodo] = useState({
     ticker: '',
     analyst: '',
     priority: 'medium',
     item: ''
   });
+
+  // Auto-refresh todos every 5 minutes when component is mounted
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        await onRefreshTodos();
+      } catch (error) {
+        console.error('Error in auto-refresh:', error);
+      }
+    }, 5 * 60 * 1000); // 5 minutes
+
+    return () => clearInterval(interval);
+  }, [onRefreshTodos]);
+
+  // Handle manual refresh
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await onRefreshTodos();
+    } catch (error) {
+      console.error('Error refreshing todos:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   // Calculate days since entered
   const calculateDaysSinceEntered = (dateEntered) => {
@@ -4575,6 +4626,30 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">Todo List</h1>
         <div className="flex space-x-4">
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${
+              isRefreshing 
+                ? 'bg-gray-400 cursor-not-allowed' 
+                : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
+            }`}
+          >
+            {isRefreshing ? (
+              <>
+                <svg className="animate-spin -ml-1 mr-3 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 0 1 4 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Refreshing...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh List
+              </>
+            )}
+          </button>
           <button
             onClick={() => {
               const doc = new jsPDF();
