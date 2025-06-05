@@ -83,58 +83,41 @@ const QuoteService = {
     const convertedSymbol = this.convertBloombergToAlphaVantage(symbol);
 
     try {
-      // Use intraday data for current market prices (15-min delay)
-      const url = `${ALPHA_VANTAGE_BASE_URL}?function=TIME_SERIES_INTRADAY&symbol=${convertedSymbol}&interval=1min&outputsize=compact&apikey=${ALPHA_VANTAGE_API_KEY}`;
+      // Use GLOBAL_QUOTE for current market prices
+      const url = `${ALPHA_VANTAGE_BASE_URL}?function=GLOBAL_QUOTE&symbol=${convertedSymbol}&apikey=${ALPHA_VANTAGE_API_KEY}`;
       console.log(`Fetching current quote for ${convertedSymbol} (original: ${symbol}) from:`, url);
       
       const response = await fetch(url);
       const data = await response.json();
       
-      console.log(`Alpha Vantage intraday response for ${convertedSymbol}:`, data);
+      console.log(`Alpha Vantage global quote response for ${convertedSymbol}:`, data);
       
-      if (data['Time Series (1min)']) {
-        const timeSeries = data['Time Series (1min)'];
-        const timestamps = Object.keys(timeSeries).sort().reverse(); // Get most recent first
-        
-        if (timestamps.length > 0) {
-          const latestTimestamp = timestamps[0];
-          const latestData = timeSeries[latestTimestamp];
-          const currentPrice = parseFloat(latestData['4. close']);
-          const previousPrice = timestamps.length > 1 ? parseFloat(timeSeries[timestamps[1]]['4. close']) : currentPrice;
-          
-          return {
-            symbol: convertedSymbol,
-            originalSymbol: symbol, // Keep track of original symbol
-            price: currentPrice,
-            change: currentPrice - previousPrice,
-            changePercent: previousPrice > 0 ? ((currentPrice - previousPrice) / previousPrice * 100) : 0,
-            volume: parseInt(latestData['5. volume']),
-            high: parseFloat(latestData['2. high']),
-            low: parseFloat(latestData['3. low']),
-            open: parseFloat(latestData['1. open']),
-            lastUpdated: latestTimestamp,
-            isIntraday: true
-          };
-        }
+      if (data['Global Quote']) {
+        const quote = data['Global Quote'];
+        return {
+          symbol: convertedSymbol,
+          originalSymbol: symbol, // Keep track of original symbol
+          price: parseFloat(quote['05. price']),
+          change: parseFloat(quote['09. change']),
+          changePercent: parseFloat(quote['10. change percent'].replace('%', '')),
+          volume: parseInt(quote['06. volume']),
+          previousClose: parseFloat(quote['08. previous close']),
+          high: parseFloat(quote['03. high']),
+          low: parseFloat(quote['04. low']),
+          open: parseFloat(quote['02. open']),
+          lastUpdated: quote['07. latest trading day'],
+          isIntraday: false
+        };
       } else if (data['Error Message']) {
         throw new Error(`Alpha Vantage Error: ${data['Error Message']}`);
       } else if (data['Note']) {
         throw new Error('API call frequency limit reached. Please try again later.');
       } else {
-        // Fallback to GLOBAL_QUOTE if intraday fails (market closed, etc.)
-        console.log('Intraday data not available, falling back to daily quote...');
-        return await this.getGlobalQuote(symbol);
+        throw new Error('No quote data available');
       }
     } catch (error) {
-      console.error(`Error fetching intraday quote for ${convertedSymbol} (original: ${symbol}):`, error);
-      // Fallback to daily quote if intraday fails
-      try {
-        console.log('Attempting fallback to daily quote...');
-        return await this.getGlobalQuote(symbol);
-      } catch (fallbackError) {
-        console.error(`Fallback also failed for ${convertedSymbol} (original: ${symbol}):`, fallbackError);
-        throw error;
-      }
+      console.error(`Error fetching quote for ${convertedSymbol} (original: ${symbol}):`, error);
+      throw error;
     }
   },
 
