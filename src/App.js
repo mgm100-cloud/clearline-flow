@@ -2349,6 +2349,9 @@ const DatabasePage = ({ tickers, onSort, sortField, sortDirection, onUpdate, ana
                 </th>
                 <SortableHeader field="status">Status</SortableHeader>
                 <SortableHeader field="analyst">Analyst</SortableHeader>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Source
+                </th>
                 <SortableHeader field="currentPrice">Current Price</SortableHeader>
                 <th
                   className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
@@ -2489,6 +2492,17 @@ const EnhancedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
           </select>
         </td>
         <td className="px-6 py-4 whitespace-nowrap">
+          <input
+            type="text"
+            value={editData.source || ''}
+            onChange={(e) => setEditData({...editData, source: e.target.value})}
+            className="text-xs border border-gray-300 rounded px-1 py-1 w-20"
+          />
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+          {ticker.inputPrice ? `$${parseFloat(ticker.inputPrice).toFixed(2)}` : '-'}
+        </td>
+        <td className="px-6 py-4 whitespace-nowrap">
           <QuoteDisplay 
             ticker={ticker.ticker}
             quote={quote}
@@ -2570,6 +2584,12 @@ const EnhancedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
         {ticker.analyst}
       </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        {ticker.source || '-'}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+        {ticker.inputPrice ? `$${parseFloat(ticker.inputPrice).toFixed(2)}` : '-'}
+      </td>
       <td className="px-6 py-4 whitespace-nowrap">
         <QuoteDisplay 
           ticker={ticker.ticker}
@@ -2580,10 +2600,38 @@ const EnhancedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
         />
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
-        {formatMarketCap ? formatMarketCap(ticker.marketCap) : '-'}
+        {ticker.marketCap ? (
+          formatMarketCap(ticker.marketCap)
+        ) : (
+          <span className="flex items-center justify-end">
+            <span className="text-gray-400">-</span>
+            {(ticker.ticker.includes('.') || ticker.ticker.includes(' ')) && (
+              <span 
+                className="ml-1 text-xs text-yellow-600 cursor-help" 
+                title="Market cap data not available for international stocks via Alpha Vantage"
+              >
+                ⓘ
+              </span>
+            )}
+          </span>
+        )}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
-        {formatVolumeDollars ? formatVolumeDollars(ticker.adv3Month) : '-'}
+        {ticker.adv3Month ? (
+          formatVolumeDollars(ticker.adv3Month)
+        ) : (
+          <span className="flex items-center justify-end">
+            <span className="text-gray-400">-</span>
+            {(ticker.ticker.includes('.') || ticker.ticker.includes(' ')) && (
+              <span 
+                className="ml-1 text-xs text-yellow-600 cursor-help" 
+                title="3-month average daily volume data not available for international stocks via Alpha Vantage"
+              >
+                ⓘ
+              </span>
+            )}
+          </span>
+        )}
       </td>
       {onUpdate && (
         <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -2706,7 +2754,9 @@ const DatabaseDetailedPage = ({ tickers, onSort, sortField, sortDirection, onUpd
                 </th>
                 <SortableHeader field="status">Status</SortableHeader>
                 <SortableHeader field="analyst">Analyst</SortableHeader>
-                <SortableHeader field="source">Source</SortableHeader>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Source
+                </th>
                 
                 {/* Financial Data */}
                 <th
