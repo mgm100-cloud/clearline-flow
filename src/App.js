@@ -4553,6 +4553,18 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
     item: ''
   });
 
+  // Initial refresh when component is mounted
+  useEffect(() => {
+    const initialRefresh = async () => {
+      try {
+        await onRefreshTodos();
+      } catch (error) {
+        console.error('Error in initial refresh:', error);
+      }
+    };
+    initialRefresh();
+  }, [onRefreshTodos]);
+
   // Auto-refresh todos every 5 minutes when component is mounted
   useEffect(() => {
     const interval = setInterval(async () => {
