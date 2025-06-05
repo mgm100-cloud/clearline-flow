@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Plus, Database, Users, TrendingUp, BarChart3, LogOut, ChevronUp, ChevronDown, RefreshCw, Download, CheckSquare, User } from 'lucide-react';
 import { DatabaseService } from './databaseService';
 import { AuthService } from './services/authService';
@@ -1553,10 +1553,8 @@ const ClearlineFlow = () => {
           ]);
           break;
         case 'todoList':
-          await Promise.all([
-            refreshTodos(),
-            refreshAnalysts()
-          ]);
+          // Only refresh analysts, let TodoList component handle its own refresh
+          await refreshAnalysts();
           break;
         case 'analysts':
           await refreshAnalysts();
@@ -4552,18 +4550,22 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
     priority: 'medium',
     item: ''
   });
+  const isFirstMount = useRef(true);
 
   // Initial refresh when component is mounted - only run once
   useEffect(() => {
-    const initialRefresh = async () => {
-      try {
-        await onRefreshTodos();
-      } catch (error) {
-        console.error('Error in initial refresh:', error);
-      }
-    };
-    initialRefresh();
-  }, []); // Empty dependency array means this only runs once on mount
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      const initialRefresh = async () => {
+        try {
+          await onRefreshTodos();
+        } catch (error) {
+          console.error('Error in initial refresh:', error);
+        }
+      };
+      initialRefresh();
+    }
+  }, [onRefreshTodos]);
 
   // Auto-refresh todos every 5 minutes when component is mounted
   useEffect(() => {
