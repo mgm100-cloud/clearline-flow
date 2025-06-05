@@ -4553,7 +4553,7 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
     item: ''
   });
 
-  // Initial refresh when component is mounted
+  // Initial refresh when component is mounted - only run once
   useEffect(() => {
     const initialRefresh = async () => {
       try {
@@ -4563,7 +4563,7 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
       }
     };
     initialRefresh();
-  }, [onRefreshTodos]);
+  }, []); // Empty dependency array means this only runs once on mount
 
   // Auto-refresh todos every 5 minutes when component is mounted
   useEffect(() => {
