@@ -652,7 +652,7 @@ const ClearlineFlow = () => {
 
   // Data state
   const [tickers, setTickers] = useState([]);
-  const [analysts] = useState(['LT', 'GA', 'DP', 'MS', 'DO', 'MM']);
+  const [analysts, setAnalysts] = useState(['LT', 'GA', 'DP', 'MS', 'DO', 'MM']);
   const [selectedAnalyst, setSelectedAnalyst] = useState('LT');
   const [sortField, setSortField] = useState('');
   const [sortDirection, setSortDirection] = useState('asc');
@@ -1485,7 +1485,54 @@ const ClearlineFlow = () => {
     }
   };
 
-  // Handle tab switching with automatic data refresh
+  // Refresh database data
+  const refreshDatabaseData = async () => {
+    if (!isAuthenticated) return;
+    
+    setIsRefreshingData(true);
+    console.log('🔄 Refreshing database data...');
+    
+    try {
+      // Load tickers
+      const tickersData = await DatabaseService.getTickers();
+      console.log('✅ Refreshed tickers from Supabase:', tickersData);
+      setTickers(tickersData);
+      
+      // Load earnings data
+      try {
+        const earningsDataFromDB = await DatabaseService.getEarningsData();
+        console.log('✅ Refreshed earnings data from Supabase:', earningsDataFromDB);
+        setEarningsData(earningsDataFromDB);
+      } catch (earningsError) {
+        console.warn('⚠️ Could not refresh earnings data:', earningsError);
+        setEarningsData([]);
+      }
+      
+      setLastDataRefresh(new Date());
+      console.log('✅ Database data refresh completed successfully');
+      
+    } catch (error) {
+      console.error('❌ Error refreshing database data:', error);
+    } finally {
+      setIsRefreshingData(false);
+    }
+  };
+
+  // Refresh analysts data
+  const refreshAnalysts = async () => {
+    if (!isAuthenticated) return;
+    
+    console.log('🔄 Refreshing analysts data...');
+    
+    try {
+      const analystsData = await DatabaseService.getAnalysts();
+      console.log('✅ Refreshed analysts from Supabase:', analystsData);
+      setAnalysts(analystsData);
+    } catch (error) {
+      console.error('❌ Error refreshing analysts data:', error);
+    }
+  };
+
   const handleTabSwitch = async (tab) => {
     setActiveTab(tab);
     setSelectedTodoAnalyst(null);
