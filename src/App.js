@@ -6,9 +6,9 @@ import LoginScreen from './components/LoginScreen';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-// Alpha Vantage API configuration - using environment variable
-const ALPHA_VANTAGE_API_KEY = process.env.REACT_APP_ALPHA_VANTAGE_API_KEY || 'YOUR_API_KEY_HERE';
-const ALPHA_VANTAGE_BASE_URL = 'https://www.alphavantage.co/query';
+// TwelveData API configuration - using environment variable
+const TWELVE_DATA_API_KEY = process.env.REACT_APP_TWELVE_DATA_API_KEY || 'YOUR_API_KEY_HERE';
+const TWELVE_DATA_BASE_URL = 'https://api.twelvedata.com';
 
 // Helper function to calculate percentage change between price targets and current price
 const calculatePercentChange = (priceTarget, currentPrice) => {
@@ -17,37 +17,37 @@ const calculatePercentChange = (priceTarget, currentPrice) => {
   return `${change >= 0 ? '+' : ''}${Math.round(change)}%`;
 };
 
-// Quote service for Alpha Vantage integration
+// Quote service for TwelveData integration
 const QuoteService = {
-  // Bloomberg to Alpha Vantage suffix mapping
-  bloombergToAlphaVantageMap: {
-    'LN': '.LON',      // London Stock Exchange
-    'GR': '.DEX',      // Germany XETRA
-    'GY': '.DEX',      // Germany XETRA (alternative)
-    'CN': '.TRT',      // Canada Toronto Stock Exchange
-    'CT': '.TRV',      // Canada Toronto Venture Exchange
-    'JP': '.TYO',      // Japan Tokyo Stock Exchange
-    'JT': '.TYO',      // Japan Tokyo Stock Exchange (alternative)
-    'HK': '.HKG',      // Hong Kong Stock Exchange
-    'AU': '.AUS',      // Australia ASX
-    'FP': '.EPA',      // France Euronext Paris
-    'IM': '.MIL',      // Italy Borsa Italiana (main market)
-    'HM': '.MIL',      // Italy HI-MTF (alternative Italian platform)
-    'TE': '.MIL',      // Italy EuroTLX (Italian platform - maps to MIL for Alpha Vantage)
-    'SM': '.MCE',      // Spain Madrid Stock Exchange
-    'SW': '.SWX',      // Switzerland SIX Swiss Exchange
-    'SS': '.SHH',      // China Shanghai Stock Exchange
-    'SZ': '.SHZ',      // China Shenzhen Stock Exchange
-    'IN': '.BSE',      // India Bombay Stock Exchange
-    'KS': '.SEO',      // South Korea Seoul Stock Exchange
-    'TB': '.BKK',      // Thailand Bangkok Stock Exchange
-    'MK': '.KLS',      // Malaysia Kuala Lumpur Stock Exchange
-    'SP': '.SIN',      // Singapore Stock Exchange
-    'TT': '.TWO',      // Taiwan Stock Exchange
+  // Bloomberg to TwelveData suffix mapping (TwelveData uses different format)
+  bloombergToTwelveDataMap: {
+    'LN': ':LON',      // London Stock Exchange
+    'GR': ':FWB',      // Germany Frankfurt (Xetra)
+    'GY': ':FWB',      // Germany Frankfurt (alternative)
+    'CN': ':TSX',      // Canada Toronto Stock Exchange
+    'CT': ':TSXV',     // Canada Toronto Venture Exchange
+    'JP': ':TYO',      // Japan Tokyo Stock Exchange
+    'JT': ':TYO',      // Japan Tokyo Stock Exchange (alternative)
+    'HK': ':HKG',      // Hong Kong Stock Exchange
+    'AU': ':ASX',      // Australia ASX
+    'FP': ':EPA',      // France Euronext Paris
+    'IM': ':MIL',      // Italy Borsa Italiana (main market)
+    'HM': ':MIL',      // Italy HI-MTF (alternative Italian platform)
+    'TE': ':MIL',      // Italy EuroTLX (Italian platform)
+    'SM': ':MCE',      // Spain Madrid Stock Exchange
+    'SW': ':SWX',      // Switzerland SIX Swiss Exchange
+    'SS': ':SHH',      // China Shanghai Stock Exchange
+    'SZ': ':SHZ',      // China Shenzhen Stock Exchange
+    'IN': ':BSE',      // India Bombay Stock Exchange
+    'KS': ':SEO',      // South Korea Seoul Stock Exchange
+    'TB': ':BKK',      // Thailand Bangkok Stock Exchange
+    'MK': ':KLS',      // Malaysia Kuala Lumpur Stock Exchange
+    'SP': ':SGX',      // Singapore Stock Exchange
+    'TT': ':TWO',      // Taiwan Stock Exchange
   },
 
-  // Convert Bloomberg format symbol to Alpha Vantage format
-  convertBloombergToAlphaVantage(symbol) {
+  // Convert Bloomberg format symbol to TwelveData format
+  convertBloombergToTwelveData(symbol) {
     if (!symbol || typeof symbol !== 'string') {
       return symbol;
     }
@@ -60,11 +60,11 @@ const QuoteService = {
     
     if (parts.length === 2) {
       const [ticker, bloombergSuffix] = parts;
-      const alphaVantageSuffix = this.bloombergToAlphaVantageMap[bloombergSuffix];
+      const twelveDataSuffix = this.bloombergToTwelveDataMap[bloombergSuffix];
       
-      if (alphaVantageSuffix) {
-        const convertedSymbol = ticker + alphaVantageSuffix;
-        console.log(`Converted Bloomberg symbol "${symbol}" to Alpha Vantage format "${convertedSymbol}"`);
+      if (twelveDataSuffix) {
+        const convertedSymbol = ticker + twelveDataSuffix;
+        console.log(`Converted Bloomberg symbol "${symbol}" to TwelveData format "${convertedSymbol}"`);
         return convertedSymbol;
       } else {
         console.warn(`Unknown Bloomberg suffix "${bloombergSuffix}" for symbol "${symbol}". Using original symbol.`);
@@ -77,42 +77,42 @@ const QuoteService = {
   },
 
   async getQuote(symbol) {
-    if (!ALPHA_VANTAGE_API_KEY || ALPHA_VANTAGE_API_KEY === 'YOUR_API_KEY_HERE') {
-      throw new Error('Alpha Vantage API key not configured');
+    if (!TWELVE_DATA_API_KEY || TWELVE_DATA_API_KEY === 'YOUR_API_KEY_HERE') {
+      throw new Error('TwelveData API key not configured');
     }
 
-    // Convert Bloomberg format to Alpha Vantage format
-    const convertedSymbol = this.convertBloombergToAlphaVantage(symbol);
+    // Convert Bloomberg format to TwelveData format
+    const convertedSymbol = this.convertBloombergToTwelveData(symbol);
 
     try {
       // Use GLOBAL_QUOTE for current market prices
-      const url = `${ALPHA_VANTAGE_BASE_URL}?function=GLOBAL_QUOTE&symbol=${convertedSymbol}&apikey=${ALPHA_VANTAGE_API_KEY}`;
+      const url = `${TWELVE_DATA_BASE_URL}/quote?symbol=${convertedSymbol}&apikey=${TWELVE_DATA_API_KEY}`;
       console.log(`Fetching current quote for ${convertedSymbol} (original: ${symbol}) from:`, url);
       
       const response = await fetch(url);
       const data = await response.json();
       
-      console.log(`Alpha Vantage global quote response for ${convertedSymbol}:`, data);
+      console.log(`TwelveData global quote response for ${convertedSymbol}:`, data);
       
-      if (data['Global Quote']) {
-        const quote = data['Global Quote'];
+      if (data['status'] === 'ok' && data['data']) {
+        const quote = data['data'];
         return {
           symbol: convertedSymbol,
           originalSymbol: symbol, // Keep track of original symbol
-          price: parseFloat(quote['05. price']),
-          change: parseFloat(quote['09. change']),
-          changePercent: parseFloat(quote['10. change percent'].replace('%', '')),
-          volume: parseInt(quote['06. volume']),
-          previousClose: parseFloat(quote['08. previous close']),
-          high: parseFloat(quote['03. high']),
-          low: parseFloat(quote['04. low']),
-          open: parseFloat(quote['02. open']),
-          lastUpdated: quote['07. latest trading day'],
-          isIntraday: false
+          price: parseFloat(quote['price']),
+          change: parseFloat(quote['change']),
+          changePercent: parseFloat(quote['change_percent'].replace('%', '')),
+          volume: parseInt(quote['volume']),
+          previousClose: parseFloat(quote['previous_close']),
+          high: parseFloat(quote['high']),
+          low: parseFloat(quote['low']),
+          open: parseFloat(quote['open']),
+          lastUpdated: quote['datetime'],
+          isIntraday: true
         };
-      } else if (data['Error Message']) {
-        throw new Error(`Alpha Vantage Error: ${data['Error Message']}`);
-      } else if (data['Note']) {
+      } else if (data['error']) {
+        throw new Error(`TwelveData Error: ${data['error']}`);
+      } else if (data['note']) {
         throw new Error('API call frequency limit reached. Please try again later.');
       } else {
         throw new Error('No quote data available');
@@ -125,30 +125,30 @@ const QuoteService = {
 
   // Fallback method for daily quotes when intraday is not available
   async getGlobalQuote(symbol) {
-    // Convert Bloomberg format to Alpha Vantage format
-    const convertedSymbol = this.convertBloombergToAlphaVantage(symbol);
+    // Convert Bloomberg format to TwelveData format
+    const convertedSymbol = this.convertBloombergToTwelveData(symbol);
 
     try {
-      const url = `${ALPHA_VANTAGE_BASE_URL}?function=GLOBAL_QUOTE&symbol=${convertedSymbol}&apikey=${ALPHA_VANTAGE_API_KEY}`;
+      const url = `${TWELVE_DATA_BASE_URL}/quote?symbol=${convertedSymbol}&apikey=${TWELVE_DATA_API_KEY}`;
       console.log(`Fetching daily quote for ${convertedSymbol} (original: ${symbol}) from:`, url);
       
       const response = await fetch(url);
       const data = await response.json();
       
-      if (data['Global Quote']) {
-        const quote = data['Global Quote'];
+      if (data['status'] === 'ok' && data['data']) {
+        const quote = data['data'];
         return {
           symbol: convertedSymbol,
           originalSymbol: symbol, // Keep track of original symbol
-          price: parseFloat(quote['05. price']),
-          change: parseFloat(quote['09. change']),
-          changePercent: parseFloat(quote['10. change percent'].replace('%', '')),
-          volume: parseInt(quote['06. volume']),
-          previousClose: parseFloat(quote['08. previous close']),
-          high: parseFloat(quote['03. high']),
-          low: parseFloat(quote['04. low']),
-          open: parseFloat(quote['02. open']),
-          lastUpdated: quote['07. latest trading day'],
+          price: parseFloat(quote['price']),
+          change: parseFloat(quote['change']),
+          changePercent: parseFloat(quote['change_percent'].replace('%', '')),
+          volume: parseInt(quote['volume']),
+          previousClose: parseFloat(quote['previous_close']),
+          high: parseFloat(quote['high']),
+          low: parseFloat(quote['low']),
+          open: parseFloat(quote['open']),
+          lastUpdated: quote['datetime'],
           isIntraday: false
         };
       } else {
@@ -161,44 +161,44 @@ const QuoteService = {
   },
 
   async getCompanyOverview(symbol) {
-    if (!ALPHA_VANTAGE_API_KEY || ALPHA_VANTAGE_API_KEY === 'YOUR_API_KEY_HERE') {
-      throw new Error('Alpha Vantage API key not configured');
+    if (!TWELVE_DATA_API_KEY || TWELVE_DATA_API_KEY === 'YOUR_API_KEY_HERE') {
+      throw new Error('TwelveData API key not configured');
     }
 
     // Convert symbol if it's in Bloomberg format
-    const convertedSymbol = this.convertBloombergToAlphaVantage(symbol);
+    const convertedSymbol = this.convertBloombergToTwelveData(symbol);
 
     try {
-      const url = `${ALPHA_VANTAGE_BASE_URL}?function=OVERVIEW&symbol=${encodeURIComponent(convertedSymbol)}&apikey=${ALPHA_VANTAGE_API_KEY}`;
+      const url = `${TWELVE_DATA_BASE_URL}/profile?symbol=${encodeURIComponent(convertedSymbol)}&apikey=${TWELVE_DATA_API_KEY}`;
       console.log(`Getting company overview for ${convertedSymbol} from:`, url);
       
       const response = await fetch(url);
       const data = await response.json();
       
-      console.log(`Alpha Vantage company overview response for ${convertedSymbol}:`, data);
+      console.log(`TwelveData company overview response for ${convertedSymbol}:`, data);
       
       // Check for API limit or error
-      if (data['Error Message'] || data['Information']) {
-        const errorMsg = data['Error Message'] || data['Information'];
-        throw new Error(`Alpha Vantage error: ${errorMsg}`);
+      if (data['error']) {
+        const errorMsg = data['error'];
+        throw new Error(`TwelveData error: ${errorMsg}`);
       }
 
-      // Check if data is available (Alpha Vantage returns empty object for unavailable symbols)
-      if (!data.Symbol || Object.keys(data).length < 5) {
+      // Check if data is available (TwelveData returns empty object for unavailable symbols)
+      if (!data.symbol || Object.keys(data).length < 5) {
         // International stocks often don't have fundamental data available
         const isInternational = convertedSymbol.includes('.') && !convertedSymbol.includes('.US');
         if (isInternational) {
-          console.warn(`Company overview not available for international stock ${convertedSymbol} - this is a known Alpha Vantage limitation`);
+          console.warn(`Company overview not available for international stock ${convertedSymbol} - this is a known TwelveData limitation`);
           return {
             symbol: convertedSymbol,
             originalSymbol: symbol,
             name: this.extractCompanyNameFromSymbol(symbol),
             marketCap: null,
-            description: 'Company overview not available for international stocks via Alpha Vantage',
+            description: 'Company overview not available for international stocks via TwelveData',
             industry: null,
             sector: null,
             isInternational: true,
-            limitationNote: 'Alpha Vantage has limited fundamental data coverage for international stocks'
+            limitationNote: 'TwelveData has limited fundamental data coverage for international stocks'
           };
         } else {
           throw new Error(`No company data available for ${convertedSymbol}`);
@@ -208,19 +208,19 @@ const QuoteService = {
       return {
         symbol: convertedSymbol,
         originalSymbol: symbol,
-        name: data.Name,
-        marketCap: data.MarketCapitalization ? parseFloat(data.MarketCapitalization) : null,
-        description: data.Description,
-        industry: data.Industry,
-        sector: data.Sector,
-        peRatio: data.PERatio ? parseFloat(data.PERatio) : null,
-        pegRatio: data.PEGRatio ? parseFloat(data.PEGRatio) : null,
-        bookValue: data.BookValue ? parseFloat(data.BookValue) : null,
-        dividendYield: data.DividendYield ? parseFloat(data.DividendYield) : null,
-        eps: data.EPS ? parseFloat(data.EPS) : null,
-        beta: data.Beta ? parseFloat(data.Beta) : null,
-        weekHigh52: data['52WeekHigh'] ? parseFloat(data['52WeekHigh']) : null,
-        weekLow52: data['52WeekLow'] ? parseFloat(data['52WeekLow']) : null
+        name: data.name,
+        marketCap: data.market_cap ? parseFloat(data.market_cap) : null,
+        description: data.description,
+        industry: data.industry,
+        sector: data.sector,
+        peRatio: data.pe_ratio ? parseFloat(data.pe_ratio) : null,
+        pegRatio: data.peg_ratio ? parseFloat(data.peg_ratio) : null,
+        bookValue: data.book_value ? parseFloat(data.book_value) : null,
+        dividendYield: data.dividend_yield ? parseFloat(data.dividend_yield) : null,
+        eps: data.eps ? parseFloat(data.eps) : null,
+        beta: data.beta ? parseFloat(data.beta) : null,
+        weekHigh52: data['52_week_high'] ? parseFloat(data['52_week_high']) : null,
+        weekLow52: data['52_week_low'] ? parseFloat(data['52_week_low']) : null
       };
     } catch (error) {
       console.error(`Error fetching company overview for ${convertedSymbol}:`, error);
@@ -250,43 +250,42 @@ const QuoteService = {
   // Get daily volume data with international stock handling
   async getDailyVolumeData(symbol, days = 90) {
     // Convert symbol if it's in Bloomberg format
-    const convertedSymbol = this.convertBloombergToAlphaVantage(symbol);
+    const convertedSymbol = this.convertBloombergToTwelveData(symbol);
 
-    try {
-      const url = `${ALPHA_VANTAGE_BASE_URL}?function=TIME_SERIES_DAILY&symbol=${encodeURIComponent(convertedSymbol)}&outputsize=full&apikey=${ALPHA_VANTAGE_API_KEY}`;
-      console.log(`Getting daily volume data for ${convertedSymbol} from:`, url);
-      
-      const response = await fetch(url);
-      const data = await response.json();
-      
-      console.log(`Alpha Vantage daily volume response for ${convertedSymbol}:`, data);
+          try {
+        const url = `${TWELVE_DATA_BASE_URL}/time_series?symbol=${encodeURIComponent(convertedSymbol)}&interval=1day&outputsize=full&apikey=${TWELVE_DATA_API_KEY}`;
+        console.log(`Getting daily volume data for ${convertedSymbol} from:`, url);
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        console.log(`TwelveData daily volume response for ${convertedSymbol}:`, data);
 
-      // Check for API limit or error
-      if (data['Error Message'] || data['Information']) {
-        const errorMsg = data['Error Message'] || data['Information'];
-        throw new Error(`Alpha Vantage error: ${errorMsg}`);
-      }
-
-      const timeSeries = data['Time Series (Daily)'];
-      if (!timeSeries) {
-        const isInternational = convertedSymbol.includes('.') && !convertedSymbol.includes('.US');
-        if (isInternational) {
-          console.warn(`Daily volume data not available for international stock ${convertedSymbol}`);
-          return {
-            symbol: convertedSymbol,
-            originalSymbol: symbol,
-            averageDailyVolume: null,
-            isInternational: true,
-            limitationNote: 'Volume data may be limited for international stocks'
-          };
-        } else {
-          throw new Error(`No daily time series data available for ${convertedSymbol}`);
+        // Check for API limit or error
+        if (data['status'] === 'error' || data['code']) {
+          const errorMsg = data['message'] || data['error'] || 'Unknown error';
+          throw new Error(`TwelveData error: ${errorMsg}`);
         }
-      }
 
-      // Calculate average daily volume for the specified period
-      const dates = Object.keys(timeSeries).slice(0, days);
-      const volumes = dates.map(date => parseFloat(timeSeries[date]['5. volume'])).filter(vol => vol > 0);
+        const timeSeries = data['values'];
+        if (!timeSeries || data['status'] !== 'ok') {
+          const isInternational = convertedSymbol.includes(':') && !convertedSymbol.includes(':NASDAQ') && !convertedSymbol.includes(':NYSE');
+          if (isInternational) {
+            console.warn(`Daily volume data not available for international stock ${convertedSymbol}`);
+            return {
+              symbol: convertedSymbol,
+              originalSymbol: symbol,
+              averageDailyVolume: null,
+              isInternational: true,
+              limitationNote: 'Volume data may be limited for international stocks'
+            };
+          } else {
+            throw new Error(`No daily time series data available for ${convertedSymbol}`);
+          }
+        }
+
+        // Calculate average daily volume for the specified period
+        const volumes = timeSeries.slice(0, days).map(item => parseFloat(item['volume'])).filter(vol => vol > 0);
       
       if (volumes.length === 0) {
         return {
@@ -318,7 +317,7 @@ const QuoteService = {
           averageDailyVolume: null,
           isInternational: true,
           error: 'Volume data not available for international stocks',
-          limitationNote: 'Alpha Vantage has limited volume data for international markets'
+          limitationNote: 'TwelveData has limited volume data for international markets'
         };
       }
       
@@ -328,70 +327,62 @@ const QuoteService = {
 
   // Get upcoming earnings date using EARNINGS_CALENDAR function
   async getUpcomingEarningsDate(symbol) {
-    if (!ALPHA_VANTAGE_API_KEY || ALPHA_VANTAGE_API_KEY === 'YOUR_API_KEY_HERE') {
-      throw new Error('Alpha Vantage API key not configured');
+    if (!TWELVE_DATA_API_KEY || TWELVE_DATA_API_KEY === 'YOUR_API_KEY_HERE') {
+      throw new Error('TwelveData API key not configured');
     }
 
-    // Convert Bloomberg format to Alpha Vantage format
-    const convertedSymbol = this.convertBloombergToAlphaVantage(symbol);
+    // Convert Bloomberg format to TwelveData format
+    const convertedSymbol = this.convertBloombergToTwelveData(symbol);
 
     try {
-      const url = `${ALPHA_VANTAGE_BASE_URL}?function=EARNINGS_CALENDAR&symbol=${convertedSymbol}&apikey=${ALPHA_VANTAGE_API_KEY}`;
+      const url = `${TWELVE_DATA_BASE_URL}/earnings_calendar?symbol=${convertedSymbol}&apikey=${TWELVE_DATA_API_KEY}`;
       console.log(`Fetching upcoming earnings for ${convertedSymbol} (original: ${symbol}) from:`, url);
       
       const response = await fetch(url);
-      const text = await response.text();
+      const data = await response.json();
       
-      console.log(`Alpha Vantage earnings calendar response for ${convertedSymbol}:`, text.substring(0, 500) + '...');
+      console.log(`TwelveData earnings calendar response for ${convertedSymbol}:`, JSON.stringify(data).substring(0, 500) + '...');
       
-      // EARNINGS_CALENDAR returns CSV format
-      if (!text || text.trim() === '') {
+      // Check for errors or empty response
+      if (data['status'] === 'error' || data['code']) {
+        const errorMsg = data['message'] || data['error'] || 'Unknown error';
+        console.warn(`TwelveData earnings calendar error for ${convertedSymbol}: ${errorMsg}`);
+        return null;
+      }
+
+      // TwelveData earnings calendar returns JSON format
+      if (!data || data['status'] !== 'ok' || !data['earnings']) {
         console.warn(`No earnings calendar data found for ${convertedSymbol}`);
         return null;
       }
 
-      // Parse CSV response
-      const lines = text.trim().split('\n');
-      if (lines.length < 2) {
-        console.warn(`Insufficient earnings calendar data for ${convertedSymbol}`);
+      const earnings = data['earnings'];
+      if (!Array.isArray(earnings) || earnings.length === 0) {
+        console.warn(`No earnings data in response for ${convertedSymbol}`);
         return null;
       }
-
-      // First line is headers: symbol,name,reportDate,fiscalDateEnding,estimate,currency
-      const headers = lines[0].split(',');
       
       // Find the first upcoming earnings date for this symbol
       const today = new Date();
       today.setHours(0, 0, 0, 0); // Normalize to start of day for comparison
       
-      for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(',');
-        if (values.length >= 6) {
-          const lineSymbol = values[0];
-          const name = values[1];
-          const reportDate = values[2];
-          const fiscalDateEnding = values[3];
-          const estimate = values[4];
-          const currency = values[5];
+      for (const earning of earnings) {
+        if (earning.symbol && earning.symbol.toUpperCase() === convertedSymbol.toUpperCase()) {
+          const earningsDate = new Date(earning.earnings_date);
           
-          // Check if this line matches our symbol
-          if (lineSymbol.toUpperCase() === convertedSymbol.toUpperCase()) {
-            const earningsDate = new Date(reportDate);
-            
-            // Only return future earnings dates
-            if (earningsDate >= today) {
-              return {
-                symbol: convertedSymbol,
-                originalSymbol: symbol,
-                nextEarningsDate: reportDate,
-                estimatedEPS: estimate && estimate !== 'None' ? parseFloat(estimate) : null,
-                fiscalDateEnding: fiscalDateEnding,
-                currency: currency || 'USD',
-                companyName: name,
-                isActual: true, // This is from the actual earnings calendar, not estimated
-                daysUntilEarnings: Math.ceil((earningsDate - today) / (1000 * 60 * 60 * 24))
-              };
-            }
+          // Only return future earnings dates
+          if (earningsDate >= today) {
+            return {
+              symbol: convertedSymbol,
+              originalSymbol: symbol,
+              nextEarningsDate: earning.earnings_date,
+              estimatedEPS: earning.eps_estimate ? parseFloat(earning.eps_estimate) : null,
+              fiscalDateEnding: earning.fiscal_date_ending,
+              currency: earning.currency || 'USD',
+              companyName: earning.name,
+              isActual: true, // This is from the actual earnings calendar, not estimated
+              daysUntilEarnings: Math.ceil((earningsDate - today) / (1000 * 60 * 60 * 24))
+            };
           }
         }
       }
@@ -416,7 +407,7 @@ const QuoteService = {
     const quotes = {};
     const errors = {};
     
-    // Alpha Vantage premium tier allows 75 calls per minute
+    // TwelveData premium tier allows 75 calls per minute
     for (let i = 0; i < symbols.length; i++) {
       const symbol = symbols[i];
       try {
@@ -436,7 +427,7 @@ const QuoteService = {
     const earnings = {};
     const errors = {};
     
-    // Alpha Vantage premium tier allows 75 calls per minute
+    // TwelveData premium tier allows 75 calls per minute
     for (let i = 0; i < symbols.length; i++) {
       const symbol = symbols[i];
       try {
@@ -456,34 +447,34 @@ const QuoteService = {
 
   // Symbol search for finding international stocks
   async searchSymbols(keywords) {
-    if (!ALPHA_VANTAGE_API_KEY || ALPHA_VANTAGE_API_KEY === 'YOUR_API_KEY_HERE') {
-      throw new Error('Alpha Vantage API key not configured');
+    if (!TWELVE_DATA_API_KEY || TWELVE_DATA_API_KEY === 'YOUR_API_KEY_HERE') {
+      throw new Error('TwelveData API key not configured');
     }
 
     try {
-      const url = `${ALPHA_VANTAGE_BASE_URL}?function=SYMBOL_SEARCH&keywords=${encodeURIComponent(keywords)}&apikey=${ALPHA_VANTAGE_API_KEY}`;
+      const url = `${TWELVE_DATA_BASE_URL}/symbol_search?symbol=${encodeURIComponent(keywords)}&apikey=${TWELVE_DATA_API_KEY}`;
       console.log(`Searching symbols for "${keywords}" from:`, url);
       
       const response = await fetch(url);
       const data = await response.json();
       
-      console.log(`Alpha Vantage symbol search response for "${keywords}":`, data);
+      console.log(`TwelveData symbol search response for "${keywords}":`, data);
       
-      if (data['bestMatches']) {
-        return data['bestMatches'].map(match => ({
-          symbol: match['1. symbol'],
-          name: match['2. name'],
-          type: match['3. type'],
-          region: match['4. region'],
-          marketOpen: match['5. marketOpen'],
-          marketClose: match['6. marketClose'],
-          timezone: match['7. timezone'],
-          currency: match['8. currency'],
-          matchScore: parseFloat(match['9. matchScore'])
+      if (data['status'] === 'ok' && data['data']) {
+        return data['data'].map(match => ({
+          symbol: match['symbol'],
+          name: match['name'],
+          type: match['type'],
+          region: match['region'],
+          marketOpen: match['market_open'],
+          marketClose: match['market_close'],
+          timezone: match['timezone'],
+          currency: match['currency'],
+          matchScore: parseFloat(match['score'])
         }));
-      } else if (data['Error Message']) {
-        throw new Error(`Alpha Vantage Error: ${data['Error Message']}`);
-      } else if (data['Note']) {
+      } else if (data['error']) {
+        throw new Error(`TwelveData Error: ${data['error']}`);
+      } else if (data['note']) {
         throw new Error('API call frequency limit reached. Please try again later.');
       } else {
         return [];
@@ -500,7 +491,7 @@ const QuoteService = {
     
     try {
       // Convert Bloomberg format if needed
-      const convertedSymbol = this.convertBloombergToAlphaVantage(symbol);
+      const convertedSymbol = this.convertBloombergToTwelveData(symbol);
       console.log(`📝 Symbol conversion: ${symbol} → ${convertedSymbol}`);
       
       // Test each API endpoint
@@ -1101,7 +1092,7 @@ const ClearlineFlow = () => {
         dataLimitations: isInternational ? {
           marketCap: companyOverview?.limitationNote || 'Market cap not available for international stocks',
           volume: volumeData?.limitationNote || 'Volume data may be limited for international stocks',
-          fundamentals: 'Limited fundamental data available via Alpha Vantage for international stocks'
+          fundamentals: 'Limited fundamental data available via TwelveData for international stocks'
         } : null,
         
         // Mock additional data
@@ -1259,7 +1250,7 @@ const ClearlineFlow = () => {
     return earningsData.find(item => item.ticker === ticker && item.cyq === cyq) || {};
   };
 
-  // Refresh earnings dates from Alpha Vantage
+  // Refresh earnings dates from TwelveData
   const refreshEarningsDates = async (tickersToRefresh, targetCYQ) => {
     if (!tickersToRefresh || tickersToRefresh.length === 0) return { success: 0, errors: {} };
 
@@ -2663,7 +2654,7 @@ const EnhancedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
             {(ticker.ticker.includes('.') || ticker.ticker.includes(' ')) && (
               <span 
                 className="ml-1 text-xs text-yellow-600 cursor-help" 
-                title="Market cap data not available for international stocks via Alpha Vantage"
+                title="Market cap data not available for international stocks via TwelveData"
               >
                 ⓘ
               </span>
@@ -2680,7 +2671,7 @@ const EnhancedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
             {(ticker.ticker.includes('.') || ticker.ticker.includes(' ')) && (
               <span 
                 className="ml-1 text-xs text-yellow-600 cursor-help" 
-                title="3-month average daily volume data not available for international stocks via Alpha Vantage"
+                title="3-month average daily volume data not available for international stocks via TwelveData"
               >
                 ⓘ
               </span>
@@ -3357,7 +3348,7 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
             {(ticker.ticker.includes('.') || ticker.ticker.includes(' ')) && (
               <span 
                 className="ml-1 text-xs text-yellow-600 cursor-help" 
-                title="Market cap data not available for international stocks via Alpha Vantage"
+                title="Market cap data not available for international stocks via TwelveData"
               >
                 ⓘ
               </span>
@@ -3374,7 +3365,7 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
             {(ticker.ticker.includes('.') || ticker.ticker.includes(' ')) && (
               <span 
                 className="ml-1 text-xs text-yellow-600 cursor-help" 
-                title="3-month average daily volume data not available for international stocks via Alpha Vantage"
+                title="3-month average daily volume data not available for international stocks via TwelveData"
               >
                 ⓘ
               </span>
@@ -4182,7 +4173,7 @@ const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarni
     if (!onRefreshEarnings || sortedTickers.length === 0) return;
 
     setIsRefreshing(true);
-    setRefreshMessage('Fetching earnings dates from Alpha Vantage...');
+    setRefreshMessage('Fetching earnings dates from TwelveData...');
 
     try {
       const result = await onRefreshEarnings(sortedTickers, selectedCYQ);

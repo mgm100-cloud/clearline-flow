@@ -16,8 +16,8 @@ A hedge fund workflow management application built with React, featuring real-ti
 Create a `.env` file in the root directory with the following variables:
 
 ```env
-# Alpha Vantage API Configuration
-REACT_APP_ALPHA_VANTAGE_API_KEY=your_alpha_vantage_api_key_here
+# Twelve Data API Configuration
+REACT_APP_TWELVE_DATA_API_KEY=your_twelve_data_api_key_here
 
 # Supabase Configuration
 REACT_APP_SUPABASE_URL=your_supabase_project_url
