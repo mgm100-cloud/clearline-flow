@@ -31,7 +31,9 @@ const QuoteService = {
     'HK': '.HKG',      // Hong Kong Stock Exchange
     'AU': '.AUS',      // Australia ASX
     'FP': '.EPA',      // France Euronext Paris
-    'IM': '.MIL',      // Italy Borsa Italiana
+    'IM': '.MIL',      // Italy Borsa Italiana (main market)
+    'HM': '.MIL',      // Italy HI-MTF (alternative Italian platform)
+    'TE': '.MIL',      // Italy EuroTLX (Italian platform - maps to MIL for Alpha Vantage)
     'SM': '.MCE',      // Spain Madrid Stock Exchange
     'SW': '.SWX',      // Switzerland SIX Swiss Exchange
     'SS': '.SHH',      // China Shanghai Stock Exchange
