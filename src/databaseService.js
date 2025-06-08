@@ -359,24 +359,24 @@ export const DatabaseService = {
     }
   },
 
-  // Get analysts list - query from tickers table to get unique analysts
+  // Get analysts list - query from user_profiles table to get all analyst_code values
   async getAnalysts() {
     try {
       const { data, error } = await supabase
-        .from('tickers')
-        .select('analyst')
-        .not('analyst', 'is', null)
-        .order('analyst')
+        .from('user_profiles')
+        .select('analyst_code')
+        .not('analyst_code', 'is', null)
+        .order('analyst_code')
       
       if (error) throw error
       
       // Extract unique analyst codes
-      const uniqueAnalysts = [...new Set(data.map(item => item.analyst).filter(Boolean))];
+      const uniqueAnalysts = [...new Set(data.map(item => item.analyst_code).filter(Boolean))];
       
-      console.log('✅ Fetched analysts from database:', uniqueAnalysts);
+      console.log('✅ Fetched analysts from user_profiles table:', uniqueAnalysts);
       return uniqueAnalysts;
     } catch (error) {
-      console.error('Error fetching analysts:', error);
+      console.error('Error fetching analysts from user_profiles:', error);
       
       // Fallback to hardcoded list if database query fails
       const fallbackAnalysts = ['LT', 'GA', 'DP', 'MS', 'DO', 'MM'];
