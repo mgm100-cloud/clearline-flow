@@ -10,6 +10,14 @@ import autoTable from 'jspdf-autotable';
 const TWELVE_DATA_API_KEY = process.env.REACT_APP_TWELVE_DATA_API_KEY || 'YOUR_API_KEY_HERE';
 const TWELVE_DATA_BASE_URL = 'https://api.twelvedata.com';
 
+// Debug environment variable
+console.log('🔑 TwelveData API Key Status:', {
+  hasKey: !!process.env.REACT_APP_TWELVE_DATA_API_KEY,
+  keyLength: process.env.REACT_APP_TWELVE_DATA_API_KEY ? process.env.REACT_APP_TWELVE_DATA_API_KEY.length : 0,
+  firstChars: process.env.REACT_APP_TWELVE_DATA_API_KEY ? process.env.REACT_APP_TWELVE_DATA_API_KEY.substring(0, 8) + '...' : 'NOT_SET',
+  usingFallback: TWELVE_DATA_API_KEY === 'YOUR_API_KEY_HERE'
+});
+
 // Helper function to calculate percentage change between price targets and current price
 const calculatePercentChange = (priceTarget, currentPrice) => {
   if (!priceTarget || !currentPrice || currentPrice === 0) return '';
