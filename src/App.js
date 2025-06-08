@@ -1367,7 +1367,9 @@ const ClearlineFlow = () => {
             if (volumeData?.averageDailyVolume && quoteData?.price) {
               // Convert share volume to dollar volume (ADV 3M in $M)
               const dollarVolume = volumeData.averageDailyVolume * quoteData.price;
-              updates.adv3Month = Math.round(dollarVolume / 1000000); // Convert to millions
+              const adv3MonthValue = dollarVolume / 1000000; // Convert to millions
+              updates.adv3Month = Math.round(adv3MonthValue * 10) / 10; // Round to 1 decimal place
+              console.log(`💰 ADV calculation for ${cleanSymbol}: ${volumeData.averageDailyVolume} shares × $${quoteData.price} = $${dollarVolume.toLocaleString()} = ${adv3MonthValue.toFixed(1)}M`);
             }
             
             if (quoteData?.price) {
