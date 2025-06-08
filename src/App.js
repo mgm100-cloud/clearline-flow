@@ -261,7 +261,7 @@ const QuoteService = {
     const convertedSymbol = this.convertBloombergToTwelveData(symbol);
 
           try {
-        const url = `${TWELVE_DATA_BASE_URL}/time_series?symbol=${encodeURIComponent(convertedSymbol)}&interval=1day&outputsize=full&apikey=${TWELVE_DATA_API_KEY}`;
+        const url = `${TWELVE_DATA_BASE_URL}/time_series?symbol=${encodeURIComponent(convertedSymbol)}&interval=1day&outputsize=5000&apikey=${TWELVE_DATA_API_KEY}`;
         console.log(`Getting daily volume data for ${convertedSymbol} from:`, url);
         
         const response = await fetch(url);
