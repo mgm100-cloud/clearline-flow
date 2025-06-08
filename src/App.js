@@ -698,6 +698,7 @@ const ClearlineFlow = () => {
   const [isRefreshingData, setIsRefreshingData] = useState(false);
   const [lastDataRefresh, setLastDataRefresh] = useState(null);
   const [isRefreshingMarketData, setIsRefreshingMarketData] = useState(false);
+  const [isRefreshingCompanyNames, setIsRefreshingCompanyNames] = useState(false);
   
   // Tab switching state
   const [isTabSwitching, setIsTabSwitching] = useState(false);
@@ -1415,6 +1416,71 @@ const ClearlineFlow = () => {
     }
   };
 
+  // Refresh company names function
+  const refreshCompanyNames = async () => {
+    if (!isAuthenticated || !tickers.length) return;
+    
+    setIsRefreshingCompanyNames(true);
+    console.log('🔄 Starting company names refresh...');
+    
+    try {
+      const batchSize = 3; // Small batch size to be respectful to the API
+      let successCount = 0;
+      const errors = {};
+      
+      for (let i = 0; i < tickers.length; i += batchSize) {
+        const batch = tickers.slice(i, i + batchSize);
+        
+        await Promise.all(batch.map(async (ticker) => {
+          const cleanSymbol = ticker.ticker.replace(' US', '');
+          
+          try {
+            console.log(`🔄 Fetching company overview for ${cleanSymbol}...`);
+            
+            const companyOverview = await QuoteService.getCompanyOverview(cleanSymbol);
+            
+            if (companyOverview?.name && companyOverview.name !== ticker.name) {
+              const updates = { name: companyOverview.name };
+              
+              console.log(`🔄 Updating company name for ${cleanSymbol}: "${ticker.name}" → "${companyOverview.name}"`);
+              await updateTicker(ticker.id, updates);
+              
+              // Update local state
+              setTickers(prev => prev.map(t => 
+                t.id === ticker.id 
+                  ? { ...t, name: companyOverview.name }
+                  : t
+              ));
+              
+              successCount++;
+              console.log(`✅ Updated company name for ${cleanSymbol}`);
+            } else {
+              console.log(`⚠️ No company name update needed for ${cleanSymbol} - current: "${ticker.name}", fetched: "${companyOverview?.name}"`);
+            }
+            
+          } catch (error) {
+            console.error(`Error fetching company name for ${cleanSymbol}:`, error);
+            errors[cleanSymbol] = error.message;
+          }
+        }));
+        
+        // Small delay between batches to be respectful to the API
+        if (i + batchSize < tickers.length) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+      }
+      
+      console.log(`🎉 Company names refresh completed: ${successCount} updated, ${Object.keys(errors).length} errors`);
+      return { success: successCount, errors };
+      
+    } catch (error) {
+      console.error('Error refreshing company names:', error);
+      throw error;
+    } finally {
+      setIsRefreshingCompanyNames(false);
+    }
+  };
+
   // Todo functions
   const addTodo = async (todoData) => {
     try {
@@ -1826,6 +1892,8 @@ const ClearlineFlow = () => {
             isRefreshingMarketData={isRefreshingMarketData}
             onRefreshData={refreshData}
             isRefreshingData={isRefreshingData}
+            onRefreshCompanyNames={refreshCompanyNames}
+            isRefreshingCompanyNames={isRefreshingCompanyNames}
             formatMarketCap={formatMarketCap}
             formatVolumeDollars={formatVolumeDollars}
           />
@@ -2326,7 +2394,7 @@ const InputPage = ({ onAddTicker, analysts, currentUser }) => {
 };
 
 // Enhanced Database Page Component with quotes
-const DatabasePage = ({ tickers, onSort, sortField, sortDirection, onUpdate, analysts, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors, onRefreshMarketData, isRefreshingMarketData, onRefreshData, isRefreshingData, formatMarketCap, formatVolumeDollars }) => {
+const DatabasePage = ({ tickers, onSort, sortField, sortDirection, onUpdate, analysts, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors, onRefreshMarketData, isRefreshingMarketData, onRefreshData, isRefreshingData, onRefreshCompanyNames, isRefreshingCompanyNames, formatMarketCap, formatVolumeDollars }) => {
   const SortableHeader = ({ field, children }) => (
     <th
       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
@@ -2394,6 +2462,30 @@ const DatabasePage = ({ tickers, onSort, sortField, sortDirection, onUpdate, ana
                   </>
                 ) : (
                   'Refresh Market Data'
+                )}
+              </button>
+            )}
+            
+            {onRefreshCompanyNames && (
+              <button
+                onClick={onRefreshCompanyNames}
+                disabled={isRefreshingCompanyNames}
+                className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${
+                  isRefreshingCompanyNames 
+                    ? 'bg-gray-400 cursor-not-allowed' 
+                    : 'bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500'
+                }`}
+              >
+                {isRefreshingCompanyNames ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-3 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 0 1 4 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Refreshing...
+                  </>
+                ) : (
+                  'Refresh Company Names'
                 )}
               </button>
             )}
