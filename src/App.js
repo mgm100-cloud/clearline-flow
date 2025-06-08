@@ -29,7 +29,7 @@ const calculatePercentChange = (priceTarget, currentPrice) => {
 const QuoteService = {
   // Bloomberg to TwelveData suffix mapping (TwelveData uses different format)
   bloombergToTwelveDataMap: {
-    'LN': ':LON',      // London Stock Exchange
+    'LN': ':LSE',      // London Stock Exchange
     'GR': ':FWB',      // Germany Frankfurt (Xetra)
     'GY': ':FWB',      // Germany Frankfurt (alternative)
     'CN': ':TSX',      // Canada Toronto Stock Exchange
@@ -102,26 +102,31 @@ const QuoteService = {
       
       console.log(`TwelveData global quote response for ${convertedSymbol}:`, data);
       
-      if (data['status'] === 'ok' && data['data']) {
-        const quote = data['data'];
-        return {
-          symbol: convertedSymbol,
-          originalSymbol: symbol, // Keep track of original symbol
-          price: parseFloat(quote['price']),
-          change: parseFloat(quote['change']),
-          changePercent: parseFloat(quote['change_percent'].replace('%', '')),
-          volume: parseInt(quote['volume']),
-          previousClose: parseFloat(quote['previous_close']),
-          high: parseFloat(quote['high']),
-          low: parseFloat(quote['low']),
-          open: parseFloat(quote['open']),
-          lastUpdated: quote['datetime'],
-          isIntraday: true
-        };
-      } else if (data['error']) {
+      // Check for API errors first
+      if (data['error']) {
         throw new Error(`TwelveData Error: ${data['error']}`);
       } else if (data['note']) {
         throw new Error('API call frequency limit reached. Please try again later.');
+      } else if (data['code'] && data['message']) {
+        throw new Error(`TwelveData Error: ${data['message']}`);
+      }
+      
+      // TwelveData quote API returns quote data directly in the response object
+      if (data['symbol'] && data['close']) {
+        return {
+          symbol: convertedSymbol,
+          originalSymbol: symbol, // Keep track of original symbol
+          price: parseFloat(data['close']),
+          change: data['change'] ? parseFloat(data['change']) : null,
+          changePercent: data['percent_change'] ? parseFloat(data['percent_change']) : null,
+          volume: data['volume'] ? parseInt(data['volume']) : null,
+          previousClose: data['previous_close'] ? parseFloat(data['previous_close']) : null,
+          high: data['high'] ? parseFloat(data['high']) : null,
+          low: data['low'] ? parseFloat(data['low']) : null,
+          open: data['open'] ? parseFloat(data['open']) : null,
+          lastUpdated: data['datetime'],
+          isIntraday: true
+        };
       } else {
         throw new Error('No quote data available');
       }
@@ -143,20 +148,29 @@ const QuoteService = {
       const response = await fetch(url);
       const data = await response.json();
       
-      if (data['status'] === 'ok' && data['data']) {
-        const quote = data['data'];
+      // Check for API errors first
+      if (data['error']) {
+        throw new Error(`TwelveData Error: ${data['error']}`);
+      } else if (data['note']) {
+        throw new Error('API call frequency limit reached. Please try again later.');
+      } else if (data['code'] && data['message']) {
+        throw new Error(`TwelveData Error: ${data['message']}`);
+      }
+      
+      // TwelveData quote API returns quote data directly in the response object
+      if (data['symbol'] && data['close']) {
         return {
           symbol: convertedSymbol,
           originalSymbol: symbol, // Keep track of original symbol
-          price: parseFloat(quote['price']),
-          change: parseFloat(quote['change']),
-          changePercent: parseFloat(quote['change_percent'].replace('%', '')),
-          volume: parseInt(quote['volume']),
-          previousClose: parseFloat(quote['previous_close']),
-          high: parseFloat(quote['high']),
-          low: parseFloat(quote['low']),
-          open: parseFloat(quote['open']),
-          lastUpdated: quote['datetime'],
+          price: parseFloat(data['close']),
+          change: data['change'] ? parseFloat(data['change']) : null,
+          changePercent: data['percent_change'] ? parseFloat(data['percent_change']) : null,
+          volume: data['volume'] ? parseInt(data['volume']) : null,
+          previousClose: data['previous_close'] ? parseFloat(data['previous_close']) : null,
+          high: data['high'] ? parseFloat(data['high']) : null,
+          low: data['low'] ? parseFloat(data['low']) : null,
+          open: data['open'] ? parseFloat(data['open']) : null,
+          lastUpdated: data['datetime'],
           isIntraday: false
         };
       } else {
