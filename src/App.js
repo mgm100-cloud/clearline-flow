@@ -39,9 +39,9 @@ const QuoteService = {
     'HK': ':HKG',      // Hong Kong Stock Exchange
     'AU': ':ASX',      // Australia ASX
     'FP': ':EPA',      // France Euronext Paris
-    'IM': ':MIL',      // Italy Borsa Italiana (main market)
-    'HM': ':MIL',      // Italy HI-MTF (alternative Italian platform)
-    'TE': ':MIL',      // Italy EuroTLX (Italian platform)
+    'IM': ':XMIL',      // Italy Borsa Italiana (main market)
+    'HM': ':XMIL',      // Italy HI-MTF (alternative Italian platform)
+    'TE': ':XMIL',      // Italy EuroTLX (Italian platform)
     'SM': ':MCE',      // Spain Madrid Stock Exchange
     'SW': ':SWX',      // Switzerland SIX Swiss Exchange
     'SS': ':SHH',      // China Shanghai Stock Exchange
