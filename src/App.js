@@ -1238,7 +1238,9 @@ const ClearlineFlow = () => {
       };
 
       // Update in Supabase
+      console.log(`💾 Sending to Supabase - Ticker ID: ${id}, Updates:`, formattedUpdates);
       await DatabaseService.updateTicker(id, formattedUpdates);
+      console.log(`✅ Successfully saved to Supabase for ticker ID: ${id}`);
       
       // Update local state
       setTickers(prev => prev.map(ticker => 
@@ -1383,9 +1385,12 @@ const ClearlineFlow = () => {
             
             // Update ticker in database if we have updates
             if (Object.keys(updates).length > 0) {
+              console.log(`🔄 About to update ticker ${cleanSymbol} (ID: ${ticker.id}) with:`, updates);
               await updateTicker(ticker.id, updates);
               successCount++;
               console.log(`✅ Updated market data for ${cleanSymbol}:`, updates);
+            } else {
+              console.log(`⚠️ No updates for ${cleanSymbol} - volumeData: ${!!volumeData}, quoteData: ${!!quoteData}`);
             }
             
           } catch (error) {
