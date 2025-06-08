@@ -1357,8 +1357,10 @@ const ClearlineFlow = () => {
               updates.marketCap = companyOverview.marketCap;
             }
             
-            if (volumeData?.averageDollarVolume) {
-              updates.adv3Month = volumeData.averageDollarVolume;
+            if (volumeData?.averageDailyVolume && quoteData?.price) {
+              // Convert share volume to dollar volume (ADV 3M in $M)
+              const dollarVolume = volumeData.averageDailyVolume * quoteData.price;
+              updates.adv3Month = Math.round(dollarVolume / 1000000); // Convert to millions
             }
             
             if (quoteData?.price) {
