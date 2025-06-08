@@ -275,7 +275,7 @@ const QuoteService = {
     const convertedSymbol = this.convertBloombergToTwelveData(symbol);
 
           try {
-        const url = `${TWELVE_DATA_BASE_URL}/time_series?symbol=${encodeURIComponent(convertedSymbol)}&interval=1day&outputsize=5000&apikey=${TWELVE_DATA_API_KEY}`;
+        const url = `${TWELVE_DATA_BASE_URL}/time_series?symbol=${encodeURIComponent(convertedSymbol)}&interval=1day&outputsize=${days + 30}&apikey=${TWELVE_DATA_API_KEY}`;
         console.log(`Getting daily volume data for ${convertedSymbol} from:`, url);
         
         const response = await fetch(url);
@@ -307,7 +307,14 @@ const QuoteService = {
         }
 
         // Calculate average daily volume for the specified period
-        const volumes = timeSeries.slice(0, days).map(item => parseFloat(item['volume'])).filter(vol => vol > 0);
+        
+        // Take the most recent 'days' worth of data and extract volumes
+        const volumes = timeSeries
+          .slice(0, days)
+          .map(item => parseFloat(item['volume']))
+          .filter(vol => vol > 0);
+      
+      console.log(`📊 Volume calculation for ${convertedSymbol}: Found ${volumes.length} valid volume entries out of ${days} requested days`);
       
       if (volumes.length === 0) {
         return {
