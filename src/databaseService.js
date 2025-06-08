@@ -357,5 +357,31 @@ export const DatabaseService = {
       console.error('Error deleting todo:', error)
       throw error
     }
+  },
+
+  // Get analysts list - query from tickers table to get unique analysts
+  async getAnalysts() {
+    try {
+      const { data, error } = await supabase
+        .from('tickers')
+        .select('analyst')
+        .not('analyst', 'is', null)
+        .order('analyst')
+      
+      if (error) throw error
+      
+      // Extract unique analyst codes
+      const uniqueAnalysts = [...new Set(data.map(item => item.analyst).filter(Boolean))];
+      
+      console.log('✅ Fetched analysts from database:', uniqueAnalysts);
+      return uniqueAnalysts;
+    } catch (error) {
+      console.error('Error fetching analysts:', error);
+      
+      // Fallback to hardcoded list if database query fails
+      const fallbackAnalysts = ['LT', 'GA', 'DP', 'MS', 'DO', 'MM'];
+      console.warn('⚠️ Using fallback analysts list:', fallbackAnalysts);
+      return fallbackAnalysts;
+    }
   }
 } 
