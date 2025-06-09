@@ -18,6 +18,7 @@ Create a `.env` file in the root directory with the following variables:
 ```env
 # Twelve Data API Configuration
 REACT_APP_TWELVE_DATA_API_KEY=your_twelve_data_api_key_here
+REACT_APP_FMP_API_KEY=your_fmp_api_key_here
 
 # Supabase Configuration
 REACT_APP_SUPABASE_URL=your_supabase_project_url

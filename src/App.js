@@ -10,12 +10,23 @@ import autoTable from 'jspdf-autotable';
 const TWELVE_DATA_API_KEY = process.env.REACT_APP_TWELVE_DATA_API_KEY || 'YOUR_API_KEY_HERE';
 const TWELVE_DATA_BASE_URL = 'https://api.twelvedata.com';
 
-// Debug environment variable
+// Financial Modeling Prep API configuration - for earnings data only
+const FMP_API_KEY = process.env.REACT_APP_FMP_API_KEY || 'YOUR_FMP_API_KEY_HERE';
+const FMP_BASE_URL = 'https://financialmodelingprep.com/api/v3';
+
+// Debug environment variables
 console.log('🔑 TwelveData API Key Status:', {
   hasKey: !!process.env.REACT_APP_TWELVE_DATA_API_KEY,
   keyLength: process.env.REACT_APP_TWELVE_DATA_API_KEY ? process.env.REACT_APP_TWELVE_DATA_API_KEY.length : 0,
   firstChars: process.env.REACT_APP_TWELVE_DATA_API_KEY ? process.env.REACT_APP_TWELVE_DATA_API_KEY.substring(0, 8) + '...' : 'NOT_SET',
   usingFallback: TWELVE_DATA_API_KEY === 'YOUR_API_KEY_HERE'
+});
+
+console.log('📊 FMP API Key Status:', {
+  hasKey: !!process.env.REACT_APP_FMP_API_KEY,
+  keyLength: process.env.REACT_APP_FMP_API_KEY ? process.env.REACT_APP_FMP_API_KEY.length : 0,
+  firstChars: process.env.REACT_APP_FMP_API_KEY ? process.env.REACT_APP_FMP_API_KEY.substring(0, 8) + '...' : 'NOT_SET',
+  usingFallback: FMP_API_KEY === 'YOUR_FMP_API_KEY_HERE'
 });
 
 // Helper function to calculate percentage change between price targets and current price
@@ -354,71 +365,78 @@ const QuoteService = {
     }
   },
 
-  // Get upcoming earnings date using EARNINGS endpoint
+  // Get upcoming earnings date using Financial Modeling Prep
   async getUpcomingEarningsDate(symbol) {
-    if (!TWELVE_DATA_API_KEY || TWELVE_DATA_API_KEY === 'YOUR_API_KEY_HERE') {
-      throw new Error('TwelveData API key not configured');
+    if (!FMP_API_KEY || FMP_API_KEY === 'YOUR_FMP_API_KEY_HERE') {
+      throw new Error('Financial Modeling Prep API key not configured');
     }
 
-    // Convert Bloomberg format to TwelveData format
-    const convertedSymbol = this.convertBloombergToTwelveData(symbol);
+    // Clean symbol - remove Bloomberg suffixes for FMP (FMP uses standard US symbols)
+    const cleanSymbol = symbol.replace(/ US$/, '').trim().toUpperCase();
 
     try {
-      const url = `${TWELVE_DATA_BASE_URL}/earnings?symbol=${convertedSymbol}&apikey=${TWELVE_DATA_API_KEY}`;
-      console.log(`Fetching earnings data for ${convertedSymbol} (original: ${symbol}) from:`, url);
+      // FMP earnings endpoint for specific symbol
+      const url = `https://financialmodelingprep.com/stable/earnings?symbol=${cleanSymbol}&apikey=${FMP_API_KEY}`;
+      console.log(`Fetching earnings data for ${cleanSymbol} (original: ${symbol}) from FMP:`, url);
       
       const response = await fetch(url);
       const data = await response.json();
       
-      console.log(`TwelveData earnings response for ${convertedSymbol}:`, JSON.stringify(data).substring(0, 500) + '...');
+      console.log(`FMP earnings response for ${cleanSymbol}:`, JSON.stringify(data).substring(0, 500) + '...');
       
-      // Check for errors or empty response
-      if (data['status'] === 'error' || data['code']) {
-        const errorMsg = data['message'] || data['error'] || 'Unknown error';
-        console.warn(`TwelveData earnings error for ${convertedSymbol}: ${errorMsg}`);
+      // Check for API errors
+      if (data['Error Message']) {
+        console.warn(`FMP earnings error: ${data['Error Message']}`);
         return null;
       }
 
-      // TwelveData earnings endpoint returns different format
-      if (!data || !data['earnings'] || !Array.isArray(data['earnings'])) {
-        console.warn(`No earnings data found for ${convertedSymbol}`);
+      // Check if data is array with earnings dates
+      if (!Array.isArray(data) || data.length === 0) {
+        console.warn(`No earnings data found for ${cleanSymbol}`);
         return null;
       }
 
-      const earnings = data['earnings'];
-      if (earnings.length === 0) {
-        console.warn(`No earnings data in response for ${convertedSymbol}`);
-        return null;
-      }
-      
-      // The next earnings date is the LAST date in the list (as requested)
-      const lastEarning = earnings[earnings.length - 1];
-      
-      if (!lastEarning.date) {
-        console.warn(`No date found in last earnings entry for ${convertedSymbol}`);
-        return null;
-      }
-      
-      const earningsDate = new Date(lastEarning.date);
+      // Get today's date for comparison
       const today = new Date();
-      today.setHours(0, 0, 0, 0); // Normalize to start of day for comparison
+      today.setHours(0, 0, 0, 0); // Normalize to start of day
+      
+      // Find all future earnings dates
+      const futureEarnings = data.filter(earning => {
+        if (!earning.date) return false;
+        const earningDate = new Date(earning.date);
+        return earningDate > today;
+      });
+
+      if (futureEarnings.length === 0) {
+        console.warn(`No future earnings found for ${cleanSymbol}`);
+        return null;
+      }
+      
+      // Sort by date and get the next upcoming earnings (earliest future date)
+      const sortedEarnings = futureEarnings.sort((a, b) => new Date(a.date) - new Date(b.date));
+      const nextEarning = sortedEarnings[0];
+      
+      const earningsDate = new Date(nextEarning.date);
       
       return {
-        symbol: convertedSymbol,
+        symbol: cleanSymbol,
         originalSymbol: symbol,
-        nextEarningsDate: lastEarning.date,
-        estimatedEPS: lastEarning.eps_estimate ? parseFloat(lastEarning.eps_estimate) : null,
-        actualEPS: lastEarning.eps_actual ? parseFloat(lastEarning.eps_actual) : null,
-        reportedEPS: lastEarning.reported_eps ? parseFloat(lastEarning.reported_eps) : null,
-        fiscalDateEnding: lastEarning.fiscal_date_ending,
-        period: lastEarning.period,
-        currency: lastEarning.currency || 'USD',
-        isActual: true, // This is from the actual earnings data, not estimated
+        nextEarningsDate: nextEarning.date,
+        estimatedEPS: nextEarning.eps ? parseFloat(nextEarning.eps) : null,
+        estimatedEPSHigh: nextEarning.epsEstimatedHigh ? parseFloat(nextEarning.epsEstimatedHigh) : null,
+        estimatedEPSLow: nextEarning.epsEstimatedLow ? parseFloat(nextEarning.epsEstimatedLow) : null,
+        estimatedRevenue: nextEarning.revenueEstimated ? parseFloat(nextEarning.revenueEstimated) : null,
+        numberOfEstimates: nextEarning.numberOfEstimates ? parseInt(nextEarning.numberOfEstimates) : null,
+        time: nextEarning.time || null,
+        updatedFromDate: nextEarning.updatedFromDate || null,
+        fiscalDateEnding: nextEarning.fiscalDateEnding || null,
+        currency: 'USD', // FMP primarily covers US stocks
+        isActual: true, // This is from the actual earnings data
         daysUntilEarnings: Math.ceil((earningsDate - today) / (1000 * 60 * 60 * 24))
       };
       
     } catch (error) {
-      console.error(`Error fetching earnings data for ${convertedSymbol} (original: ${symbol}):`, error);
+      console.error(`Error fetching FMP earnings data for ${cleanSymbol} (original: ${symbol}):`, error);
       throw error;
     }
   },
