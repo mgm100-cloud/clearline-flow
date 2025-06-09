@@ -359,24 +359,21 @@ export const DatabaseService = {
     }
   },
 
-  // Get analysts list - query from user_profiles table to get all analyst_code values
+  // Get analysts list - use database function to bypass RLS and get all analyst codes
   async getAnalysts() {
     try {
       const { data, error } = await supabase
-        .from('user_profiles')
-        .select('analyst_code')
-        .not('analyst_code', 'is', null)
-        .order('analyst_code')
+        .rpc('get_all_analyst_codes')
       
       if (error) throw error
       
-      // Extract unique analyst codes
-      const uniqueAnalysts = [...new Set(data.map(item => item.analyst_code).filter(Boolean))];
+      // Extract analyst codes from the returned rows
+      const uniqueAnalysts = data.map(row => row.analyst_code).filter(Boolean);
       
-      console.log('✅ Fetched analysts from user_profiles table:', uniqueAnalysts);
+      console.log('✅ Fetched analysts using database function:', uniqueAnalysts);
       return uniqueAnalysts;
     } catch (error) {
-      console.error('Error fetching analysts from user_profiles:', error);
+      console.error('Error fetching analysts using database function:', error);
       
       // Fallback to hardcoded list if database query fails
       const fallbackAnalysts = ['LT', 'GA', 'DP', 'MS', 'DO', 'MM'];
