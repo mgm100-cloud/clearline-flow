@@ -5048,18 +5048,18 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
                 const filterText = selectedTodoAnalyst ? `Analyst: ${selectedTodoAnalyst}` : 'All Analysts';
                 const emailDate = new Date().toLocaleDateString();
                 
-                // Helper function to get priority color and styling
+                // Helper function to get priority color and styling for mobile
                 const getPriorityBadge = (priority) => {
                   const colors = {
-                    'high': { bg: '#fef2f2', border: '#dc2626', text: '#dc2626' },
-                    'medium': { bg: '#fefce8', border: '#d97706', text: '#d97706' },
-                    'low': { bg: '#f0fdf4', border: '#16a34a', text: '#16a34a' }
+                    'high': { bg: '#fee2e2', text: '#dc2626' },
+                    'medium': { bg: '#fef3c7', text: '#d97706' },
+                    'low': { bg: '#dcfce7', text: '#16a34a' }
                   };
                   const color = colors[priority] || colors['medium'];
-                  return `<span style="background-color: ${color.bg}; border: 1px solid ${color.border}; color: ${color.text}; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 600; text-transform: uppercase;">${priority}</span>`;
+                  return `<span style="background-color: ${color.bg}; color: ${color.text}; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; display: inline-block;">${priority}</span>`;
                 };
                 
-                // Start building HTML email
+                // Start building mobile-friendly HTML email
                 let emailBody = `
                 <!DOCTYPE html>
                 <html>
@@ -5068,14 +5068,17 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
                   <meta name="viewport" content="width=device-width, initial-scale=1.0">
                   <title>Todo List Report</title>
                 </head>
-                <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background-color: #f9fafb;">
-                  <div style="max-width: 800px; margin: 0 auto; background-color: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); overflow: hidden;">
+                <body style="font-family: Arial, sans-serif; margin: 0; padding: 10px; background-color: #f5f5f5;">
+                  <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; margin: 0 auto; background-color: white;">
                     
                     <!-- Header -->
-                    <div style="background-color: #3b82f6; color: white; padding: 20px;">
-                      <h1 style="margin: 0; font-size: 24px; font-weight: 700;">📋 Todo List Report</h1>
-                      <p style="margin: 8px 0 0 0; opacity: 0.9;">${filterText} • Generated: ${emailDate}</p>
-                    </div>`;
+                    <tr>
+                      <td style="background-color: #0066cc; color: white; padding: 15px; text-align: center;">
+                        <h1 style="margin: 0; font-size: 20px; font-weight: bold;">📋 Todo List Report</h1>
+                        <p style="margin: 5px 0 0 0; font-size: 14px;">${filterText}</p>
+                        <p style="margin: 5px 0 0 0; font-size: 12px;">Generated: ${emailDate}</p>
+                      </td>
+                    </tr>`;
                 
                 // Custom sort for email: Priority (high>medium>low), then Days Since (lowest first)
                 const sortTodosForEmail = (todos) => {
@@ -5097,97 +5100,114 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
                   });
                 };
                 
-                // Open todos section
+                // Open todos section - Mobile-friendly card layout
                 if (openTodos.length > 0) {
                   emailBody += `
                     <!-- Open Todos Section -->
-                    <div style="padding: 20px;">
-                      <h2 style="margin: 0 0 16px 0; color: #111827; font-size: 20px; font-weight: 600;">🔥 Open Todos (${openTodos.length})</h2>
-                      
-                      <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px; border: 1px solid #e5e7eb; border-radius: 6px; overflow: hidden;">
-                        <thead>
-                          <tr style="background-color: #f9fafb;">
-                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Ticker</th>
-                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Analyst</th>
-                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Date Entered</th>
-                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Days Since</th>
-                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Priority</th>
-                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Item</th>
-                          </tr>
-                        </thead>
-                        <tbody>`;
+                    <tr>
+                      <td style="padding: 15px;">
+                        <h2 style="margin: 0 0 10px 0; color: #333; font-size: 18px; font-weight: bold;">🔥 Open Todos (${openTodos.length})</h2>
+                      </td>
+                    </tr>`;
                   
                   sortTodosForEmail(openTodos).forEach((todo, index) => {
                     const daysSince = calculateDaysSinceEntered(todo.dateEntered);
-                    const rowStyle = index % 2 === 0 ? 'background-color: white;' : 'background-color: #f9fafb;';
+                    const bgColor = index % 2 === 0 ? '#ffffff' : '#f8f9fa';
                     
                     emailBody += `
-                          <tr style="${rowStyle}">
-                            <td style="padding: 12px; font-weight: 500; color: #111827; border-bottom: 1px solid #f3f4f6;">${todo.ticker}</td>
-                            <td style="padding: 12px; color: #6b7280; border-bottom: 1px solid #f3f4f6;">${todo.analyst}</td>
-                            <td style="padding: 12px; color: #6b7280; border-bottom: 1px solid #f3f4f6;">${formatDate(todo.dateEntered)}</td>
-                            <td style="padding: 12px; color: #6b7280; border-bottom: 1px solid #f3f4f6;">${daysSince}</td>
-                            <td style="padding: 12px; border-bottom: 1px solid #f3f4f6;">${getPriorityBadge(todo.priority)}</td>
-                            <td style="padding: 12px; color: #111827; border-bottom: 1px solid #f3f4f6; word-break: break-word;">${todo.item}</td>
-                          </tr>`;
+                    <tr>
+                      <td style="padding: 0 15px;">
+                        <table width="100%" cellpadding="8" cellspacing="0" style="background-color: ${bgColor}; border: 1px solid #e0e0e0; margin-bottom: 8px;">
+                          <tr>
+                            <td style="font-weight: bold; font-size: 16px; color: #0066cc;">${todo.ticker}</td>
+                            <td style="text-align: right; font-size: 12px; color: #666;">
+                              ${getPriorityBadge(todo.priority)}
+                            </td>
+                          </tr>
+                          <tr>
+                            <td colspan="2" style="font-size: 14px; color: #333; padding-top: 5px;">
+                              <strong>Analyst:</strong> ${todo.analyst}
+                            </td>
+                          </tr>
+                          <tr>
+                            <td style="font-size: 12px; color: #666;">
+                              <strong>Entered:</strong> ${formatDate(todo.dateEntered)}
+                            </td>
+                            <td style="text-align: right; font-size: 12px; color: #666;">
+                              <strong>${daysSince} days ago</strong>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td colspan="2" style="font-size: 13px; color: #333; padding-top: 5px; line-height: 1.4;">
+                              <strong>Task:</strong> ${todo.item}
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>`;
                   });
-                  
-                  emailBody += `
-                        </tbody>
-                      </table>
-                    </div>`;
                 }
                 
-                // Recently closed todos section
+                // Recently closed todos section - Mobile-friendly card layout
                 if (recentlyClosedTodos.length > 0) {
                   emailBody += `
                     <!-- Recently Closed Todos Section -->
-                    <div style="padding: 20px; border-top: 1px solid #e5e7eb;">
-                      <h2 style="margin: 0 0 16px 0; color: #111827; font-size: 20px; font-weight: 600;">✅ Recently Closed Todos - Last 7 Days (${recentlyClosedTodos.length})</h2>
-                      
-                      <table style="width: 100%; border-collapse: collapse; border: 1px solid #e5e7eb; border-radius: 6px; overflow: hidden;">
-                        <thead>
-                          <tr style="background-color: #f0fdf4;">
-                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Ticker</th>
-                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Analyst</th>
-                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Date Entered</th>
-                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Date Closed</th>
-                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Priority</th>
-                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Item</th>
-                          </tr>
-                        </thead>
-                        <tbody>`;
+                    <tr>
+                      <td style="padding: 15px; border-top: 2px solid #e0e0e0;">
+                        <h2 style="margin: 0 0 10px 0; color: #333; font-size: 18px; font-weight: bold;">✅ Recently Closed - Last 7 Days (${recentlyClosedTodos.length})</h2>
+                      </td>
+                    </tr>`;
                   
                   sortTodosForEmail(recentlyClosedTodos).forEach((todo, index) => {
-                    const rowStyle = index % 2 === 0 ? 'background-color: white;' : 'background-color: #f9fafb;';
+                    const bgColor = index % 2 === 0 ? '#f0fff4' : '#f8fff8';
                     
                     emailBody += `
-                          <tr style="${rowStyle}">
-                            <td style="padding: 12px; font-weight: 500; color: #111827; border-bottom: 1px solid #f3f4f6;">${todo.ticker}</td>
-                            <td style="padding: 12px; color: #6b7280; border-bottom: 1px solid #f3f4f6;">${todo.analyst}</td>
-                            <td style="padding: 12px; color: #6b7280; border-bottom: 1px solid #f3f4f6;">${formatDate(todo.dateEntered)}</td>
-                            <td style="padding: 12px; color: #6b7280; border-bottom: 1px solid #f3f4f6;">${formatDate(todo.dateClosed)}</td>
-                            <td style="padding: 12px; border-bottom: 1px solid #f3f4f6;">${getPriorityBadge(todo.priority)}</td>
-                            <td style="padding: 12px; color: #111827; border-bottom: 1px solid #f3f4f6; word-break: break-word;">${todo.item}</td>
-                          </tr>`;
+                    <tr>
+                      <td style="padding: 0 15px;">
+                        <table width="100%" cellpadding="8" cellspacing="0" style="background-color: ${bgColor}; border: 1px solid #d4e6d4; margin-bottom: 8px;">
+                          <tr>
+                            <td style="font-weight: bold; font-size: 16px; color: #0066cc;">${todo.ticker}</td>
+                            <td style="text-align: right; font-size: 12px; color: #666;">
+                              ${getPriorityBadge(todo.priority)}
+                            </td>
+                          </tr>
+                          <tr>
+                            <td colspan="2" style="font-size: 14px; color: #333; padding-top: 5px;">
+                              <strong>Analyst:</strong> ${todo.analyst}
+                            </td>
+                          </tr>
+                          <tr>
+                            <td style="font-size: 12px; color: #666;">
+                              <strong>Entered:</strong> ${formatDate(todo.dateEntered)}
+                            </td>
+                            <td style="text-align: right; font-size: 12px; color: #666;">
+                              <strong>Closed:</strong> ${formatDate(todo.dateClosed)}
+                            </td>
+                          </tr>
+                          <tr>
+                            <td colspan="2" style="font-size: 13px; color: #333; padding-top: 5px; line-height: 1.4;">
+                              <strong>Task:</strong> ${todo.item}
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>`;
                   });
-                  
-                  emailBody += `
-                        </tbody>
-                      </table>
-                    </div>`;
                 }
                 
                 // Footer
                 emailBody += `
                     <!-- Footer -->
-                    <div style="padding: 20px; background-color: #f9fafb; border-top: 1px solid #e5e7eb; text-align: center;">
-                      <p style="margin: 0; color: #6b7280; font-size: 14px;">
-                        Generated by <strong>Clearline Flow</strong> • ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}
-                      </p>
-                    </div>
+                    <tr>
+                      <td style="padding: 15px; background-color: #f5f5f5; border-top: 1px solid #e0e0e0; text-align: center;">
+                        <p style="margin: 0; color: #666; font-size: 12px;">
+                          Generated by <strong>Clearline Flow</strong><br>
+                          ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}
+                        </p>
+                      </td>
+                    </tr>
                     
-                  </div>
+                  </table>
                 </body>
                 </html>`;
                 
