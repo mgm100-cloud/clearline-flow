@@ -4035,9 +4035,9 @@ const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst
           </p>
         </div>
         
-        <div className="overflow-x-auto">
+        <div className="overflow-auto" style={{ height: '70vh', position: 'relative' }}>
           <table className="min-w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed', width: '100%' }}>
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-50 sticky top-0 z-20">
               <tr>
                 <SortableHeader field="ticker" style={{ width: '85px' }}>Ticker</SortableHeader>
                 <SortableHeader field="lsPosition" style={{ width: '40px' }}>L/S</SortableHeader>
@@ -5811,9 +5811,9 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
           </p>
         </div>
         
-        <div className="overflow-x-auto">
+        <div className="overflow-auto" style={{ height: '70vh', position: 'relative' }}>
           <table className="min-w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed', width: '100%' }}>
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-50 sticky top-0 z-20">
               <tr>
                 <SortableHeader field="ticker" style={{ width: '85px' }}>Ticker</SortableHeader>
                 <SortableHeader field="lsPosition" style={{ width: '40px' }}>L/S</SortableHeader>
