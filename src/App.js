@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Plus, Database, Users, TrendingUp, BarChart3, LogOut, ChevronUp, ChevronDown, RefreshCw, Download, CheckSquare, User } from 'lucide-react';
+import { Plus, Database, Users, TrendingUp, BarChart3, LogOut, ChevronUp, ChevronDown, RefreshCw, Download, CheckSquare, User, Mail } from 'lucide-react';
 import { DatabaseService } from './databaseService';
 import { AuthService } from './services/authService';
 import LoginScreen from './components/LoginScreen';
@@ -2171,6 +2171,7 @@ const ClearlineFlow = () => {
             analysts={analysts}
             userRole={userRole}
             onRefreshTodos={refreshTodos}
+            currentUser={currentUser}
           />
         )}
       </main>
@@ -4863,11 +4864,12 @@ const EarningsTrackingRow = ({ ticker, cyq, earningsData, onUpdateEarnings, form
 };
 
 // Todo List Page Component
-const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTodo, onUpdateTodo, onDeleteTodo, analysts, userRole, onRefreshTodos }) => {
+const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTodo, onUpdateTodo, onDeleteTodo, analysts, userRole, onRefreshTodos, currentUser }) => {
   const [sortField, setSortField] = useState('dateEntered');
   const [sortDirection, setSortDirection] = useState('desc');
   const [showAddForm, setShowAddForm] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isEmailSending, setIsEmailSending] = useState(false);
   const [newTodo, setNewTodo] = useState({
     ticker: '',
     analyst: '',
@@ -5032,6 +5034,141 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
               <>
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Refresh List
+              </>
+            )}
+          </button>
+          <button
+            onClick={async () => {
+              if (isEmailSending) return;
+              
+              setIsEmailSending(true);
+              
+              try {
+                // Generate email content
+                const filterText = selectedTodoAnalyst ? `Analyst: ${selectedTodoAnalyst}` : 'All Analysts';
+                const emailDate = new Date().toLocaleDateString();
+                
+                let emailBody = `Todo List Report\n\n`;
+                emailBody += `${filterText}\n`;
+                emailBody += `Generated: ${emailDate}\n\n`;
+                
+                // Open todos
+                if (openTodos.length > 0) {
+                  emailBody += `OPEN TODOS (${openTodos.length})\n`;
+                  emailBody += `${'='.repeat(40)}\n\n`;
+                  
+                  // Custom sort for email: Priority (high>medium>low), then Days Since (lowest first)
+                  const emailSortedOpenTodos = [...openTodos].sort((a, b) => {
+                    // Priority order: high=3, medium=2, low=1
+                    const priorityOrder = { 'high': 3, 'medium': 2, 'low': 1 };
+                    const aPriority = priorityOrder[a.priority] || 0;
+                    const bPriority = priorityOrder[b.priority] || 0;
+                    
+                    // First sort by priority (high to low)
+                    if (aPriority !== bPriority) {
+                      return bPriority - aPriority;
+                    }
+                    
+                    // Then sort by days since entered (lowest first)
+                    const aDays = calculateDaysSinceEntered(a.dateEntered);
+                    const bDays = calculateDaysSinceEntered(b.dateEntered);
+                    return aDays - bDays;
+                  });
+                  
+                  emailSortedOpenTodos.forEach((todo, index) => {
+                    emailBody += `${index + 1}. ${todo.ticker} - ${todo.analyst}\n`;
+                    emailBody += `   Priority: ${todo.priority.toUpperCase()}\n`;
+                    emailBody += `   Date Entered: ${formatDate(todo.dateEntered)} (${calculateDaysSinceEntered(todo.dateEntered)} days ago)\n`;
+                    emailBody += `   Item: ${todo.item}\n\n`;
+                  });
+                }
+                
+                // Recently closed todos
+                if (recentlyClosedTodos.length > 0) {
+                  emailBody += `\n\nRECENTLY CLOSED TODOS - Last 7 Days (${recentlyClosedTodos.length})\n`;
+                  emailBody += `${'='.repeat(50)}\n\n`;
+                  
+                  // Custom sort for email: Priority (high>medium>low), then Days Since (lowest first)
+                  const emailSortedClosedTodos = [...recentlyClosedTodos].sort((a, b) => {
+                    // Priority order: high=3, medium=2, low=1
+                    const priorityOrder = { 'high': 3, 'medium': 2, 'low': 1 };
+                    const aPriority = priorityOrder[a.priority] || 0;
+                    const bPriority = priorityOrder[b.priority] || 0;
+                    
+                    // First sort by priority (high to low)
+                    if (aPriority !== bPriority) {
+                      return bPriority - aPriority;
+                    }
+                    
+                    // Then sort by days since entered (lowest first)
+                    const aDays = calculateDaysSinceEntered(a.dateEntered);
+                    const bDays = calculateDaysSinceEntered(b.dateEntered);
+                    return aDays - bDays;
+                  });
+                  
+                  emailSortedClosedTodos.forEach((todo, index) => {
+                    emailBody += `${index + 1}. ${todo.ticker} - ${todo.analyst}\n`;
+                    emailBody += `   Priority: ${todo.priority.toUpperCase()}\n`;
+                    emailBody += `   Date Entered: ${formatDate(todo.dateEntered)}\n`;
+                    emailBody += `   Date Closed: ${formatDate(todo.dateClosed)}\n`;
+                    emailBody += `   Item: ${todo.item}\n\n`;
+                  });
+                }
+                
+                // Send email via API
+                const subject = `Todo List Report - ${filterText} - ${emailDate}`;
+                const fromName = currentUser ? AuthService.getUserFullName(currentUser) : 'Clearline Flow App';
+                const fromEmail = currentUser?.email || null;
+                
+                const response = await fetch('/api/send-email', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    to: 'mmajzner@clearlinecap.com',
+                    subject: subject,
+                    content: emailBody,
+                    fromName: fromName,
+                    fromEmail: fromEmail
+                  }),
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                  alert('✅ Email sent successfully!');
+                } else {
+                  console.error('Email send failed:', result);
+                  alert('❌ Failed to send email: ' + (result.error || 'Unknown error'));
+                }
+                
+              } catch (error) {
+                console.error('Error sending email:', error);
+                alert('❌ Failed to send email. Please check console for details.');
+              } finally {
+                setIsEmailSending(false);
+              }
+            }}
+            disabled={isEmailSending}
+            className={`px-4 py-2 rounded-md text-sm font-medium flex items-center ${
+              isEmailSending 
+                ? 'bg-gray-400 cursor-not-allowed text-white' 
+                : 'bg-blue-600 hover:bg-blue-700 text-white'
+            }`}
+          >
+            {isEmailSending ? (
+              <>
+                <svg className="animate-spin -ml-1 mr-3 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 0 1 4 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Sending Email...
+              </>
+            ) : (
+              <>
+                <Mail className="h-4 w-4 mr-2" />
+                Email Todo List
               </>
             )}
           </button>
@@ -5300,6 +5437,8 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
           </div>
         )}
       </div>
+
+
     </div>
   );
 };
