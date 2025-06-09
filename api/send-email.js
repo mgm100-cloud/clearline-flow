@@ -26,8 +26,7 @@ export default async function handler(req, res) {
       from: `${fromName} <${senderEmail}>`,
       to: [to],
       subject: subject,
-      text: content,
-      html: content.replace(/\n/g, '<br>'), // Convert line breaks to HTML
+      html: content, // Content is already properly formatted HTML
     });
 
     console.log('Email sent successfully:', data);

@@ -5044,76 +5044,152 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
               setIsEmailSending(true);
               
               try {
-                // Generate email content
+                // Generate HTML email content
                 const filterText = selectedTodoAnalyst ? `Analyst: ${selectedTodoAnalyst}` : 'All Analysts';
                 const emailDate = new Date().toLocaleDateString();
                 
-                let emailBody = `Todo List Report\n\n`;
-                emailBody += `${filterText}\n`;
-                emailBody += `Generated: ${emailDate}\n\n`;
+                // Helper function to get priority color and styling
+                const getPriorityBadge = (priority) => {
+                  const colors = {
+                    'high': { bg: '#fef2f2', border: '#dc2626', text: '#dc2626' },
+                    'medium': { bg: '#fefce8', border: '#d97706', text: '#d97706' },
+                    'low': { bg: '#f0fdf4', border: '#16a34a', text: '#16a34a' }
+                  };
+                  const color = colors[priority] || colors['medium'];
+                  return `<span style="background-color: ${color.bg}; border: 1px solid ${color.border}; color: ${color.text}; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 600; text-transform: uppercase;">${priority}</span>`;
+                };
                 
-                // Open todos
+                // Start building HTML email
+                let emailBody = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                  <meta charset="utf-8">
+                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                  <title>Todo List Report</title>
+                </head>
+                <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background-color: #f9fafb;">
+                  <div style="max-width: 800px; margin: 0 auto; background-color: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); overflow: hidden;">
+                    
+                    <!-- Header -->
+                    <div style="background-color: #3b82f6; color: white; padding: 20px;">
+                      <h1 style="margin: 0; font-size: 24px; font-weight: 700;">📋 Todo List Report</h1>
+                      <p style="margin: 8px 0 0 0; opacity: 0.9;">${filterText} • Generated: ${emailDate}</p>
+                    </div>`;
+                
+                // Custom sort for email: Priority (high>medium>low), then Days Since (lowest first)
+                const sortTodosForEmail = (todos) => {
+                  return [...todos].sort((a, b) => {
+                    // Priority order: high=3, medium=2, low=1
+                    const priorityOrder = { 'high': 3, 'medium': 2, 'low': 1 };
+                    const aPriority = priorityOrder[a.priority] || 0;
+                    const bPriority = priorityOrder[b.priority] || 0;
+                    
+                    // First sort by priority (high to low)
+                    if (aPriority !== bPriority) {
+                      return bPriority - aPriority;
+                    }
+                    
+                    // Then sort by days since entered (lowest first)
+                    const aDays = calculateDaysSinceEntered(a.dateEntered);
+                    const bDays = calculateDaysSinceEntered(b.dateEntered);
+                    return aDays - bDays;
+                  });
+                };
+                
+                // Open todos section
                 if (openTodos.length > 0) {
-                  emailBody += `OPEN TODOS (${openTodos.length})\n`;
-                  emailBody += `${'='.repeat(40)}\n\n`;
+                  emailBody += `
+                    <!-- Open Todos Section -->
+                    <div style="padding: 20px;">
+                      <h2 style="margin: 0 0 16px 0; color: #111827; font-size: 20px; font-weight: 600;">🔥 Open Todos (${openTodos.length})</h2>
+                      
+                      <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px; border: 1px solid #e5e7eb; border-radius: 6px; overflow: hidden;">
+                        <thead>
+                          <tr style="background-color: #f9fafb;">
+                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Ticker</th>
+                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Analyst</th>
+                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Date Entered</th>
+                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Days Since</th>
+                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Priority</th>
+                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Item</th>
+                          </tr>
+                        </thead>
+                        <tbody>`;
                   
-                  // Custom sort for email: Priority (high>medium>low), then Days Since (lowest first)
-                  const emailSortedOpenTodos = [...openTodos].sort((a, b) => {
-                    // Priority order: high=3, medium=2, low=1
-                    const priorityOrder = { 'high': 3, 'medium': 2, 'low': 1 };
-                    const aPriority = priorityOrder[a.priority] || 0;
-                    const bPriority = priorityOrder[b.priority] || 0;
+                  sortTodosForEmail(openTodos).forEach((todo, index) => {
+                    const daysSince = calculateDaysSinceEntered(todo.dateEntered);
+                    const rowStyle = index % 2 === 0 ? 'background-color: white;' : 'background-color: #f9fafb;';
                     
-                    // First sort by priority (high to low)
-                    if (aPriority !== bPriority) {
-                      return bPriority - aPriority;
-                    }
-                    
-                    // Then sort by days since entered (lowest first)
-                    const aDays = calculateDaysSinceEntered(a.dateEntered);
-                    const bDays = calculateDaysSinceEntered(b.dateEntered);
-                    return aDays - bDays;
+                    emailBody += `
+                          <tr style="${rowStyle}">
+                            <td style="padding: 12px; font-weight: 500; color: #111827; border-bottom: 1px solid #f3f4f6;">${todo.ticker}</td>
+                            <td style="padding: 12px; color: #6b7280; border-bottom: 1px solid #f3f4f6;">${todo.analyst}</td>
+                            <td style="padding: 12px; color: #6b7280; border-bottom: 1px solid #f3f4f6;">${formatDate(todo.dateEntered)}</td>
+                            <td style="padding: 12px; color: #6b7280; border-bottom: 1px solid #f3f4f6;">${daysSince}</td>
+                            <td style="padding: 12px; border-bottom: 1px solid #f3f4f6;">${getPriorityBadge(todo.priority)}</td>
+                            <td style="padding: 12px; color: #111827; border-bottom: 1px solid #f3f4f6; word-break: break-word;">${todo.item}</td>
+                          </tr>`;
                   });
                   
-                  emailSortedOpenTodos.forEach((todo, index) => {
-                    emailBody += `${index + 1}. ${todo.ticker} - ${todo.analyst}\n`;
-                    emailBody += `   Priority: ${todo.priority.toUpperCase()}\n`;
-                    emailBody += `   Date Entered: ${formatDate(todo.dateEntered)} (${calculateDaysSinceEntered(todo.dateEntered)} days ago)\n`;
-                    emailBody += `   Item: ${todo.item}\n\n`;
-                  });
+                  emailBody += `
+                        </tbody>
+                      </table>
+                    </div>`;
                 }
                 
-                // Recently closed todos
+                // Recently closed todos section
                 if (recentlyClosedTodos.length > 0) {
-                  emailBody += `\n\nRECENTLY CLOSED TODOS - Last 7 Days (${recentlyClosedTodos.length})\n`;
-                  emailBody += `${'='.repeat(50)}\n\n`;
+                  emailBody += `
+                    <!-- Recently Closed Todos Section -->
+                    <div style="padding: 20px; border-top: 1px solid #e5e7eb;">
+                      <h2 style="margin: 0 0 16px 0; color: #111827; font-size: 20px; font-weight: 600;">✅ Recently Closed Todos - Last 7 Days (${recentlyClosedTodos.length})</h2>
+                      
+                      <table style="width: 100%; border-collapse: collapse; border: 1px solid #e5e7eb; border-radius: 6px; overflow: hidden;">
+                        <thead>
+                          <tr style="background-color: #f0fdf4;">
+                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Ticker</th>
+                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Analyst</th>
+                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Date Entered</th>
+                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Date Closed</th>
+                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Priority</th>
+                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Item</th>
+                          </tr>
+                        </thead>
+                        <tbody>`;
                   
-                  // Custom sort for email: Priority (high>medium>low), then Days Since (lowest first)
-                  const emailSortedClosedTodos = [...recentlyClosedTodos].sort((a, b) => {
-                    // Priority order: high=3, medium=2, low=1
-                    const priorityOrder = { 'high': 3, 'medium': 2, 'low': 1 };
-                    const aPriority = priorityOrder[a.priority] || 0;
-                    const bPriority = priorityOrder[b.priority] || 0;
+                  sortTodosForEmail(recentlyClosedTodos).forEach((todo, index) => {
+                    const rowStyle = index % 2 === 0 ? 'background-color: white;' : 'background-color: #f9fafb;';
                     
-                    // First sort by priority (high to low)
-                    if (aPriority !== bPriority) {
-                      return bPriority - aPriority;
-                    }
-                    
-                    // Then sort by days since entered (lowest first)
-                    const aDays = calculateDaysSinceEntered(a.dateEntered);
-                    const bDays = calculateDaysSinceEntered(b.dateEntered);
-                    return aDays - bDays;
+                    emailBody += `
+                          <tr style="${rowStyle}">
+                            <td style="padding: 12px; font-weight: 500; color: #111827; border-bottom: 1px solid #f3f4f6;">${todo.ticker}</td>
+                            <td style="padding: 12px; color: #6b7280; border-bottom: 1px solid #f3f4f6;">${todo.analyst}</td>
+                            <td style="padding: 12px; color: #6b7280; border-bottom: 1px solid #f3f4f6;">${formatDate(todo.dateEntered)}</td>
+                            <td style="padding: 12px; color: #6b7280; border-bottom: 1px solid #f3f4f6;">${formatDate(todo.dateClosed)}</td>
+                            <td style="padding: 12px; border-bottom: 1px solid #f3f4f6;">${getPriorityBadge(todo.priority)}</td>
+                            <td style="padding: 12px; color: #111827; border-bottom: 1px solid #f3f4f6; word-break: break-word;">${todo.item}</td>
+                          </tr>`;
                   });
                   
-                  emailSortedClosedTodos.forEach((todo, index) => {
-                    emailBody += `${index + 1}. ${todo.ticker} - ${todo.analyst}\n`;
-                    emailBody += `   Priority: ${todo.priority.toUpperCase()}\n`;
-                    emailBody += `   Date Entered: ${formatDate(todo.dateEntered)}\n`;
-                    emailBody += `   Date Closed: ${formatDate(todo.dateClosed)}\n`;
-                    emailBody += `   Item: ${todo.item}\n\n`;
-                  });
+                  emailBody += `
+                        </tbody>
+                      </table>
+                    </div>`;
                 }
+                
+                // Footer
+                emailBody += `
+                    <!-- Footer -->
+                    <div style="padding: 20px; background-color: #f9fafb; border-top: 1px solid #e5e7eb; text-align: center;">
+                      <p style="margin: 0; color: #6b7280; font-size: 14px;">
+                        Generated by <strong>Clearline Flow</strong> • ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}
+                      </p>
+                    </div>
+                    
+                  </div>
+                </body>
+                </html>`;
                 
                 // Send email via API
                 const subject = `Todo List Report - ${filterText} - ${emailDate}`;
