@@ -2702,11 +2702,21 @@ const DatabasePage = ({ tickers, onSort, sortField, sortDirection, onUpdate, ana
           </div>
         </div>
         
-        <div className="overflow-x-auto">
+        <div className="overflow-auto" style={{ height: '70vh', position: 'relative' }}>
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-50 sticky top-0 z-20">
               <tr>
-                <SortableHeader field="ticker">Ticker</SortableHeader>
+                <th
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 sticky left-0 bg-gray-50 z-30"
+                  onClick={() => onSort('ticker')}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>Ticker</span>
+                    {sortField === 'ticker' && (
+                      sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+                    )}
+                  </div>
+                </th>
                 <th
                   className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 w-40"
                   onClick={() => onSort('name')}
@@ -2815,7 +2825,7 @@ const EnhancedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
   if (isEditing && onUpdate) {
     return (
       <tr className="bg-blue-50">
-        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 bg-blue-50 z-10">
           {ticker.ticker}
         </td>
         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -2914,7 +2924,7 @@ const EnhancedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
 
   return (
     <tr>
-      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 bg-white z-10">
         {ticker.ticker}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 w-40" title={ticker.name}>
