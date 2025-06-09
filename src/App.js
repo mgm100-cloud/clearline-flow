@@ -3842,7 +3842,32 @@ const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst
       let aVal = a[field];
       let bVal = b[field];
       
-      if (field === 'currentPrice' || field === 'ptBear' || field === 'ptBase' || field === 'ptBull') {
+      // Handle percentage fields by calculating them
+      if (field === 'bearPercent' || field === 'basePercent' || field === 'bullPercent') {
+        const cleanSymbolA = a.ticker.replace(' US', '');
+        const cleanSymbolB = b.ticker.replace(' US', '');
+        const quoteA = quotes[cleanSymbolA];
+        const quoteB = quotes[cleanSymbolB];
+        const currentPriceA = quoteA ? quoteA.price : a.currentPrice;
+        const currentPriceB = quoteB ? quoteB.price : b.currentPrice;
+        
+        if (field === 'bearPercent') {
+          aVal = calculatePercentChange(a.ptBear, currentPriceA);
+          bVal = calculatePercentChange(b.ptBear, currentPriceB);
+        } else if (field === 'basePercent') {
+          aVal = calculatePercentChange(a.ptBase, currentPriceA);
+          bVal = calculatePercentChange(b.ptBase, currentPriceB);
+        } else if (field === 'bullPercent') {
+          aVal = calculatePercentChange(a.ptBull, currentPriceA);
+          bVal = calculatePercentChange(b.ptBull, currentPriceB);
+        }
+        
+        // Convert percentage strings to numbers for sorting
+        const aNum = aVal ? parseFloat(aVal.replace(/[+%]/g, '')) : -999;
+        const bNum = bVal ? parseFloat(bVal.replace(/[+%]/g, '')) : -999;
+        aVal = aNum;
+        bVal = bNum;
+      } else if (field === 'currentPrice' || field === 'ptBear' || field === 'ptBase' || field === 'ptBull') {
         aVal = parseFloat(aVal) || 0;
         bVal = parseFloat(bVal) || 0;
       } else if (typeof aVal === 'string') {
@@ -4043,13 +4068,13 @@ const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst
                 <SortableHeader field="lsPosition" style={{ width: '40px' }}>L/S</SortableHeader>
                 <SortableHeader field="priority" style={{ width: '35px' }}>Pri</SortableHeader>
                 <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '75px' }}>Price</th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '60px' }}>Bear</th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '45px' }}>%</th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '60px' }}>Base</th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '45px' }}>%</th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '60px' }}>Bull</th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '45px' }}>%</th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thesis</th>
+                <SortableHeader field="ptBear" style={{ width: '60px' }}>Bear</SortableHeader>
+                <SortableHeader field="bearPercent" style={{ width: '45px' }}>%</SortableHeader>
+                <SortableHeader field="ptBase" style={{ width: '60px' }}>Base</SortableHeader>
+                <SortableHeader field="basePercent" style={{ width: '45px' }}>%</SortableHeader>
+                <SortableHeader field="ptBull" style={{ width: '60px' }}>Bull</SortableHeader>
+                <SortableHeader field="bullPercent" style={{ width: '45px' }}>%</SortableHeader>
+                <SortableHeader field="thesis">Thesis</SortableHeader>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -5750,7 +5775,32 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
       let aVal = a[field];
       let bVal = b[field];
       
-      if (field === 'currentPrice' || field === 'ptBear' || field === 'ptBase' || field === 'ptBull') {
+      // Handle percentage fields by calculating them
+      if (field === 'bearPercent' || field === 'basePercent' || field === 'bullPercent') {
+        const cleanSymbolA = a.ticker.replace(' US', '');
+        const cleanSymbolB = b.ticker.replace(' US', '');
+        const quoteA = quotes ? quotes[cleanSymbolA] : null;
+        const quoteB = quotes ? quotes[cleanSymbolB] : null;
+        const currentPriceA = quoteA ? quoteA.price : a.currentPrice;
+        const currentPriceB = quoteB ? quoteB.price : b.currentPrice;
+        
+        if (field === 'bearPercent') {
+          aVal = calculatePercentChange(a.ptBear, currentPriceA);
+          bVal = calculatePercentChange(b.ptBear, currentPriceB);
+        } else if (field === 'basePercent') {
+          aVal = calculatePercentChange(a.ptBase, currentPriceA);
+          bVal = calculatePercentChange(b.ptBase, currentPriceB);
+        } else if (field === 'bullPercent') {
+          aVal = calculatePercentChange(a.ptBull, currentPriceA);
+          bVal = calculatePercentChange(b.ptBull, currentPriceB);
+        }
+        
+        // Convert percentage strings to numbers for sorting
+        const aNum = aVal ? parseFloat(aVal.replace(/[+%]/g, '')) : -999;
+        const bNum = bVal ? parseFloat(bVal.replace(/[+%]/g, '')) : -999;
+        aVal = aNum;
+        bVal = bNum;
+      } else if (field === 'currentPrice' || field === 'ptBear' || field === 'ptBase' || field === 'ptBull') {
         aVal = parseFloat(aVal) || 0;
         bVal = parseFloat(bVal) || 0;
       } else if (typeof aVal === 'string') {
@@ -5826,13 +5876,13 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
                 <SortableHeader field="priority" style={{ width: '35px' }}>Pri</SortableHeader>
                 <SortableHeader field="analyst" style={{ width: '60px' }}>Analyst</SortableHeader>
                 <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '75px' }}>Price</th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '60px' }}>Bear</th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '45px' }}>%</th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '60px' }}>Base</th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '45px' }}>%</th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '60px' }}>Bull</th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '45px' }}>%</th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thesis</th>
+                <SortableHeader field="ptBear" style={{ width: '60px' }}>Bear</SortableHeader>
+                <SortableHeader field="bearPercent" style={{ width: '45px' }}>%</SortableHeader>
+                <SortableHeader field="ptBase" style={{ width: '60px' }}>Base</SortableHeader>
+                <SortableHeader field="basePercent" style={{ width: '45px' }}>%</SortableHeader>
+                <SortableHeader field="ptBull" style={{ width: '60px' }}>Bull</SortableHeader>
+                <SortableHeader field="bullPercent" style={{ width: '45px' }}>%</SortableHeader>
+                <SortableHeader field="thesis">Thesis</SortableHeader>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
