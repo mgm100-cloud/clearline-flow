@@ -920,7 +920,10 @@ const ClearlineFlow = () => {
   const formatVolumeDollars = (volumeValue) => {
     if (!volumeValue || volumeValue === 0) return '-';
     const volumeInMillions = volumeValue / 1000000;
-    return `$${volumeInMillions.toFixed(1)}M`;
+    return `${volumeInMillions.toLocaleString('en-US', {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1
+    })}`;
   };
 
   // Helper function to truncate company names
