@@ -338,6 +338,49 @@ const QuoteService = {
     return symbol;
   },
 
+  // Get company market capitalization from Financial Modeling Prep
+  async getCompanyMarketcap(symbol) {
+    if (!FMP_API_KEY || FMP_API_KEY === 'YOUR_FMP_API_KEY_HERE') {
+      throw new Error('Financial Modeling Prep API key not configured');
+    }
+
+    // Clean symbol - remove Bloomberg suffixes for FMP (FMP uses standard US symbols)
+    const cleanSymbol = symbol.replace(/ US$/, '').trim().toUpperCase();
+
+    try {
+      const url = `https://financialmodelingprep.com/stable/market-capitalization?symbol=${cleanSymbol}&apikey=${FMP_API_KEY}`;
+      console.log(`Getting market cap for ${cleanSymbol} from:`, url);
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      console.log(`FMP market cap response for ${cleanSymbol}:`, data);
+      
+      // Check for API errors
+      if (data['Error Message']) {
+        throw new Error(`FMP error: ${data['Error Message']}`);
+      }
+
+      // FMP returns an array with market cap data
+      if (!Array.isArray(data) || data.length === 0) {
+        throw new Error(`No market cap data available for ${cleanSymbol}`);
+      }
+
+      const marketCapData = data[0];
+      
+      return {
+        symbol: cleanSymbol,
+        originalSymbol: symbol,
+        marketCap: marketCapData.marketCap ? parseFloat(marketCapData.marketCap) : null,
+        date: marketCapData.date
+      };
+      
+    } catch (error) {
+      console.error(`Error fetching market cap for ${cleanSymbol}:`, error);
+      throw error;
+    }
+  },
+
   // Get daily volume data with international stock handling
   async getDailyVolumeData(symbol, days = 90) {
     // Convert symbol if it's in Bloomberg format
@@ -1232,14 +1275,14 @@ const ClearlineFlow = () => {
     try {
       console.log(`🏢 Fetching company data for ${cleanSymbol}...`);
       
-      // Get quote, company overview, and volume data
-      const [quote, companyOverview, volumeData] = await Promise.all([
+      // Get quote, market cap, and volume data
+      const [quote, marketCapData, volumeData] = await Promise.all([
         QuoteService.getQuote(cleanSymbol).catch(error => {
           console.warn(`Could not fetch quote for ${cleanSymbol}:`, error.message);
           return null;
         }),
-        QuoteService.getCompanyOverview(cleanSymbol).catch(error => {
-          console.warn(`Could not fetch company overview for ${cleanSymbol}:`, error.message);
+        QuoteService.getCompanyMarketcap(cleanSymbol).catch(error => {
+          console.warn(`Could not fetch market cap for ${cleanSymbol}:`, error.message);
           return null;
         }),
         QuoteService.getDailyVolumeData(cleanSymbol).catch(error => {
@@ -1249,14 +1292,14 @@ const ClearlineFlow = () => {
       ]);
 
       // Determine if this is an international stock
-      const isInternational = companyOverview?.isInternational || volumeData?.isInternational || 
+      const isInternational = volumeData?.isInternational || 
                               cleanSymbol.includes('.') || cleanSymbol.includes(' ');
 
       // Create the stock data object with fallbacks for international stocks
       const stockData = {
         ticker: ticker,
         originalSymbol: cleanSymbol,
-        convertedSymbol: quote?.symbol || companyOverview?.symbol || cleanSymbol,
+        convertedSymbol: quote?.symbol || marketCapData?.symbol || cleanSymbol,
         
         // Price data (usually available for international stocks)
         price: quote?.price || Math.random() * 100 + 20,
@@ -1264,12 +1307,11 @@ const ClearlineFlow = () => {
         changePercent: quote?.changePercent || (Math.random() - 0.5) * 5,
         
         // Company information (limited for international stocks)
-        name: companyOverview?.name || 
-              QuoteService.extractCompanyNameFromSymbol(cleanSymbol) || 
+        name: QuoteService.extractCompanyNameFromSymbol(cleanSymbol) || 
               `${cleanSymbol} Company`,
         
-        // Market cap (often not available for international stocks)
-        marketCap: companyOverview?.marketCap || 
+        // Market cap from Financial Modeling Prep
+        marketCap: marketCapData?.marketCap || 
                    (isInternational ? null : Math.random() * 50000000000 + 5000000000),
         
         // Volume data (limited for international stocks)
@@ -1279,23 +1321,23 @@ const ClearlineFlow = () => {
         // Additional metadata
         isInternational: isInternational,
         dataLimitations: isInternational ? {
-          marketCap: companyOverview?.limitationNote || 'Market cap not available for international stocks',
+          marketCap: 'Market cap not available for international stocks',
           volume: volumeData?.limitationNote || 'Volume data may be limited for international stocks',
-          fundamentals: 'Limited fundamental data available via TwelveData for international stocks'
+          fundamentals: 'Limited fundamental data available for international stocks'
         } : null,
         
         // Mock additional data
         volume: quote?.volume || Math.floor(Math.random() * 1000000 + 50000),
-        peRatio: companyOverview?.peRatio || (isInternational ? null : Math.random() * 30 + 5),
-        sector: companyOverview?.sector || (isInternational ? 'N/A' : 'Technology'),
-        industry: companyOverview?.industry || (isInternational ? 'N/A' : 'Software'),
+        peRatio: isInternational ? null : Math.random() * 30 + 5,
+        sector: isInternational ? 'N/A' : 'Technology',
+        industry: isInternational ? 'N/A' : 'Software',
         
         // Technical indicators
         rsi: Math.random() * 40 + 30,
         macd: (Math.random() - 0.5) * 2,
         
         // Risk metrics
-        beta: companyOverview?.beta || Math.random() * 2 + 0.5,
+        beta: Math.random() * 2 + 0.5,
         volatility: Math.random() * 0.3 + 0.1,
         
         // News sentiment (mock for now)
@@ -1505,9 +1547,9 @@ const ClearlineFlow = () => {
           try {
             console.log(`🔄 Fetching market data for ${cleanSymbol}...`);
             
-            const [companyOverview, volumeData, quoteData] = await Promise.all([
-              QuoteService.getCompanyOverview(cleanSymbol).catch(error => {
-                console.warn(`Could not fetch company overview for ${cleanSymbol}:`, error.message);
+            const [marketCapData, volumeData, quoteData] = await Promise.all([
+              QuoteService.getCompanyMarketcap(cleanSymbol).catch(error => {
+                console.warn(`Could not fetch market cap for ${cleanSymbol}:`, error.message);
                 return null;
               }),
               QuoteService.getDailyVolumeData(cleanSymbol).catch(error => {
@@ -1522,8 +1564,8 @@ const ClearlineFlow = () => {
             
             const updates = {};
             
-            if (companyOverview?.marketCap) {
-              updates.marketCap = companyOverview.marketCap;
+            if (marketCapData?.marketCap) {
+              updates.marketCap = marketCapData.marketCap;
             }
             
             if (volumeData?.averageDailyVolume && quoteData?.price) {
