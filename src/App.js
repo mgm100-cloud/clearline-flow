@@ -1313,13 +1313,18 @@ const ClearlineFlow = () => {
         name: QuoteService.extractCompanyNameFromSymbol(cleanSymbol) || 
               `${cleanSymbol} Company`,
         
-        // Market cap from Financial Modeling Prep
-        marketCap: marketCapData?.marketCap || 
-                   (isInternational ? null : Math.random() * 50000000000 + 5000000000),
+        // Market cap from Financial Modeling Prep (rounded for bigint column)
+        marketCap: marketCapData?.marketCap ? Math.round(marketCapData.marketCap) : 
+                   (isInternational ? null : Math.round(Math.random() * 50000000000 + 5000000000)),
         
         // Volume data (limited for international stocks)
         averageDailyVolume: volumeData?.averageDailyVolume || 
                            (isInternational ? null : Math.floor(Math.random() * 2000000 + 100000)),
+        
+        // Calculate ADV in dollars (volume × price) - rounded for bigint column
+        adv3Month: (volumeData?.averageDailyVolume && quote?.price) ? 
+                   Math.round(volumeData.averageDailyVolume * quote.price) : 
+                   (isInternational ? null : Math.round((Math.floor(Math.random() * 2000000 + 100000)) * (Math.random() * 100 + 20))),
         
         // Additional metadata
         isInternational: isInternational,
@@ -1568,7 +1573,7 @@ const ClearlineFlow = () => {
             const updates = {};
             
             if (marketCapData?.marketCap) {
-              updates.marketCap = marketCapData.marketCap;
+              updates.marketCap = Math.round(marketCapData.marketCap); // Round to integer for bigint column
             }
             
             if (volumeData?.averageDailyVolume && quoteData?.price) {
