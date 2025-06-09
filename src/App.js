@@ -365,10 +365,24 @@ const QuoteService = {
     }
   },
 
-  // Get upcoming earnings date using Financial Modeling Prep
+  // Get upcoming earnings date using Financial Modeling Prep with Twelve Data fallback
   async getUpcomingEarningsDate(symbol) {
+    // Try FMP first
+    const fmpResult = await this.getUpcomingEarningsFromFMP(symbol);
+    if (fmpResult) {
+      return fmpResult;
+    }
+
+    // Fallback to Twelve Data if FMP fails
+    console.log(`FMP failed for ${symbol}, falling back to Twelve Data...`);
+    return await this.getUpcomingEarningsFromTwelveData(symbol);
+  },
+
+  // Get earnings from Financial Modeling Prep
+  async getUpcomingEarningsFromFMP(symbol) {
     if (!FMP_API_KEY || FMP_API_KEY === 'YOUR_FMP_API_KEY_HERE') {
-      throw new Error('Financial Modeling Prep API key not configured');
+      console.warn('Financial Modeling Prep API key not configured, skipping FMP');
+      return null;
     }
 
     // Clean symbol - remove Bloomberg suffixes for FMP (FMP uses standard US symbols)
@@ -392,7 +406,7 @@ const QuoteService = {
 
       // Check if data is array with earnings dates
       if (!Array.isArray(data) || data.length === 0) {
-        console.warn(`No earnings data found for ${cleanSymbol}`);
+        console.warn(`No earnings data found for ${cleanSymbol} in FMP`);
         return null;
       }
 
@@ -408,7 +422,7 @@ const QuoteService = {
       });
 
       if (futureEarnings.length === 0) {
-        console.warn(`No future earnings found for ${cleanSymbol}`);
+        console.warn(`No future earnings found for ${cleanSymbol} in FMP`);
         return null;
       }
       
@@ -431,13 +445,85 @@ const QuoteService = {
         updatedFromDate: nextEarning.updatedFromDate || null,
         fiscalDateEnding: nextEarning.fiscalDateEnding || null,
         currency: 'USD', // FMP primarily covers US stocks
+        source: 'FMP',
         isActual: true, // This is from the actual earnings data
         daysUntilEarnings: Math.ceil((earningsDate - today) / (1000 * 60 * 60 * 24))
       };
       
     } catch (error) {
       console.error(`Error fetching FMP earnings data for ${cleanSymbol} (original: ${symbol}):`, error);
-      throw error;
+      return null;
+    }
+  },
+
+  // Fallback to Twelve Data for earnings
+  async getUpcomingEarningsFromTwelveData(symbol) {
+    if (!TWELVE_DATA_API_KEY || TWELVE_DATA_API_KEY === 'YOUR_API_KEY_HERE') {
+      console.warn('Twelve Data API key not configured, cannot use fallback');
+      return null;
+    }
+
+    // Convert Bloomberg format to TwelveData format
+    const convertedSymbol = this.convertBloombergToTwelveData(symbol);
+
+    try {
+      const url = `${TWELVE_DATA_BASE_URL}/earnings?symbol=${convertedSymbol}&apikey=${TWELVE_DATA_API_KEY}`;
+      console.log(`Fetching earnings data for ${convertedSymbol} (original: ${symbol}) from Twelve Data fallback:`, url);
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      console.log(`Twelve Data earnings response for ${convertedSymbol}:`, JSON.stringify(data).substring(0, 500) + '...');
+      
+      // Check for errors or empty response
+      if (data['status'] === 'error' || data['code']) {
+        const errorMsg = data['message'] || data['error'] || 'Unknown error';
+        console.warn(`Twelve Data earnings error for ${convertedSymbol}: ${errorMsg}`);
+        return null;
+      }
+
+      // Twelve Data earnings endpoint returns different format
+      if (!data || !data['earnings'] || !Array.isArray(data['earnings'])) {
+        console.warn(`No earnings data found for ${convertedSymbol} in Twelve Data`);
+        return null;
+      }
+
+      const earnings = data['earnings'];
+      if (earnings.length === 0) {
+        console.warn(`No earnings data in Twelve Data response for ${convertedSymbol}`);
+        return null;
+      }
+      
+      // The next earnings date is the LAST date in the list (as requested)
+      const lastEarning = earnings[earnings.length - 1];
+      
+      if (!lastEarning.date) {
+        console.warn(`No date found in last earnings entry for ${convertedSymbol} in Twelve Data`);
+        return null;
+      }
+      
+      const earningsDate = new Date(lastEarning.date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Normalize to start of day for comparison
+      
+      return {
+        symbol: convertedSymbol,
+        originalSymbol: symbol,
+        nextEarningsDate: lastEarning.date,
+        estimatedEPS: lastEarning.eps_estimate ? parseFloat(lastEarning.eps_estimate) : null,
+        actualEPS: lastEarning.eps_actual ? parseFloat(lastEarning.eps_actual) : null,
+        reportedEPS: lastEarning.reported_eps ? parseFloat(lastEarning.reported_eps) : null,
+        fiscalDateEnding: lastEarning.fiscal_date_ending,
+        period: lastEarning.period,
+        currency: lastEarning.currency || 'USD',
+        source: 'TwelveData',
+        isActual: true, // This is from the actual earnings data, not estimated
+        daysUntilEarnings: Math.ceil((earningsDate - today) / (1000 * 60 * 60 * 24))
+      };
+      
+    } catch (error) {
+      console.error(`Error fetching Twelve Data earnings data for ${convertedSymbol} (original: ${symbol}):`, error);
+      return null;
     }
   },
 
