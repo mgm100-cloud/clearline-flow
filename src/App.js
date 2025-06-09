@@ -354,7 +354,7 @@ const QuoteService = {
     }
   },
 
-  // Get upcoming earnings date using EARNINGS_CALENDAR function
+  // Get upcoming earnings date using EARNINGS endpoint
   async getUpcomingEarningsDate(symbol) {
     if (!TWELVE_DATA_API_KEY || TWELVE_DATA_API_KEY === 'YOUR_API_KEY_HERE') {
       throw new Error('TwelveData API key not configured');
@@ -364,64 +364,61 @@ const QuoteService = {
     const convertedSymbol = this.convertBloombergToTwelveData(symbol);
 
     try {
-      const url = `${TWELVE_DATA_BASE_URL}/earnings_calendar?symbol=${convertedSymbol}&apikey=${TWELVE_DATA_API_KEY}`;
-      console.log(`Fetching upcoming earnings for ${convertedSymbol} (original: ${symbol}) from:`, url);
+      const url = `${TWELVE_DATA_BASE_URL}/earnings?symbol=${convertedSymbol}&apikey=${TWELVE_DATA_API_KEY}`;
+      console.log(`Fetching earnings data for ${convertedSymbol} (original: ${symbol}) from:`, url);
       
       const response = await fetch(url);
       const data = await response.json();
       
-      console.log(`TwelveData earnings calendar response for ${convertedSymbol}:`, JSON.stringify(data).substring(0, 500) + '...');
+      console.log(`TwelveData earnings response for ${convertedSymbol}:`, JSON.stringify(data).substring(0, 500) + '...');
       
       // Check for errors or empty response
       if (data['status'] === 'error' || data['code']) {
         const errorMsg = data['message'] || data['error'] || 'Unknown error';
-        console.warn(`TwelveData earnings calendar error for ${convertedSymbol}: ${errorMsg}`);
+        console.warn(`TwelveData earnings error for ${convertedSymbol}: ${errorMsg}`);
         return null;
       }
 
-      // TwelveData earnings calendar returns JSON format
-      if (!data || data['status'] !== 'ok' || !data['earnings']) {
-        console.warn(`No earnings calendar data found for ${convertedSymbol}`);
+      // TwelveData earnings endpoint returns different format
+      if (!data || !data['earnings'] || !Array.isArray(data['earnings'])) {
+        console.warn(`No earnings data found for ${convertedSymbol}`);
         return null;
       }
 
       const earnings = data['earnings'];
-      if (!Array.isArray(earnings) || earnings.length === 0) {
+      if (earnings.length === 0) {
         console.warn(`No earnings data in response for ${convertedSymbol}`);
         return null;
       }
       
-      // Find the first upcoming earnings date for this symbol
+      // The next earnings date is the LAST date in the list (as requested)
+      const lastEarning = earnings[earnings.length - 1];
+      
+      if (!lastEarning.date) {
+        console.warn(`No date found in last earnings entry for ${convertedSymbol}`);
+        return null;
+      }
+      
+      const earningsDate = new Date(lastEarning.date);
       const today = new Date();
       today.setHours(0, 0, 0, 0); // Normalize to start of day for comparison
       
-      for (const earning of earnings) {
-        if (earning.symbol && earning.symbol.toUpperCase() === convertedSymbol.toUpperCase()) {
-          const earningsDate = new Date(earning.earnings_date);
-          
-          // Only return future earnings dates
-          if (earningsDate >= today) {
-            return {
-              symbol: convertedSymbol,
-              originalSymbol: symbol,
-              nextEarningsDate: earning.earnings_date,
-              estimatedEPS: earning.eps_estimate ? parseFloat(earning.eps_estimate) : null,
-              fiscalDateEnding: earning.fiscal_date_ending,
-              currency: earning.currency || 'USD',
-              companyName: earning.name,
-              isActual: true, // This is from the actual earnings calendar, not estimated
-              daysUntilEarnings: Math.ceil((earningsDate - today) / (1000 * 60 * 60 * 24))
-            };
-          }
-        }
-      }
-      
-      // If no upcoming earnings found, return null
-      console.log(`No upcoming earnings found for ${convertedSymbol} in earnings calendar`);
-      return null;
+      return {
+        symbol: convertedSymbol,
+        originalSymbol: symbol,
+        nextEarningsDate: lastEarning.date,
+        estimatedEPS: lastEarning.eps_estimate ? parseFloat(lastEarning.eps_estimate) : null,
+        actualEPS: lastEarning.eps_actual ? parseFloat(lastEarning.eps_actual) : null,
+        reportedEPS: lastEarning.reported_eps ? parseFloat(lastEarning.reported_eps) : null,
+        fiscalDateEnding: lastEarning.fiscal_date_ending,
+        period: lastEarning.period,
+        currency: lastEarning.currency || 'USD',
+        isActual: true, // This is from the actual earnings data, not estimated
+        daysUntilEarnings: Math.ceil((earningsDate - today) / (1000 * 60 * 60 * 24))
+      };
       
     } catch (error) {
-      console.error(`Error fetching earnings calendar for ${convertedSymbol} (original: ${symbol}):`, error);
+      console.error(`Error fetching earnings data for ${convertedSymbol} (original: ${symbol}):`, error);
       throw error;
     }
   },
