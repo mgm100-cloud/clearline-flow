@@ -22,9 +22,12 @@ export default async function handler(req, res) {
     const senderEmail = fromEmail || process.env.FROM_EMAIL || 'noreply@clearlineflow.com';
 
     // Send email using Resend
+    // Handle both single email string and array of emails
+    const recipients = Array.isArray(to) ? to : [to];
+    
     const data = await resend.emails.send({
       from: `${fromName} <${senderEmail}>`,
-      to: [to],
+      to: recipients,
       subject: subject,
       html: content, // Content is already properly formatted HTML
     });

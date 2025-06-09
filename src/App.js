@@ -5231,13 +5231,19 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
                 const fromName = currentUser ? AuthService.getUserFullName(currentUser) : 'Clearline Flow App';
                 const fromEmail = currentUser?.email || null;
                 
+                // Create recipients array with both mmajzner@clearlinecap.com and current user's email
+                const recipients = ['mmajzner@clearlinecap.com'];
+                if (currentUser?.email && currentUser.email !== 'mmajzner@clearlinecap.com') {
+                  recipients.push(currentUser.email);
+                }
+                
                 const response = await fetch('/api/send-email', {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
                   },
                   body: JSON.stringify({
-                    to: 'mmajzner@clearlinecap.com',
+                    to: recipients,
                     subject: subject,
                     content: emailBody,
                     fromName: fromName,
