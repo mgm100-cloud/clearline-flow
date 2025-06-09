@@ -2066,7 +2066,7 @@ const ClearlineFlow = () => {
       </nav>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+      <main className={`${activeTab === 'database-detailed' ? 'py-6' : 'max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8'}`}>
         {activeTab === 'input' && (userRole === 'readwrite' || userRole === 'admin') && (
           <InputPage onAddTicker={addTicker} analysts={analysts} currentUser={currentUser} />
         )}
@@ -2728,9 +2728,6 @@ const DatabasePage = ({ tickers, onSort, sortField, sortDirection, onUpdate, ana
                 </th>
                 <SortableHeader field="status">Status</SortableHeader>
                 <SortableHeader field="analyst">Analyst</SortableHeader>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Source
-                </th>
                 <SortableHeader field="inputPrice">Input Price</SortableHeader>
                 <SortableHeader field="currentPrice">Current Price</SortableHeader>
                 <th
@@ -2871,14 +2868,6 @@ const EnhancedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
             ))}
           </select>
         </td>
-        <td className="px-6 py-4 whitespace-nowrap">
-          <input
-            type="text"
-            value={editData.source || ''}
-            onChange={(e) => setEditData({...editData, source: e.target.value})}
-            className="text-xs border border-gray-300 rounded px-1 py-1 w-20"
-          />
-        </td>
         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
           {ticker.inputPrice ? `$${parseFloat(ticker.inputPrice).toFixed(2)}` : '-'}
         </td>
@@ -2964,9 +2953,6 @@ const EnhancedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
         {ticker.analyst}
       </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-        {ticker.source || '-'}
-      </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
         {ticker.inputPrice ? `$${parseFloat(ticker.inputPrice).toFixed(2)}` : '-'}
       </td>
@@ -3044,8 +3030,8 @@ const DatabaseDetailedPage = ({ tickers, onSort, sortField, sortDirection, onUpd
   );
 
   return (
-    <div className="bg-white shadow rounded-lg">
-      <div className="px-4 py-5 sm:p-6">
+    <div className="bg-white shadow rounded-lg" style={{ width: '98vw', maxWidth: '98vw', marginLeft: '10px' }}>
+      <div className="pl-2 pr-2 py-5 sm:pl-2 sm:pr-2 sm:py-6">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg leading-6 font-medium text-gray-900">
             Investment Idea Database - Detailed View ({tickers.length} ideas)
@@ -3102,11 +3088,22 @@ const DatabaseDetailedPage = ({ tickers, onSort, sortField, sortDirection, onUpd
           </div>
         </div>
         
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+        <div className="overflow-auto" style={{ height: '75vh', position: 'relative' }}>
+          <table className="min-w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed' }}>
+            <thead className="bg-gray-50 sticky top-0 z-20">
               <tr>
-                <SortableHeader field="ticker">Ticker</SortableHeader>
+                <th
+                  className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 sticky left-0 bg-gray-50 z-30"
+                  onClick={() => onSort('ticker')}
+                  style={{ width: '80px', minWidth: '80px' }}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>Ticker</span>
+                    {sortField === 'ticker' && (
+                      sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+                    )}
+                  </div>
+                </th>
                 <th
                   className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 w-32"
                   onClick={() => onSort('name')}
@@ -3283,7 +3280,7 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
   if (isEditing && onUpdate) {
     return (
       <tr className="bg-blue-50">
-        <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+        <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 bg-blue-50 z-10" style={{ width: '80px', minWidth: '80px' }}>
           {ticker.ticker}
         </td>
         <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 w-32" title={ticker.name}>
@@ -3607,7 +3604,7 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
 
   return (
     <tr className="hover:bg-gray-50">
-      <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+      <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 bg-white hover:bg-gray-50 z-10" style={{ width: '80px', minWidth: '80px' }}>
         {ticker.ticker}
         {/* Add international stock indicator */}
         {(ticker.ticker.includes('.') || ticker.ticker.includes(' ')) && (
