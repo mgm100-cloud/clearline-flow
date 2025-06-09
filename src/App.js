@@ -136,13 +136,71 @@ const QuoteService = {
           low: data['low'] ? parseFloat(data['low']) : null,
           open: data['open'] ? parseFloat(data['open']) : null,
           lastUpdated: data['datetime'],
+          source: 'quote',
           isIntraday: true
         };
       } else {
         throw new Error('No quote data available');
       }
     } catch (error) {
-      console.error(`Error fetching quote for ${convertedSymbol} (original: ${symbol}):`, error);
+      console.error(`Quote API failed for ${convertedSymbol} (original: ${symbol}):`, error);
+      
+      // Fallback to price endpoint
+      console.log(`Falling back to price endpoint for ${convertedSymbol}...`);
+      try {
+        return await this.getPriceOnly(symbol);
+      } catch (priceError) {
+        console.error(`Price fallback also failed for ${convertedSymbol}:`, priceError);
+        throw error; // Throw original quote error
+      }
+    }
+  },
+
+  // Fallback price-only endpoint
+  async getPriceOnly(symbol) {
+    // Convert Bloomberg format to TwelveData format
+    const convertedSymbol = this.convertBloombergToTwelveData(symbol);
+
+    try {
+      const url = `${TWELVE_DATA_BASE_URL}/price?symbol=${convertedSymbol}&apikey=${TWELVE_DATA_API_KEY}`;
+      console.log(`Fetching price-only for ${convertedSymbol} (original: ${symbol}) from:`, url);
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      console.log(`TwelveData price response for ${convertedSymbol}:`, data);
+      
+      // Check for API errors
+      if (data['error']) {
+        throw new Error(`TwelveData Price Error: ${data['error']}`);
+      } else if (data['note']) {
+        throw new Error('API call frequency limit reached. Please try again later.');
+      } else if (data['code'] && data['message']) {
+        throw new Error(`TwelveData Price Error: ${data['message']}`);
+      }
+      
+      // Price endpoint returns just the price value
+      if (data['price']) {
+        return {
+          symbol: convertedSymbol,
+          originalSymbol: symbol,
+          price: parseFloat(data['price']),
+          change: null, // Price endpoint doesn't provide change data
+          changePercent: null,
+          volume: null,
+          previousClose: null,
+          high: null,
+          low: null,
+          open: null,
+          lastUpdated: new Date().toISOString(),
+          source: 'price',
+          isIntraday: false
+        };
+      } else {
+        throw new Error('No price data available');
+      }
+    } catch (error) {
+      console.error(`Error fetching price for ${convertedSymbol} (original: ${symbol}):`, error);
       throw error;
     }
   },
