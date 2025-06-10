@@ -515,31 +515,6 @@ const QuoteService = {
       const today = new Date();
       today.setHours(0, 0, 0, 0); // Normalize to start of day
       
-      // Debug logging for PLAY symbol
-      if (cleanSymbol === 'PLAY') {
-        console.log(`DEBUG PLAY - Today's date (normalized):`, today);
-        console.log(`DEBUG PLAY - All earnings dates from FMP:`, data.map(earning => ({
-          originalDate: earning.date,
-          parsedDateUTC: new Date(earning.date), // Show the problematic UTC parsing
-          parsedDateLocal: (() => {
-            const dateParts = earning.date.split('-');
-            return new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
-          })(),
-          normalizedDate: (() => {
-            const dateParts = earning.date.split('-');
-            const d = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
-            d.setHours(0, 0, 0, 0);
-            return d;
-          })(),
-          comparison: (() => {
-            const dateParts = earning.date.split('-');
-            const d = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
-            d.setHours(0, 0, 0, 0);
-            return `${d} >= ${today} = ${d >= today}`;
-          })()
-        })));
-      }
-      
       // Find all future earnings dates
       const futureEarnings = data.filter(earning => {
         if (!earning.date) return false;
@@ -548,11 +523,6 @@ const QuoteService = {
         const dateParts = earning.date.split('-');
         const earningDate = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
         earningDate.setHours(0, 0, 0, 0); // Normalize earnings date to start of day
-        
-        // Debug logging for PLAY symbol
-        if (cleanSymbol === 'PLAY') {
-          console.log(`DEBUG PLAY - Comparing: ${earningDate} >= ${today} = ${earningDate >= today} for date ${earning.date}`);
-        }
         
         return earningDate >= today;
       });
