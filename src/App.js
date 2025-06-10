@@ -515,11 +515,36 @@ const QuoteService = {
       const today = new Date();
       today.setHours(0, 0, 0, 0); // Normalize to start of day
       
+      // Debug logging for PLAY symbol
+      if (cleanSymbol === 'PLAY') {
+        console.log(`DEBUG PLAY - Today's date (normalized):`, today);
+        console.log(`DEBUG PLAY - All earnings dates from FMP:`, data.map(earning => ({
+          originalDate: earning.date,
+          parsedDate: new Date(earning.date),
+          normalizedDate: (() => {
+            const d = new Date(earning.date);
+            d.setHours(0, 0, 0, 0);
+            return d;
+          })(),
+          comparison: (() => {
+            const d = new Date(earning.date);
+            d.setHours(0, 0, 0, 0);
+            return `${d} >= ${today} = ${d >= today}`;
+          })()
+        })));
+      }
+      
       // Find all future earnings dates
       const futureEarnings = data.filter(earning => {
         if (!earning.date) return false;
         const earningDate = new Date(earning.date);
         earningDate.setHours(0, 0, 0, 0); // Normalize earnings date to start of day
+        
+        // Debug logging for PLAY symbol
+        if (cleanSymbol === 'PLAY') {
+          console.log(`DEBUG PLAY - Comparing: ${earningDate} >= ${today} = ${earningDate >= today} for date ${earning.date}`);
+        }
+        
         return earningDate >= today;
       });
 
