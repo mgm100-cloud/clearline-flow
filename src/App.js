@@ -513,12 +513,13 @@ const QuoteService = {
 
       // Get today's date for comparison
       const today = new Date();
-      today.setHours(22, 0, 0, 0); // Normalize to start of day
+      today.setHours(0, 0, 0, 0); // Normalize to start of day
       
       // Find all future earnings dates
       const futureEarnings = data.filter(earning => {
         if (!earning.date) return false;
         const earningDate = new Date(earning.date);
+        earningDate.setHours(0, 0, 0, 0); // Normalize earnings date to start of day
         return earningDate >= today;
       });
 
