@@ -519,7 +519,7 @@ const QuoteService = {
       const futureEarnings = data.filter(earning => {
         if (!earning.date) return false;
         const earningDate = new Date(earning.date);
-        return earningDate > today;
+        return earningDate >= today;
       });
 
       if (futureEarnings.length === 0) {
