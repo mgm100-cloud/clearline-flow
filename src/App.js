@@ -520,14 +520,20 @@ const QuoteService = {
         console.log(`DEBUG PLAY - Today's date (normalized):`, today);
         console.log(`DEBUG PLAY - All earnings dates from FMP:`, data.map(earning => ({
           originalDate: earning.date,
-          parsedDate: new Date(earning.date),
+          parsedDateUTC: new Date(earning.date), // Show the problematic UTC parsing
+          parsedDateLocal: (() => {
+            const dateParts = earning.date.split('-');
+            return new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
+          })(),
           normalizedDate: (() => {
-            const d = new Date(earning.date);
+            const dateParts = earning.date.split('-');
+            const d = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
             d.setHours(0, 0, 0, 0);
             return d;
           })(),
           comparison: (() => {
-            const d = new Date(earning.date);
+            const dateParts = earning.date.split('-');
+            const d = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
             d.setHours(0, 0, 0, 0);
             return `${d} >= ${today} = ${d >= today}`;
           })()
@@ -537,7 +543,10 @@ const QuoteService = {
       // Find all future earnings dates
       const futureEarnings = data.filter(earning => {
         if (!earning.date) return false;
-        const earningDate = new Date(earning.date);
+        
+        // Parse date string as local date, not UTC to avoid timezone issues
+        const dateParts = earning.date.split('-');
+        const earningDate = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
         earningDate.setHours(0, 0, 0, 0); // Normalize earnings date to start of day
         
         // Debug logging for PLAY symbol
