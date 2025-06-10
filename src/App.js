@@ -2188,6 +2188,7 @@ const ClearlineFlow = () => {
 const InputPage = ({ onAddTicker, analysts, currentUser }) => {
   const [formData, setFormData] = useState({
     ticker: '',
+    name: '',
     lsPosition: 'Long',
     thesis: '',
     priority: 'A',
@@ -2224,6 +2225,8 @@ const InputPage = ({ onAddTicker, analysts, currentUser }) => {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState('');
+  const [isLookingUpCompany, setIsLookingUpCompany] = useState(false);
+  const [companyLookupMessage, setCompanyLookupMessage] = useState('');
 
   // Set analyst field based on current user's analyst_code
   useEffect(() => {
@@ -2244,6 +2247,52 @@ const InputPage = ({ onAddTicker, analysts, currentUser }) => {
     const num = parseFloat(value);
     if (isNaN(num)) return '';
     return num.toFixed(2);
+  };
+
+  // Function to look up company name from ticker symbol
+  const lookupCompanyName = async (ticker) => {
+    if (!ticker || ticker.trim() === '') {
+      setFormData(prev => ({ ...prev, name: '' }));
+      setCompanyLookupMessage('');
+      return;
+    }
+
+    const cleanTicker = ticker.trim().toUpperCase();
+    setIsLookingUpCompany(true);
+    setCompanyLookupMessage('Looking up company name...');
+
+    try {
+      const companyOverview = await QuoteService.getCompanyOverview(cleanTicker);
+      
+      if (companyOverview?.name) {
+        setFormData(prev => ({ ...prev, name: companyOverview.name }));
+        setCompanyLookupMessage(`Found: ${companyOverview.name}`);
+        
+        // Clear the message after 3 seconds
+        setTimeout(() => {
+          setCompanyLookupMessage('');
+        }, 3000);
+      } else {
+        setFormData(prev => ({ ...prev, name: QuoteService.extractCompanyNameFromSymbol(cleanTicker) }));
+        setCompanyLookupMessage('Company name not found via API, using ticker symbol');
+        
+        // Clear the message after 3 seconds
+        setTimeout(() => {
+          setCompanyLookupMessage('');
+        }, 3000);
+      }
+    } catch (error) {
+      console.error('Error looking up company name:', error);
+      setFormData(prev => ({ ...prev, name: QuoteService.extractCompanyNameFromSymbol(cleanTicker) }));
+      setCompanyLookupMessage('Unable to fetch company name, using ticker symbol');
+      
+      // Clear the message after 3 seconds
+      setTimeout(() => {
+        setCompanyLookupMessage('');
+      }, 3000);
+    } finally {
+      setIsLookingUpCompany(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -2269,6 +2318,7 @@ const InputPage = ({ onAddTicker, analysts, currentUser }) => {
       // Reset form but preserve analyst selection
       const resetData = {
         ticker: '',
+        name: '',
         lsPosition: 'Long',
         thesis: '',
         priority: 'A',
@@ -2321,6 +2371,14 @@ const InputPage = ({ onAddTicker, analysts, currentUser }) => {
       ...prev,
       [field]: value
     }));
+
+    // If ticker field is being changed, trigger company name lookup
+    if (field === 'ticker') {
+      // Use a debounced approach to avoid too many API calls
+      setTimeout(() => {
+        lookupCompanyName(value);
+      }, 500);
+    }
   };
 
   const handlePriceTargetBlur = (field, value) => {
@@ -2369,6 +2427,24 @@ const InputPage = ({ onAddTicker, analysts, currentUser }) => {
                 <option value="Short">Short</option>
               </select>
             </div>
+          </div>
+
+          {/* Company Name Field */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Company Name
+              {isLookingUpCompany && <span className="ml-2 text-blue-600 text-xs">🔄 Looking up...</span>}
+            </label>
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(e) => handleChange('name', e.target.value)}
+              placeholder="Company name will be looked up automatically"
+              className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            />
+            {companyLookupMessage && (
+              <p className="mt-1 text-xs text-blue-600">{companyLookupMessage}</p>
+            )}
           </div>
 
           <div>
