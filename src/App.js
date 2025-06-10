@@ -1410,7 +1410,7 @@ const ClearlineFlow = () => {
           month: '2-digit', 
           day: '2-digit' 
         }),
-        name: stockData.name,
+        name: capitalizedTickerData.name || stockData.name, // Use form data name if available, fallback to API
         inputPrice: stockData.price,
         currentPrice: stockData.price,
         marketCap: stockData.marketCap,
