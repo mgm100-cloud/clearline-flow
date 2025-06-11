@@ -939,6 +939,20 @@ const ClearlineFlow = () => {
     return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
+  // Format date as mm/dd/yy
+  const formatCompactDate = (dateString) => {
+    if (!dateString) return '-';
+    try {
+      const date = new Date(dateString);
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const year = String(date.getFullYear()).slice(-2);
+      return `${month}/${day}/${year}`;
+    } catch {
+      return dateString;
+    }
+  };
+
   // Helper function to truncate company names
   const truncateName = (name, maxLength = 20) => {
     if (!name) return '-';
@@ -2181,6 +2195,7 @@ const ClearlineFlow = () => {
             isLoadingQuotes={isLoadingQuotes}
             quoteErrors={quoteErrors}
             formatTradeLevel={formatTradeLevel}
+            formatCompactDate={formatCompactDate}
           />
         )}
         {activeTab === 'todos' && (
@@ -4585,7 +4600,7 @@ const TeamOutputPage = ({ tickers, analysts }) => {
 };
 
 // Earnings Tracking Page Component
-const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarningsAnalyst, onSelectEarningsAnalyst, earningsData, onUpdateEarnings, getEarningsData, onRefreshEarnings, analysts, quotes = {}, onUpdateQuote, isLoadingQuotes = false, quoteErrors = {}, formatTradeLevel }) => {
+const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarningsAnalyst, onSelectEarningsAnalyst, earningsData, onUpdateEarnings, getEarningsData, onRefreshEarnings, analysts, quotes = {}, onUpdateQuote, isLoadingQuotes = false, quoteErrors = {}, formatTradeLevel, formatCompactDate }) => {
   // Filter tickers to only show Portfolio status
   let portfolioTickers = tickers.filter(ticker => ticker.status === 'Portfolio');
   
@@ -4822,17 +4837,17 @@ const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarni
           <table className="min-w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed' }}>
             <thead className="bg-gray-50 sticky top-0 z-10">
               <tr>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '80px' }}>Ticker</th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '60px' }}>Analyst</th>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-20" style={{ width: '60px' }}>Ticker</th>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '45px' }}>Who</th>
                 <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '50px' }}>CYQ</th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '60px' }}>Days Until</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Earnings Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trade Rec</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trade Level</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">QP Call Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Preview Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Callback Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '45px' }}>Days</th>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '70px' }}>Earnings</th>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '60px' }}>Trade Rec</th>
+                <th className="px-2 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '70px' }}>Trade Level</th>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '70px' }}>QP Call</th>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '70px' }}>Preview</th>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '70px' }}>Callback</th>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '80px' }}>Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -4845,6 +4860,7 @@ const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarni
                   onUpdateEarnings={onUpdateEarnings}
                   formatDaysUntilEarnings={formatDaysUntilEarnings}
                   formatTradeLevel={formatTradeLevel}
+                  formatCompactDate={formatCompactDate}
                   quotes={quotes}
                   onUpdateQuote={onUpdateQuote}
                   isLoadingQuotes={isLoadingQuotes}
@@ -4871,7 +4887,7 @@ const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarni
 };
 
 // Earnings Tracking Row Component
-const EarningsTrackingRow = ({ ticker, cyq, earningsData, onUpdateEarnings, formatDaysUntilEarnings, formatTradeLevel, quotes = {}, onUpdateQuote, isLoadingQuotes = false, quoteErrors = {} }) => {
+const EarningsTrackingRow = ({ ticker, cyq, earningsData, onUpdateEarnings, formatDaysUntilEarnings, formatTradeLevel, formatCompactDate, quotes = {}, onUpdateQuote, isLoadingQuotes = false, quoteErrors = {} }) => {
  const [isEditing, setIsEditing] = useState(false);
  const [editData, setEditData] = useState({
    earningsDate: earningsData.earningsDate || '',
@@ -4933,31 +4949,31 @@ const EarningsTrackingRow = ({ ticker, cyq, earningsData, onUpdateEarnings, form
  if (isEditing) {
    return (
      <tr className="bg-blue-50">
-       <td className="px-2 py-4 whitespace-nowrap text-sm font-medium text-gray-900" style={{ width: '80px' }}>
+       <td className="px-2 py-4 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 bg-blue-50 z-10" style={{ width: '60px' }}>
          {ticker.ticker}
        </td>
-       <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500" style={{ width: '60px' }}>
+       <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500" style={{ width: '45px' }}>
          {ticker.analyst || '-'}
        </td>
        <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500" style={{ width: '50px' }}>
          {cyq}
        </td>
-       <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500" style={{ width: '60px' }}>
+       <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500" style={{ width: '45px' }}>
          {daysUntilEarnings}
        </td>
-       <td className="px-6 py-4 whitespace-nowrap">
+       <td className="px-2 py-4 whitespace-nowrap" style={{ width: '70px' }}>
          <input
            type="date"
            value={editData.earningsDate}
            onChange={(e) => setEditData({...editData, earningsDate: e.target.value})}
-           className="text-sm border border-gray-300 rounded px-2 py-1 w-full"
+           className="text-xs border border-gray-300 rounded px-1 py-1 w-full"
          />
        </td>
-       <td className="px-6 py-4 whitespace-nowrap">
+       <td className="px-2 py-4 whitespace-nowrap" style={{ width: '60px' }}>
          <select
            value={editData.tradeRec}
            onChange={(e) => setEditData({...editData, tradeRec: e.target.value})}
-           className="text-sm border border-gray-300 rounded px-2 py-1 w-full"
+           className="text-xs border border-gray-300 rounded px-1 py-1 w-full"
          >
            <option value="">-</option>
            <option value="SELL">SELL</option>
@@ -4967,38 +4983,39 @@ const EarningsTrackingRow = ({ ticker, cyq, earningsData, onUpdateEarnings, form
            <option value="COVER">COVER</option>
          </select>
        </td>
-       <td className="px-6 py-4 whitespace-nowrap">
+       <td className="px-2 py-4 whitespace-nowrap" style={{ width: '70px' }}>
          <input
            type="number"
            step="0.01"
            value={editData.tradeLevel}
            onChange={(e) => setEditData({...editData, tradeLevel: e.target.value})}
-           className="text-sm border border-gray-300 rounded px-2 py-1 w-full"
-           placeholder="0.00"
+           className="text-xs border border-gray-300 rounded px-1 py-1"
+           style={{ width: '65px' }}
+           placeholder="1234.56"
          />
        </td>
-       <td className="px-6 py-4 whitespace-nowrap">
+       <td className="px-2 py-4 whitespace-nowrap" style={{ width: '70px' }}>
          <input
            type="date"
            value={editData.qpCallDate}
            onChange={(e) => setEditData({...editData, qpCallDate: e.target.value})}
-           className="text-sm border border-gray-300 rounded px-2 py-1 w-full"
+           className="text-xs border border-gray-300 rounded px-1 py-1 w-full"
          />
        </td>
-       <td className="px-6 py-4 whitespace-nowrap">
+       <td className="px-2 py-4 whitespace-nowrap" style={{ width: '70px' }}>
          <input
            type="date"
            value={editData.previewDate}
            onChange={(e) => setEditData({...editData, previewDate: e.target.value})}
-           className="text-sm border border-gray-300 rounded px-2 py-1 w-full"
+           className="text-xs border border-gray-300 rounded px-1 py-1 w-full"
          />
        </td>
-       <td className="px-6 py-4 whitespace-nowrap">
+       <td className="px-2 py-4 whitespace-nowrap" style={{ width: '70px' }}>
          <input
            type="date"
            value={editData.callbackDate}
            onChange={(e) => setEditData({...editData, callbackDate: e.target.value})}
-           className="text-sm border border-gray-300 rounded px-2 py-1 w-full"
+           className="text-xs border border-gray-300 rounded px-1 py-1 w-full"
          />
        </td>
        <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -5023,12 +5040,12 @@ const EarningsTrackingRow = ({ ticker, cyq, earningsData, onUpdateEarnings, form
 
  return (
    <tr className={`hover:bg-gray-50 ${getRowBackgroundColor()}`} onDoubleClick={() => setIsEditing(true)}>
-     <td className="px-2 py-4 whitespace-nowrap text-sm font-medium text-gray-900" style={{ width: '80px' }}>
+     <td className={`px-2 py-4 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 z-10 ${getRowBackgroundColor() || 'bg-white'}`} style={{ width: '60px' }}>
        <div className="truncate" title={ticker.ticker}>
          {ticker.ticker}
        </div>
      </td>
-     <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500" style={{ width: '60px' }}>
+     <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500" style={{ width: '45px' }}>
        <div className="truncate" title={ticker.analyst || '-'}>
          {ticker.analyst || '-'}
        </div>
@@ -5036,7 +5053,7 @@ const EarningsTrackingRow = ({ ticker, cyq, earningsData, onUpdateEarnings, form
      <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500" style={{ width: '50px' }}>
        {cyq}
      </td>
-     <td className="px-2 py-4 whitespace-nowrap text-sm" style={{ width: '60px' }}>
+     <td className="px-2 py-4 whitespace-nowrap text-sm" style={{ width: '45px' }}>
        <span className={`${
          daysUntilEarnings !== '-' && daysUntilEarnings <= 7 ? 'text-red-600 font-medium' :
          daysUntilEarnings !== '-' && daysUntilEarnings <= 30 ? 'text-yellow-600 font-medium' :
@@ -5045,12 +5062,12 @@ const EarningsTrackingRow = ({ ticker, cyq, earningsData, onUpdateEarnings, form
          {daysUntilEarnings}
        </span>
      </td>
-     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-       {earningsData.earningsDate || '-'}
+     <td className="px-2 py-4 whitespace-nowrap text-xs text-gray-500" style={{ width: '70px' }}>
+       {formatCompactDate ? formatCompactDate(earningsData.earningsDate) : (earningsData.earningsDate || '-')}
      </td>
-     <td className="px-6 py-4 whitespace-nowrap text-sm">
+     <td className="px-2 py-4 whitespace-nowrap text-sm" style={{ width: '60px' }}>
        {earningsData.tradeRec ? (
-         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+         <span className={`inline-flex px-1 py-1 text-xs font-semibold rounded-full ${
            earningsData.tradeRec === 'BUY' ? 'bg-green-100 text-green-800' :
            earningsData.tradeRec === 'SELL' ? 'bg-red-100 text-red-800' :
            earningsData.tradeRec === 'HOLD' ? 'bg-gray-100 text-gray-800' :
@@ -5062,28 +5079,28 @@ const EarningsTrackingRow = ({ ticker, cyq, earningsData, onUpdateEarnings, form
          </span>
        ) : '-'}
      </td>
-     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+     <td className="px-2 py-4 whitespace-nowrap text-xs text-gray-900 text-right" style={{ width: '70px' }}>
        {earningsData.tradeLevel ? (
          <div className="flex flex-col">
            <span>${formatTradeLevel ? formatTradeLevel(earningsData.tradeLevel) : earningsData.tradeLevel}</span>
            {currentPrice && (
              <span className="text-xs text-gray-500">
-               Current: ${currentPrice.toFixed(2)}
+               ${currentPrice.toFixed(2)}
              </span>
            )}
          </div>
        ) : '-'}
      </td>
-     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-       {earningsData.qpCallDate || '-'}
+     <td className="px-2 py-4 whitespace-nowrap text-xs text-gray-500" style={{ width: '70px' }}>
+       {formatCompactDate ? formatCompactDate(earningsData.qpCallDate) : (earningsData.qpCallDate || '-')}
      </td>
-     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-       {earningsData.previewDate || '-'}
+     <td className="px-2 py-4 whitespace-nowrap text-xs text-gray-500" style={{ width: '70px' }}>
+       {formatCompactDate ? formatCompactDate(earningsData.previewDate) : (earningsData.previewDate || '-')}
      </td>
-     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-       {earningsData.callbackDate || '-'}
+     <td className="px-2 py-4 whitespace-nowrap text-xs text-gray-500" style={{ width: '70px' }}>
+       {formatCompactDate ? formatCompactDate(earningsData.callbackDate) : (earningsData.callbackDate || '-')}
      </td>
-     <td className="px-6 py-4 whitespace-nowrap text-sm">
+     <td className="px-2 py-4 whitespace-nowrap text-sm" style={{ width: '80px' }}>
        <button
          onClick={() => setIsEditing(true)}
          className="text-blue-600 hover:text-blue-900 text-xs font-bold border border-blue-500 px-2 py-1 rounded"
