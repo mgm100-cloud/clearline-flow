@@ -931,6 +931,14 @@ const ClearlineFlow = () => {
     })}`;
   };
 
+  // Format trade level with commas and 2 decimal places
+  const formatTradeLevel = (value) => {
+    if (!value || value === '') return '';
+    const num = parseFloat(value);
+    if (isNaN(num)) return '';
+    return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
   // Helper function to truncate company names
   const truncateName = (name, maxLength = 20) => {
     if (!name) return '-';
@@ -2168,6 +2176,11 @@ const ClearlineFlow = () => {
             getEarningsData={getEarningsData}
             onRefreshEarnings={refreshEarningsDates}
             analysts={analysts}
+            quotes={quotes}
+            onUpdateQuote={updateSingleQuote}
+            isLoadingQuotes={isLoadingQuotes}
+            quoteErrors={quoteErrors}
+            formatTradeLevel={formatTradeLevel}
           />
         )}
         {activeTab === 'todos' && (
@@ -4572,7 +4585,7 @@ const TeamOutputPage = ({ tickers, analysts }) => {
 };
 
 // Earnings Tracking Page Component
-const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarningsAnalyst, onSelectEarningsAnalyst, earningsData, onUpdateEarnings, getEarningsData, onRefreshEarnings, analysts }) => {
+const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarningsAnalyst, onSelectEarningsAnalyst, earningsData, onUpdateEarnings, getEarningsData, onRefreshEarnings, analysts, quotes = {}, onUpdateQuote, isLoadingQuotes = false, quoteErrors = {}, formatTradeLevel }) => {
   // Filter tickers to only show Portfolio status
   let portfolioTickers = tickers.filter(ticker => ticker.status === 'Portfolio');
   
@@ -4688,9 +4701,11 @@ const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarni
           selectedCYQ || '-',
           formatDaysUntilEarnings(currentEarningsData.earningsDate) || '-',
           currentEarningsData.earningsDate || '-',
+          currentEarningsData.tradeRec || '-',
+          formatTradeLevel ? formatTradeLevel(currentEarningsData.tradeLevel) || '-' : currentEarningsData.tradeLevel || '-',
           currentEarningsData.qpCallDate || '-',
-          currentEarningsData.quarterlyPrint || '-',
-          currentEarningsData.preMarketTimeSlot || '-'
+          currentEarningsData.previewDate || '-',
+          currentEarningsData.callbackDate || '-'
         ];
         tableData.push(row);
       });
@@ -4699,7 +4714,7 @@ const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarni
       
       // Create the PDF table
       autoTable(doc, {
-        head: [['Ticker', 'Analyst', 'CYQ', 'Days Until', 'Earnings Date', 'QP Call Date', 'Quarterly Print', 'Pre-Market Slot']],
+        head: [['Ticker', 'Analyst', 'CYQ', 'Days Until', 'Earnings Date', 'Trade Rec', 'Trade Level', 'QP Call Date', 'Preview Date', 'Callback Date']],
         body: tableData,
         startY: 40,
         styles: {
@@ -4713,13 +4728,15 @@ const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarni
         },
         columnStyles: {
           0: { cellWidth: 25 }, // Ticker
-          1: { cellWidth: 25 }, // Analyst
-          2: { cellWidth: 20 }, // CYQ
-          3: { cellWidth: 25 }, // Days Until
-          4: { cellWidth: 30 }, // Earnings Date
-          5: { cellWidth: 30 }, // QP Call Date
-          6: { cellWidth: 35 }, // Quarterly Print
-          7: { cellWidth: 35 }  // Pre-Market Slot
+          1: { cellWidth: 20 }, // Analyst
+          2: { cellWidth: 15 }, // CYQ
+          3: { cellWidth: 20 }, // Days Until
+          4: { cellWidth: 25 }, // Earnings Date
+          5: { cellWidth: 20 }, // Trade Rec
+          6: { cellWidth: 25 }, // Trade Level
+          7: { cellWidth: 25 }, // QP Call Date
+          8: { cellWidth: 25 }, // Preview Date
+          9: { cellWidth: 25 }  // Callback Date
         }
       });
       
@@ -4801,15 +4818,17 @@ const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarni
           </div>
         )}
         
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+        <div className="overflow-x-auto" style={{ maxHeight: '70vh' }}>
+          <table className="min-w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed' }}>
+            <thead className="bg-gray-50 sticky top-0 z-10">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ticker</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Analyst</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CYQ</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Days Until Earnings</th>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '80px' }}>Ticker</th>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '60px' }}>Analyst</th>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '50px' }}>CYQ</th>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '60px' }}>Days Until</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Earnings Date</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trade Rec</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trade Level</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">QP Call Date</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Preview Date</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Callback Date</th>
@@ -4825,6 +4844,11 @@ const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarni
                   earningsData={getEarningsData(ticker.ticker, selectedCYQ)}
                   onUpdateEarnings={onUpdateEarnings}
                   formatDaysUntilEarnings={formatDaysUntilEarnings}
+                  formatTradeLevel={formatTradeLevel}
+                  quotes={quotes}
+                  onUpdateQuote={onUpdateQuote}
+                  isLoadingQuotes={isLoadingQuotes}
+                  quoteErrors={quoteErrors}
                 />
               ))}
             </tbody>
@@ -4847,13 +4871,15 @@ const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarni
 };
 
 // Earnings Tracking Row Component
-const EarningsTrackingRow = ({ ticker, cyq, earningsData, onUpdateEarnings, formatDaysUntilEarnings }) => {
+const EarningsTrackingRow = ({ ticker, cyq, earningsData, onUpdateEarnings, formatDaysUntilEarnings, formatTradeLevel, quotes = {}, onUpdateQuote, isLoadingQuotes = false, quoteErrors = {} }) => {
  const [isEditing, setIsEditing] = useState(false);
  const [editData, setEditData] = useState({
    earningsDate: earningsData.earningsDate || '',
    qpCallDate: earningsData.qpCallDate || '',
    previewDate: earningsData.previewDate || '',
-   callbackDate: earningsData.callbackDate || ''
+   callbackDate: earningsData.callbackDate || '',
+   tradeRec: earningsData.tradeRec || '',
+   tradeLevel: earningsData.tradeLevel || ''
  });
 
  const handleSave = () => {
@@ -4866,26 +4892,57 @@ const EarningsTrackingRow = ({ ticker, cyq, earningsData, onUpdateEarnings, form
      earningsDate: earningsData.earningsDate || '',
      qpCallDate: earningsData.qpCallDate || '',
      previewDate: earningsData.previewDate || '',
-     callbackDate: earningsData.callbackDate || ''
+     callbackDate: earningsData.callbackDate || '',
+     tradeRec: earningsData.tradeRec || '',
+     tradeLevel: earningsData.tradeLevel || ''
    });
    setIsEditing(false);
  };
 
  const daysUntilEarnings = formatDaysUntilEarnings(earningsData.earningsDate);
+ 
+ // Get current price from quotes
+ const cleanSymbol = ticker.ticker.replace(' US', '');
+ const quote = quotes[cleanSymbol];
+ const currentPrice = quote ? quote.price : null;
+ 
+ // Calculate row background color based on conditional formatting
+ const getRowBackgroundColor = () => {
+   if (!earningsData.tradeRec || !earningsData.tradeLevel || !currentPrice) {
+     return '';
+   }
+   
+   const tradeLevel = parseFloat(earningsData.tradeLevel);
+   if (isNaN(tradeLevel)) return '';
+   
+   const tradeRec = earningsData.tradeRec.toUpperCase();
+   
+   // Green background: BUY/COVER and tradeLevel < currentPrice
+   if ((tradeRec === 'BUY' || tradeRec === 'COVER') && tradeLevel < currentPrice) {
+     return 'bg-green-100';
+   }
+   
+   // Red background: SELL/SHORT and tradeLevel > currentPrice  
+   if ((tradeRec === 'SELL' || tradeRec === 'SHORT') && tradeLevel > currentPrice) {
+     return 'bg-red-100';
+   }
+   
+   return '';
+ };
 
  if (isEditing) {
    return (
      <tr className="bg-blue-50">
-       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+       <td className="px-2 py-4 whitespace-nowrap text-sm font-medium text-gray-900" style={{ width: '80px' }}>
          {ticker.ticker}
        </td>
-       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+       <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500" style={{ width: '60px' }}>
          {ticker.analyst || '-'}
        </td>
-       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+       <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500" style={{ width: '50px' }}>
          {cyq}
        </td>
-       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+       <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500" style={{ width: '60px' }}>
          {daysUntilEarnings}
        </td>
        <td className="px-6 py-4 whitespace-nowrap">
@@ -4893,7 +4950,31 @@ const EarningsTrackingRow = ({ ticker, cyq, earningsData, onUpdateEarnings, form
            type="date"
            value={editData.earningsDate}
            onChange={(e) => setEditData({...editData, earningsDate: e.target.value})}
-           className="text-sm border border-gray-300 rounded px-2 py-1"
+           className="text-sm border border-gray-300 rounded px-2 py-1 w-full"
+         />
+       </td>
+       <td className="px-6 py-4 whitespace-nowrap">
+         <select
+           value={editData.tradeRec}
+           onChange={(e) => setEditData({...editData, tradeRec: e.target.value})}
+           className="text-sm border border-gray-300 rounded px-2 py-1 w-full"
+         >
+           <option value="">-</option>
+           <option value="SELL">SELL</option>
+           <option value="HOLD">HOLD</option>
+           <option value="BUY">BUY</option>
+           <option value="SHORT">SHORT</option>
+           <option value="COVER">COVER</option>
+         </select>
+       </td>
+       <td className="px-6 py-4 whitespace-nowrap">
+         <input
+           type="number"
+           step="0.01"
+           value={editData.tradeLevel}
+           onChange={(e) => setEditData({...editData, tradeLevel: e.target.value})}
+           className="text-sm border border-gray-300 rounded px-2 py-1 w-full"
+           placeholder="0.00"
          />
        </td>
        <td className="px-6 py-4 whitespace-nowrap">
@@ -4901,7 +4982,7 @@ const EarningsTrackingRow = ({ ticker, cyq, earningsData, onUpdateEarnings, form
            type="date"
            value={editData.qpCallDate}
            onChange={(e) => setEditData({...editData, qpCallDate: e.target.value})}
-           className="text-sm border border-gray-300 rounded px-2 py-1"
+           className="text-sm border border-gray-300 rounded px-2 py-1 w-full"
          />
        </td>
        <td className="px-6 py-4 whitespace-nowrap">
@@ -4909,7 +4990,7 @@ const EarningsTrackingRow = ({ ticker, cyq, earningsData, onUpdateEarnings, form
            type="date"
            value={editData.previewDate}
            onChange={(e) => setEditData({...editData, previewDate: e.target.value})}
-           className="text-sm border border-gray-300 rounded px-2 py-1"
+           className="text-sm border border-gray-300 rounded px-2 py-1 w-full"
          />
        </td>
        <td className="px-6 py-4 whitespace-nowrap">
@@ -4917,7 +4998,7 @@ const EarningsTrackingRow = ({ ticker, cyq, earningsData, onUpdateEarnings, form
            type="date"
            value={editData.callbackDate}
            onChange={(e) => setEditData({...editData, callbackDate: e.target.value})}
-           className="text-sm border border-gray-300 rounded px-2 py-1"
+           className="text-sm border border-gray-300 rounded px-2 py-1 w-full"
          />
        </td>
        <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -4941,17 +5022,21 @@ const EarningsTrackingRow = ({ ticker, cyq, earningsData, onUpdateEarnings, form
  }
 
  return (
-   <tr className="hover:bg-gray-50" onDoubleClick={() => setIsEditing(true)}>
-     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-       {ticker.ticker}
+   <tr className={`hover:bg-gray-50 ${getRowBackgroundColor()}`} onDoubleClick={() => setIsEditing(true)}>
+     <td className="px-2 py-4 whitespace-nowrap text-sm font-medium text-gray-900" style={{ width: '80px' }}>
+       <div className="truncate" title={ticker.ticker}>
+         {ticker.ticker}
+       </div>
      </td>
-     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-       {ticker.analyst || '-'}
+     <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500" style={{ width: '60px' }}>
+       <div className="truncate" title={ticker.analyst || '-'}>
+         {ticker.analyst || '-'}
+       </div>
      </td>
-     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+     <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500" style={{ width: '50px' }}>
        {cyq}
      </td>
-     <td className="px-6 py-4 whitespace-nowrap text-sm">
+     <td className="px-2 py-4 whitespace-nowrap text-sm" style={{ width: '60px' }}>
        <span className={`${
          daysUntilEarnings !== '-' && daysUntilEarnings <= 7 ? 'text-red-600 font-medium' :
          daysUntilEarnings !== '-' && daysUntilEarnings <= 30 ? 'text-yellow-600 font-medium' :
@@ -4962,6 +5047,32 @@ const EarningsTrackingRow = ({ ticker, cyq, earningsData, onUpdateEarnings, form
      </td>
      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
        {earningsData.earningsDate || '-'}
+     </td>
+     <td className="px-6 py-4 whitespace-nowrap text-sm">
+       {earningsData.tradeRec ? (
+         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+           earningsData.tradeRec === 'BUY' ? 'bg-green-100 text-green-800' :
+           earningsData.tradeRec === 'SELL' ? 'bg-red-100 text-red-800' :
+           earningsData.tradeRec === 'HOLD' ? 'bg-gray-100 text-gray-800' :
+           earningsData.tradeRec === 'SHORT' ? 'bg-red-100 text-red-800' :
+           earningsData.tradeRec === 'COVER' ? 'bg-green-100 text-green-800' :
+           'bg-gray-100 text-gray-800'
+         }`}>
+           {earningsData.tradeRec}
+         </span>
+       ) : '-'}
+     </td>
+     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+       {earningsData.tradeLevel ? (
+         <div className="flex flex-col">
+           <span>${formatTradeLevel ? formatTradeLevel(earningsData.tradeLevel) : earningsData.tradeLevel}</span>
+           {currentPrice && (
+             <span className="text-xs text-gray-500">
+               Current: ${currentPrice.toFixed(2)}
+             </span>
+           )}
+         </div>
+       ) : '-'}
      </td>
      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
        {earningsData.qpCallDate || '-'}
@@ -4977,7 +5088,7 @@ const EarningsTrackingRow = ({ ticker, cyq, earningsData, onUpdateEarnings, form
          onClick={() => setIsEditing(true)}
          className="text-blue-600 hover:text-blue-900 text-xs font-bold border border-blue-500 px-2 py-1 rounded"
        >
-         🔧 Edit {ticker.ticker}
+         🔧 Edit
        </button>
      </td>
    </tr>
