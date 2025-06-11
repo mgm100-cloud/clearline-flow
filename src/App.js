@@ -5081,14 +5081,7 @@ const EarningsTrackingRow = ({ ticker, cyq, earningsData, onUpdateEarnings, form
      </td>
      <td className="px-2 py-4 whitespace-nowrap text-xs text-gray-900 text-right" style={{ width: '70px' }}>
        {earningsData.tradeLevel ? (
-         <div className="flex flex-col">
-           <span>${formatTradeLevel ? formatTradeLevel(earningsData.tradeLevel) : earningsData.tradeLevel}</span>
-           {currentPrice && (
-             <span className="text-xs text-gray-500">
-               ${currentPrice.toFixed(2)}
-             </span>
-           )}
-         </div>
+         <span>${formatTradeLevel ? formatTradeLevel(earningsData.tradeLevel) : earningsData.tradeLevel}</span>
        ) : '-'}
      </td>
      <td className="px-2 py-4 whitespace-nowrap text-xs text-gray-500" style={{ width: '70px' }}>
