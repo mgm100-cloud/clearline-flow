@@ -4933,13 +4933,13 @@ const EarningsTrackingRow = ({ ticker, cyq, earningsData, onUpdateEarnings, form
    
    const tradeRec = earningsData.tradeRec.toUpperCase();
    
-   // Green background: BUY/COVER and tradeLevel < currentPrice
-   if ((tradeRec === 'BUY' || tradeRec === 'COVER') && tradeLevel < currentPrice) {
+   // Green background: BUY/COVER and tradeLevel > currentPrice
+   if ((tradeRec === 'BUY' || tradeRec === 'COVER') && tradeLevel > currentPrice) {
      return 'bg-green-100';
    }
    
-   // Red background: SELL/SHORT and tradeLevel > currentPrice  
-   if ((tradeRec === 'SELL' || tradeRec === 'SHORT') && tradeLevel > currentPrice) {
+   // Red background: SELL/SHORT and tradeLevel < currentPrice  
+   if ((tradeRec === 'SELL' || tradeRec === 'SHORT') && tradeLevel < currentPrice) {
      return 'bg-red-100';
    }
    
