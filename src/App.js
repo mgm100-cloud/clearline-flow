@@ -2027,6 +2027,123 @@ const ClearlineFlow = () => {
     }
   };
 
+  // Backfill tickers_extra_info for existing tickers that don't have entries
+  const backfillTickersExtraInfo = async () => {
+    if (!isAuthenticated) {
+      console.error('Must be authenticated to backfill ticker extra info');
+      return;
+    }
+
+    console.log('🔄 Starting backfill of tickers_extra_info...');
+    
+    try {
+      // Get all tickers
+      const allTickers = await DatabaseService.getTickers();
+      console.log(`📊 Found ${allTickers.length} total tickers`);
+
+      // Check which tickers already have extra info
+      const tickersNeedingExtraInfo = [];
+      
+      for (const ticker of allTickers) {
+        try {
+          const existingExtraInfo = await DatabaseService.getTickerExtraInfo(ticker.id);
+          if (!existingExtraInfo) {
+            tickersNeedingExtraInfo.push(ticker);
+          }
+        } catch (error) {
+          // If error getting extra info, assume it doesn't exist
+          tickersNeedingExtraInfo.push(ticker);
+        }
+      }
+
+      console.log(`🎯 Found ${tickersNeedingExtraInfo.length} tickers needing extra info:`);
+      tickersNeedingExtraInfo.forEach(ticker => console.log(`   - ${ticker.ticker}`));
+
+      if (tickersNeedingExtraInfo.length === 0) {
+        console.log('✅ All tickers already have extra info - no backfill needed');
+        return { processed: 0, successful: 0, failed: 0 };
+      }
+
+      // Process tickers with rate limiting (AlphaVantage has limits)
+      let successful = 0;
+      let failed = 0;
+      const errors = {};
+      const delayBetweenCalls = 1000; // 1 second delay between API calls
+
+      for (let i = 0; i < tickersNeedingExtraInfo.length; i++) {
+        const ticker = tickersNeedingExtraInfo[i];
+        console.log(`🏛️ Processing ${i + 1}/${tickersNeedingExtraInfo.length}: ${ticker.ticker}`);
+
+        try {
+          // Fetch company overview from AlphaVantage
+          const alphaVantageData = await QuoteService.getCompanyOverviewFromAlphaVantage(ticker.ticker);
+          
+          if (alphaVantageData && (alphaVantageData.cik || alphaVantageData.fiscalYearEnd)) {
+            const extraInfo = {
+              tickerId: ticker.id,
+              ticker: ticker.ticker,
+              cik: alphaVantageData.cik,
+              fiscalYearEnd: alphaVantageData.fiscalYearEnd,
+              cyq1Date: alphaVantageData.cyq1Date,
+              cyq2Date: alphaVantageData.cyq2Date,
+              cyq3Date: alphaVantageData.cyq3Date,
+              cyq4Date: alphaVantageData.cyq4Date
+            };
+            
+            await DatabaseService.addTickerExtraInfo(extraInfo);
+            successful++;
+            console.log(`✅ ${ticker.ticker}: CIK=${alphaVantageData.cik}, FiscalYearEnd=${alphaVantageData.fiscalYearEnd}, CYQ1=${alphaVantageData.cyq1Date}, CYQ2=${alphaVantageData.cyq2Date}, CYQ3=${alphaVantageData.cyq3Date}, CYQ4=${alphaVantageData.cyq4Date}`);
+          } else {
+            console.warn(`⚠️ ${ticker.ticker}: No CIK or fiscal year-end data found`);
+            failed++;
+            errors[ticker.ticker] = 'No CIK or fiscal year-end data available';
+          }
+        } catch (error) {
+          console.error(`❌ ${ticker.ticker}: ${error.message}`);
+          failed++;
+          errors[ticker.ticker] = error.message;
+        }
+
+        // Rate limiting: wait between API calls (except for the last one)
+        if (i < tickersNeedingExtraInfo.length - 1) {
+          console.log(`⏳ Waiting ${delayBetweenCalls}ms before next API call...`);
+          await new Promise(resolve => setTimeout(resolve, delayBetweenCalls));
+        }
+      }
+
+      const results = {
+        processed: tickersNeedingExtraInfo.length,
+        successful: successful,
+        failed: failed,
+        errors: errors
+      };
+
+      console.log(`🎉 Backfill complete!`);
+      console.log(`📊 Results: ${successful} successful, ${failed} failed out of ${tickersNeedingExtraInfo.length} processed`);
+      
+      if (failed > 0) {
+        console.log('❌ Failed tickers:');
+        Object.entries(errors).forEach(([ticker, error]) => {
+          console.log(`   - ${ticker}: ${error}`);
+        });
+      }
+
+      return results;
+
+    } catch (error) {
+      console.error('💥 Error during backfill process:', error);
+      throw error;
+    }
+  };
+
+  // Make backfill function available globally for manual console access
+  React.useEffect(() => {
+    window.backfillTickersExtraInfo = backfillTickersExtraInfo;
+    return () => {
+      delete window.backfillTickersExtraInfo;
+    };
+  }, []);
+
   const handleTabSwitch = async (tab) => {
     setActiveTab(tab);
     setSelectedTodoAnalyst(null);
