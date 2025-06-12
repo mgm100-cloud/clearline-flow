@@ -2029,7 +2029,9 @@ const ClearlineFlow = () => {
 
   // Backfill tickers_extra_info for existing tickers that don't have entries
   const backfillTickersExtraInfo = async () => {
-    if (!isAuthenticated) {
+    // Check authentication using AuthService directly since this might be called from console
+    const currentSession = await AuthService.getCurrentSession();
+    if (!currentSession) {
       console.error('Must be authenticated to backfill ticker extra info');
       return;
     }
@@ -2142,7 +2144,7 @@ const ClearlineFlow = () => {
     return () => {
       delete window.backfillTickersExtraInfo;
     };
-  }, []);
+  }, [backfillTickersExtraInfo]);
 
   const handleTabSwitch = async (tab) => {
     setActiveTab(tab);
