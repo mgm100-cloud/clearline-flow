@@ -5,7 +5,8 @@ A hedge fund workflow management application built with React, featuring real-ti
 ## Features
 
 - **Investment Idea Management**: Add, track, and manage investment ideas with detailed analysis
-- **Real-time Stock Quotes**: Integration with Alpha Vantage API for live market data
+- **Real-time Stock Quotes**: Integration with TwelveData API for live market data
+- **Company Information**: AlphaVantage API integration for CIK and fiscal year-end data
 - **Earnings Tracking**: Monitor upcoming earnings dates and related activities
 - **Role-based Access**: Secure login with read-only and read/write permissions
 - **Database Integration**: Persistent storage with Supabase
@@ -19,6 +20,7 @@ Create a `.env` file in the root directory with the following variables:
 # Twelve Data API Configuration
 REACT_APP_TWELVE_DATA_API_KEY=your_twelve_data_api_key_here
 REACT_APP_FMP_API_KEY=your_fmp_api_key_here
+REACT_APP_ALPHA_VANTAGE_API_KEY=your_alpha_vantage_api_key_here
 
 # Supabase Configuration
 REACT_APP_SUPABASE_URL=your_supabase_project_url

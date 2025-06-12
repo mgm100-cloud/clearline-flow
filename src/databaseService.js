@@ -36,7 +36,9 @@ const toSnakeCase = (str) => {
     'updatedAt': 'updated_at',
     'dateEntered': 'date_entered',
     'dateClosed': 'date_closed',
-    'isOpen': 'is_open'
+    'isOpen': 'is_open',
+    'tickerId': 'ticker_id',
+    'fiscalYearEnd': 'fiscal_year_end'
   };
   
   if (specialCases[str]) {
@@ -82,7 +84,9 @@ const toCamelCase = (str) => {
     'updated_at': 'updatedAt',
     'date_entered': 'dateEntered',
     'date_closed': 'dateClosed',
-    'is_open': 'isOpen'
+    'is_open': 'isOpen',
+    'ticker_id': 'tickerId',
+    'fiscal_year_end': 'fiscalYearEnd'
   };
   
   if (specialCases[str]) {
@@ -355,6 +359,83 @@ export const DatabaseService = {
       if (error) throw error
     } catch (error) {
       console.error('Error deleting todo:', error)
+      throw error
+    }
+  },
+
+  // Ticker extra info operations
+  async getTickerExtraInfo(tickerId) {
+    try {
+      const { data, error } = await supabase
+        .from('tickers_extra_info')
+        .select('*')
+        .eq('ticker_id', tickerId)
+        .single()
+      
+      if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found
+        throw error
+      }
+      
+      // Convert snake_case to camelCase for JavaScript
+      return data ? convertFromDbFormat(data) : null;
+    } catch (error) {
+      console.error('Error fetching ticker extra info:', error)
+      throw error
+    }
+  },
+
+  async addTickerExtraInfo(tickerExtraInfo) {
+    try {
+      // Convert camelCase to snake_case for database
+      const dbTickerExtraInfo = convertToDbFormat(tickerExtraInfo);
+      
+      const { data, error } = await supabase
+        .from('tickers_extra_info')
+        .insert([dbTickerExtraInfo])
+        .select()
+      
+      if (error) throw error
+      
+      // Convert back to camelCase for JavaScript
+      return convertFromDbFormat(data[0]);
+    } catch (error) {
+      console.error('Error adding ticker extra info:', error)
+      throw error
+    }
+  },
+
+  async updateTickerExtraInfo(tickerId, updates) {
+    try {
+      // Convert camelCase to snake_case for database
+      const dbUpdates = convertToDbFormat(updates);
+      dbUpdates.updated_at = new Date().toISOString();
+      
+      const { data, error } = await supabase
+        .from('tickers_extra_info')
+        .update(dbUpdates)
+        .eq('ticker_id', tickerId)
+        .select()
+      
+      if (error) throw error
+      
+      // Convert back to camelCase for JavaScript
+      return convertFromDbFormat(data[0]);
+    } catch (error) {
+      console.error('Error updating ticker extra info:', error)
+      throw error
+    }
+  },
+
+  async deleteTickerExtraInfo(tickerId) {
+    try {
+      const { error } = await supabase
+        .from('tickers_extra_info')
+        .delete()
+        .eq('ticker_id', tickerId)
+      
+      if (error) throw error
+    } catch (error) {
+      console.error('Error deleting ticker extra info:', error)
       throw error
     }
   },

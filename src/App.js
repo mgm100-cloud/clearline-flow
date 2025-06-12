@@ -14,6 +14,10 @@ const TWELVE_DATA_BASE_URL = 'https://api.twelvedata.com';
 const FMP_API_KEY = process.env.REACT_APP_FMP_API_KEY || 'YOUR_FMP_API_KEY_HERE';
 const FMP_BASE_URL = 'https://financialmodelingprep.com/api/v3';
 
+// AlphaVantage API configuration - for company overview data (CIK, fiscal year-end)
+const ALPHA_VANTAGE_API_KEY = process.env.REACT_APP_ALPHA_VANTAGE_API_KEY || 'YOUR_ALPHA_VANTAGE_API_KEY_HERE';
+const ALPHA_VANTAGE_BASE_URL = 'https://www.alphavantage.co/query';
+
 // Debug environment variables
 console.log('🔑 TwelveData API Key Status:', {
   hasKey: !!process.env.REACT_APP_TWELVE_DATA_API_KEY,
@@ -27,6 +31,13 @@ console.log('📊 FMP API Key Status:', {
   keyLength: process.env.REACT_APP_FMP_API_KEY ? process.env.REACT_APP_FMP_API_KEY.length : 0,
   firstChars: process.env.REACT_APP_FMP_API_KEY ? process.env.REACT_APP_FMP_API_KEY.substring(0, 8) + '...' : 'NOT_SET',
   usingFallback: FMP_API_KEY === 'YOUR_FMP_API_KEY_HERE'
+});
+
+console.log('🏛️ AlphaVantage API Key Status:', {
+  hasKey: !!process.env.REACT_APP_ALPHA_VANTAGE_API_KEY,
+  keyLength: process.env.REACT_APP_ALPHA_VANTAGE_API_KEY ? process.env.REACT_APP_ALPHA_VANTAGE_API_KEY.length : 0,
+  firstChars: process.env.REACT_APP_ALPHA_VANTAGE_API_KEY ? process.env.REACT_APP_ALPHA_VANTAGE_API_KEY.substring(0, 8) + '...' : 'NOT_SET',
+  usingFallback: ALPHA_VANTAGE_API_KEY === 'YOUR_ALPHA_VANTAGE_API_KEY_HERE'
 });
 
 // Helper function to calculate percentage change between price targets and current price
@@ -865,6 +876,82 @@ const QuoteService = {
         timestamp: new Date().toISOString()
       };
     }
+  },
+
+  // Get company overview from AlphaVantage for CIK and fiscal year-end data
+  async getCompanyOverviewFromAlphaVantage(symbol) {
+    if (!ALPHA_VANTAGE_API_KEY || ALPHA_VANTAGE_API_KEY === 'YOUR_ALPHA_VANTAGE_API_KEY_HERE') {
+      throw new Error('AlphaVantage API key not configured');
+    }
+
+    // Clean symbol - remove Bloomberg suffixes for AlphaVantage (uses standard US symbols)
+    const cleanSymbol = symbol.replace(/ US$/, '').trim().toUpperCase();
+
+    try {
+      const url = `${ALPHA_VANTAGE_BASE_URL}?function=OVERVIEW&symbol=${cleanSymbol}&apikey=${ALPHA_VANTAGE_API_KEY}`;
+      console.log(`Getting company overview for ${cleanSymbol} from AlphaVantage:`, url);
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      console.log(`AlphaVantage overview response for ${cleanSymbol}:`, data);
+      
+      // Check for API errors
+      if (data['Error Message']) {
+        throw new Error(`AlphaVantage error: ${data['Error Message']}`);
+      }
+
+      if (data['Note']) {
+        throw new Error('AlphaVantage API call frequency limit reached. Please try again later.');
+      }
+
+      // Check if we have a valid response with Symbol field
+      if (!data.Symbol) {
+        throw new Error(`No company overview data available for ${cleanSymbol}`);
+      }
+
+      // Helper function to format fiscal year-end
+      const formatFiscalYearEnd = (fiscalYearEnd) => {
+        if (!fiscalYearEnd) return null;
+        
+        // FiscalYearEnd comes as month name (e.g., "December", "March")
+        const monthMap = {
+          'January': '01', 'February': '02', 'March': '03',
+          'April': '04', 'May': '05', 'June': '06',
+          'July': '07', 'August': '08', 'September': '09',
+          'October': '10', 'November': '11', 'December': '12'
+        };
+
+        const monthNumber = monthMap[fiscalYearEnd];
+        if (!monthNumber) return null;
+
+        // Get the last day of the month
+        const year = new Date().getFullYear(); // Use current year for calculation
+        const lastDay = new Date(year, parseInt(monthNumber), 0).getDate();
+        
+        return `${monthNumber}/${lastDay.toString().padStart(2, '0')}`;
+      };
+      
+      return {
+        symbol: cleanSymbol,
+        originalSymbol: symbol,
+        cik: data.CIK || null,
+        fiscalYearEnd: formatFiscalYearEnd(data.FiscalYearEnd),
+        name: data.Name || null,
+        description: data.Description || null,
+        exchange: data.Exchange || null,
+        currency: data.Currency || null,
+        country: data.Country || null,
+        sector: data.Sector || null,
+        industry: data.Industry || null,
+        marketCapitalization: data.MarketCapitalization ? parseFloat(data.MarketCapitalization) : null,
+        source: 'AlphaVantage'
+      };
+      
+    } catch (error) {
+      console.error(`Error fetching AlphaVantage overview for ${cleanSymbol}:`, error);
+      throw error;
+    }
   }
 };
 
@@ -1447,6 +1534,30 @@ const ClearlineFlow = () => {
       
       // Save to Supabase
       const savedTicker = await DatabaseService.addTicker(newTicker);
+      
+      // Try to fetch and save extra info from AlphaVantage
+      try {
+        console.log(`🏛️ Fetching extra info for ${capitalizedTickerData.ticker} from AlphaVantage...`);
+        const alphaVantageData = await QuoteService.getCompanyOverviewFromAlphaVantage(capitalizedTickerData.ticker);
+        
+        if (alphaVantageData && (alphaVantageData.cik || alphaVantageData.fiscalYearEnd)) {
+          const extraInfo = {
+            tickerId: savedTicker.id,
+            ticker: capitalizedTickerData.ticker,
+            cik: alphaVantageData.cik,
+            fiscalYearEnd: alphaVantageData.fiscalYearEnd
+          };
+          
+          await DatabaseService.addTickerExtraInfo(extraInfo);
+          console.log(`✅ Saved extra info for ${capitalizedTickerData.ticker}: CIK=${alphaVantageData.cik}, FiscalYearEnd=${alphaVantageData.fiscalYearEnd}`);
+        } else {
+          console.warn(`⚠️ No CIK or fiscal year-end data found for ${capitalizedTickerData.ticker}`);
+        }
+      } catch (error) {
+        console.error(`❌ Failed to fetch/save extra info for ${capitalizedTickerData.ticker}:`, error.message);
+        // Don't throw - extra info is not critical for ticker creation
+      }
+      
       setTickers(prev => [...prev, savedTicker]);
     } catch (error) {
       console.error('Error adding ticker:', error);
