@@ -940,11 +940,13 @@ const QuoteService = {
         const [fiscalMonth, fiscalDay] = fiscalYearEndFormatted.split('/');
         const fiscalMonthNum = parseInt(fiscalMonth);
         
-        // Calculate quarter end months (add 3, 6, 9, 12 months)
-        const cyq1Month = ((fiscalMonthNum - 1 + 3) % 12) + 1;
-        const cyq2Month = ((fiscalMonthNum - 1 + 6) % 12) + 1;
-        const cyq3Month = ((fiscalMonthNum - 1 + 9) % 12) + 1;
-        const cyq4Month = fiscalMonthNum; // Same as fiscal year-end
+        // Calculate all 4 quarter end months (add 3, 6, 9, 12 months)
+        const quarterMonths = [
+          ((fiscalMonthNum - 1 + 3) % 12) + 1,   // Q1 end
+          ((fiscalMonthNum - 1 + 6) % 12) + 1,   // Q2 end  
+          ((fiscalMonthNum - 1 + 9) % 12) + 1,   // Q3 end
+          fiscalMonthNum                          // Q4 end (fiscal year-end)
+        ];
         
         // Helper to get last day of month and format as MM/DD
         const formatQuarterEnd = (month) => {
@@ -953,11 +955,20 @@ const QuoteService = {
           return `${month.toString().padStart(2, '0')}/${lastDay.toString().padStart(2, '0')}`;
         };
         
+        // Create array of quarter dates with their formatted strings
+        const quarterDates = quarterMonths.map(month => ({
+          month: month,
+          formatted: formatQuarterEnd(month)
+        }));
+        
+        // Sort by month number to get chronological order
+        quarterDates.sort((a, b) => a.month - b.month);
+        
         return {
-          cyq1Date: formatQuarterEnd(cyq1Month),
-          cyq2Date: formatQuarterEnd(cyq2Month),
-          cyq3Date: formatQuarterEnd(cyq3Month),
-          cyq4Date: formatQuarterEnd(cyq4Month)
+          cyq1Date: quarterDates[0].formatted,
+          cyq2Date: quarterDates[1].formatted,
+          cyq3Date: quarterDates[2].formatted,
+          cyq4Date: quarterDates[3].formatted
         };
       };
       

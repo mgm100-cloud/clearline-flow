@@ -31,11 +31,11 @@ CREATE TABLE IF NOT EXISTS public.tickers_extra_info (
 - **Unique Constraint**: Each ticker can only have one extra info record
 - **CIK Storage**: Stores the SEC Central Index Key for the company
 - **Fiscal Year-End**: Formatted as MM/DD (e.g., "12/31", "03/31")
-- **CYQ Dates**: Automatically calculated quarterly end dates based on fiscal year-end
-  - **CYQ1Date**: First quarter end (3 months after fiscal year-end)
-  - **CYQ2Date**: Second quarter end (6 months after fiscal year-end)
-  - **CYQ3Date**: Third quarter end (9 months after fiscal year-end)
-  - **CYQ4Date**: Fourth quarter end (same as fiscal year-end)
+- **CYQ Dates**: Automatically calculated quarterly end dates based on fiscal year-end, sorted chronologically
+  - **CYQ1Date**: Earliest quarter end date in calendar year
+  - **CYQ2Date**: Second quarter end date in calendar year
+  - **CYQ3Date**: Third quarter end date in calendar year
+  - **CYQ4Date**: Latest quarter end date in calendar year
 
 ## API Integration
 
@@ -67,19 +67,21 @@ The day is automatically set to the last day of the specified month.
 
 ### CYQ Date Calculation
 
-CYQ (Calendar Year Quarter) dates are automatically calculated based on the fiscal year-end:
+CYQ (Calendar Year Quarter) dates are automatically calculated based on the fiscal year-end and sorted chronologically:
 
 **Example**: If fiscal year-end is "12/31" (December 31):
-- **CYQ1Date**: Add 3 months → March 31 → "03/31"
-- **CYQ2Date**: Add 6 months → June 30 → "06/30"  
-- **CYQ3Date**: Add 9 months → September 30 → "09/30"
-- **CYQ4Date**: Add 12 months → December 31 → "12/31" (same as fiscal year-end)
+- Calculate quarters: 03/31, 06/30, 09/30, 12/31
+- **CYQ1Date**: "03/31" (March 31 - earliest in calendar year)
+- **CYQ2Date**: "06/30" (June 30)  
+- **CYQ3Date**: "09/30" (September 30)
+- **CYQ4Date**: "12/31" (December 31 - latest in calendar year)
 
 **Example**: If fiscal year-end is "06/30" (June 30):
-- **CYQ1Date**: Add 3 months → September 30 → "09/30"
-- **CYQ2Date**: Add 6 months → December 31 → "12/31"
-- **CYQ3Date**: Add 9 months → March 31 → "03/31"
-- **CYQ4Date**: Add 12 months → June 30 → "06/30" (same as fiscal year-end)
+- Calculate quarters: 09/30, 12/31, 03/31, 06/30
+- **CYQ1Date**: "03/31" (March 31 - earliest in calendar year)
+- **CYQ2Date**: "06/30" (June 30)
+- **CYQ3Date**: "09/30" (September 30)
+- **CYQ4Date**: "12/31" (December 31 - latest in calendar year)
 
 ## Workflow Integration
 
