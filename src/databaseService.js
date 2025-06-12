@@ -38,7 +38,11 @@ const toSnakeCase = (str) => {
     'dateClosed': 'date_closed',
     'isOpen': 'is_open',
     'tickerId': 'ticker_id',
-    'fiscalYearEnd': 'fiscal_year_end'
+    'fiscalYearEnd': 'fiscal_year_end',
+    'cyq1Date': 'cyq1_date',
+    'cyq2Date': 'cyq2_date',
+    'cyq3Date': 'cyq3_date',
+    'cyq4Date': 'cyq4_date'
   };
   
   if (specialCases[str]) {
@@ -86,7 +90,11 @@ const toCamelCase = (str) => {
     'date_closed': 'dateClosed',
     'is_open': 'isOpen',
     'ticker_id': 'tickerId',
-    'fiscal_year_end': 'fiscalYearEnd'
+    'fiscal_year_end': 'fiscalYearEnd',
+    'cyq1_date': 'cyq1Date',
+    'cyq2_date': 'cyq2Date',
+    'cyq3_date': 'cyq3Date',
+    'cyq4_date': 'cyq4Date'
   };
   
   if (specialCases[str]) {

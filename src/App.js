@@ -931,12 +931,48 @@ const QuoteService = {
         
         return `${monthNumber}/${lastDay.toString().padStart(2, '0')}`;
       };
+
+      // Helper function to calculate CYQ dates based on fiscal year-end
+      const calculateCYQDates = (fiscalYearEndFormatted) => {
+        if (!fiscalYearEndFormatted) return { cyq1Date: null, cyq2Date: null, cyq3Date: null, cyq4Date: null };
+        
+        // Parse the fiscal year-end MM/DD format
+        const [fiscalMonth, fiscalDay] = fiscalYearEndFormatted.split('/');
+        const fiscalMonthNum = parseInt(fiscalMonth);
+        
+        // Calculate quarter end months (add 3, 6, 9, 12 months)
+        const cyq1Month = ((fiscalMonthNum - 1 + 3) % 12) + 1;
+        const cyq2Month = ((fiscalMonthNum - 1 + 6) % 12) + 1;
+        const cyq3Month = ((fiscalMonthNum - 1 + 9) % 12) + 1;
+        const cyq4Month = fiscalMonthNum; // Same as fiscal year-end
+        
+        // Helper to get last day of month and format as MM/DD
+        const formatQuarterEnd = (month) => {
+          const year = new Date().getFullYear();
+          const lastDay = new Date(year, month, 0).getDate();
+          return `${month.toString().padStart(2, '0')}/${lastDay.toString().padStart(2, '0')}`;
+        };
+        
+        return {
+          cyq1Date: formatQuarterEnd(cyq1Month),
+          cyq2Date: formatQuarterEnd(cyq2Month),
+          cyq3Date: formatQuarterEnd(cyq3Month),
+          cyq4Date: formatQuarterEnd(cyq4Month)
+        };
+      };
+      
+      const fiscalYearEndFormatted = formatFiscalYearEnd(data.FiscalYearEnd);
+      const cyqDates = calculateCYQDates(fiscalYearEndFormatted);
       
       return {
         symbol: cleanSymbol,
         originalSymbol: symbol,
         cik: data.CIK || null,
-        fiscalYearEnd: formatFiscalYearEnd(data.FiscalYearEnd),
+        fiscalYearEnd: fiscalYearEndFormatted,
+        cyq1Date: cyqDates.cyq1Date,
+        cyq2Date: cyqDates.cyq2Date,
+        cyq3Date: cyqDates.cyq3Date,
+        cyq4Date: cyqDates.cyq4Date,
         name: data.Name || null,
         description: data.Description || null,
         exchange: data.Exchange || null,
@@ -1545,11 +1581,15 @@ const ClearlineFlow = () => {
             tickerId: savedTicker.id,
             ticker: capitalizedTickerData.ticker,
             cik: alphaVantageData.cik,
-            fiscalYearEnd: alphaVantageData.fiscalYearEnd
+            fiscalYearEnd: alphaVantageData.fiscalYearEnd,
+            cyq1Date: alphaVantageData.cyq1Date,
+            cyq2Date: alphaVantageData.cyq2Date,
+            cyq3Date: alphaVantageData.cyq3Date,
+            cyq4Date: alphaVantageData.cyq4Date
           };
           
           await DatabaseService.addTickerExtraInfo(extraInfo);
-          console.log(`✅ Saved extra info for ${capitalizedTickerData.ticker}: CIK=${alphaVantageData.cik}, FiscalYearEnd=${alphaVantageData.fiscalYearEnd}`);
+          console.log(`✅ Saved extra info for ${capitalizedTickerData.ticker}: CIK=${alphaVantageData.cik}, FiscalYearEnd=${alphaVantageData.fiscalYearEnd}, CYQ1=${alphaVantageData.cyq1Date}, CYQ2=${alphaVantageData.cyq2Date}, CYQ3=${alphaVantageData.cyq3Date}, CYQ4=${alphaVantageData.cyq4Date}`);
         } else {
           console.warn(`⚠️ No CIK or fiscal year-end data found for ${capitalizedTickerData.ticker}`);
         }

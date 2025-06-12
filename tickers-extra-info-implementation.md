@@ -11,10 +11,14 @@ This document describes the implementation of the `tickers_extra_info` table and
 ```sql
 CREATE TABLE IF NOT EXISTS public.tickers_extra_info (
     id BIGSERIAL PRIMARY KEY,
-    ticker_id BIGINT REFERENCES public.tickers(id) ON DELETE CASCADE,
+    ticker_id UUID REFERENCES public.tickers(id) ON DELETE CASCADE,
     ticker VARCHAR(20) NOT NULL,
     cik VARCHAR(20),
     fiscal_year_end VARCHAR(5), -- Format: MM/DD
+    cyq1_date VARCHAR(5), -- Format: MM/DD (Q1 end date)
+    cyq2_date VARCHAR(5), -- Format: MM/DD (Q2 end date)
+    cyq3_date VARCHAR(5), -- Format: MM/DD (Q3 end date)
+    cyq4_date VARCHAR(5), -- Format: MM/DD (Q4 end date, same as fiscal_year_end)
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE(ticker_id)
@@ -27,6 +31,11 @@ CREATE TABLE IF NOT EXISTS public.tickers_extra_info (
 - **Unique Constraint**: Each ticker can only have one extra info record
 - **CIK Storage**: Stores the SEC Central Index Key for the company
 - **Fiscal Year-End**: Formatted as MM/DD (e.g., "12/31", "03/31")
+- **CYQ Dates**: Automatically calculated quarterly end dates based on fiscal year-end
+  - **CYQ1Date**: First quarter end (3 months after fiscal year-end)
+  - **CYQ2Date**: Second quarter end (6 months after fiscal year-end)
+  - **CYQ3Date**: Third quarter end (9 months after fiscal year-end)
+  - **CYQ4Date**: Fourth quarter end (same as fiscal year-end)
 
 ## API Integration
 
@@ -56,6 +65,22 @@ The AlphaVantage API returns fiscal year-end as a month name (e.g., "December", 
 
 The day is automatically set to the last day of the specified month.
 
+### CYQ Date Calculation
+
+CYQ (Calendar Year Quarter) dates are automatically calculated based on the fiscal year-end:
+
+**Example**: If fiscal year-end is "12/31" (December 31):
+- **CYQ1Date**: Add 3 months → March 31 → "03/31"
+- **CYQ2Date**: Add 6 months → June 30 → "06/30"  
+- **CYQ3Date**: Add 9 months → September 30 → "09/30"
+- **CYQ4Date**: Add 12 months → December 31 → "12/31" (same as fiscal year-end)
+
+**Example**: If fiscal year-end is "06/30" (June 30):
+- **CYQ1Date**: Add 3 months → September 30 → "09/30"
+- **CYQ2Date**: Add 6 months → December 31 → "12/31"
+- **CYQ3Date**: Add 9 months → March 31 → "03/31"
+- **CYQ4Date**: Add 12 months → June 30 → "06/30" (same as fiscal year-end)
+
 ## Workflow Integration
 
 ### Automatic Data Collection
@@ -65,8 +90,9 @@ When a new ticker is added:
 1. **Primary Ticker Creation**: The main ticker record is saved first
 2. **AlphaVantage API Call**: System automatically calls AlphaVantage OVERVIEW function
 3. **Data Processing**: CIK and fiscal year-end are extracted and formatted
-4. **Extra Info Storage**: Data is saved to `tickers_extra_info` table
-5. **Error Handling**: If API call fails, ticker creation still succeeds (extra info is optional)
+4. **CYQ Date Calculation**: Quarterly end dates are automatically calculated from fiscal year-end
+5. **Extra Info Storage**: All data (CIK, fiscal year-end, and CYQ dates) is saved to `tickers_extra_info` table
+6. **Error Handling**: If API call fails, ticker creation still succeeds (extra info is optional)
 
 ### Code Implementation
 
@@ -85,7 +111,11 @@ try {
       tickerId: savedTicker.id,
       ticker: capitalizedTickerData.ticker,
       cik: alphaVantageData.cik,
-      fiscalYearEnd: alphaVantageData.fiscalYearEnd
+      fiscalYearEnd: alphaVantageData.fiscalYearEnd,
+      cyq1Date: alphaVantageData.cyq1Date,
+      cyq2Date: alphaVantageData.cyq2Date,
+      cyq3Date: alphaVantageData.cyq3Date,
+      cyq4Date: alphaVantageData.cyq4Date
     };
     
     await DatabaseService.addTickerExtraInfo(extraInfo);
@@ -107,11 +137,18 @@ try {
 
 ## Setup Instructions
 
-### 1. Create the Database Table
+### 1. Create/Update the Database Table
 
+**For new installations:**
 Run the SQL script in your Supabase SQL Editor:
 ```bash
 # Execute the SQL in create-tickers-extra-info-table.sql
+```
+
+**For existing installations with tickers_extra_info table:**
+Run the migration script to add the new CYQ columns:
+```bash
+# Execute the SQL in add-cyq-dates-to-tickers-extra-info.sql
 ```
 
 ### 2. Configure API Access
@@ -131,15 +168,18 @@ The implementation includes:
 
 ## Benefits
 
-1. **Automatic Data Collection**: No manual entry required for CIK and fiscal year-end
+1. **Automatic Data Collection**: No manual entry required for CIK, fiscal year-end, and quarterly dates
 2. **SEC Integration Ready**: CIK enables integration with SEC filing systems
-3. **Fiscal Year Tracking**: Important for earnings and financial planning
-4. **Minimal Performance Impact**: API calls happen asynchronously after ticker creation
-5. **Failure Resilient**: Extra info failures don't prevent ticker creation
+3. **Fiscal Year Tracking**: Complete quarterly calendar based on company's fiscal year
+4. **Earnings Planning**: CYQ dates help track quarterly earnings schedules
+5. **Minimal Performance Impact**: API calls happen asynchronously after ticker creation
+6. **Failure Resilient**: Extra info failures don't prevent ticker creation
 
 ## Notes
 
 - The extra info is collected automatically but is not required for ticker creation
 - International stocks may not have CIK data (CIK is primarily for US companies)
 - AlphaVantage has rate limits - the system handles API failures gracefully
-- The fiscal year-end format (MM/DD) makes it easy to calculate quarter endings and fiscal periods 
+- The fiscal year-end format (MM/DD) makes it easy to calculate quarter endings and fiscal periods
+- CYQ dates provide a complete quarterly calendar for each company's specific fiscal year
+- Quarterly dates are essential for earnings tracking, financial planning, and compliance monitoring 

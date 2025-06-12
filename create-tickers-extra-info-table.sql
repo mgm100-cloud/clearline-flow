@@ -7,6 +7,10 @@ CREATE TABLE IF NOT EXISTS public.tickers_extra_info (
     ticker VARCHAR(20) NOT NULL,
     cik VARCHAR(20),
     fiscal_year_end VARCHAR(5), -- Format: MM/DD
+    cyq1_date VARCHAR(5), -- Format: MM/DD (Q1 end date)
+    cyq2_date VARCHAR(5), -- Format: MM/DD (Q2 end date)
+    cyq3_date VARCHAR(5), -- Format: MM/DD (Q3 end date)
+    cyq4_date VARCHAR(5), -- Format: MM/DD (Q4 end date, same as fiscal_year_end)
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE(ticker_id)
