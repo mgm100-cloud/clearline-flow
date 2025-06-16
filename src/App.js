@@ -490,8 +490,8 @@ const QuoteService = {
     return await this.getUpcomingEarningsFromTwelveData(symbol);
   },
 
-  // Get earnings from Financial Modeling Prep
-  async getUpcomingEarningsFromFMP(symbol) {
+  // Get ALL earnings from Financial Modeling Prep
+  async getAllUpcomingEarningsFromFMP(symbol) {
     if (!FMP_API_KEY || FMP_API_KEY === 'YOUR_FMP_API_KEY_HERE') {
       console.warn('Financial Modeling Prep API key not configured, skipping FMP');
       return null;
@@ -503,7 +503,7 @@ const QuoteService = {
     try {
       // FMP earnings endpoint for specific symbol
       const url = `https://financialmodelingprep.com/stable/earnings?symbol=${cleanSymbol}&apikey=${FMP_API_KEY}`;
-      console.log(`Fetching earnings data for ${cleanSymbol} (original: ${symbol}) from FMP:`, url);
+                    console.log(`Fetching recent earnings data for ${cleanSymbol} (original: ${symbol}) from FMP (last 12 months + future):`, url);
       
       const response = await fetch(url);
       const data = await response.json();
@@ -526,8 +526,12 @@ const QuoteService = {
       const today = new Date();
       today.setHours(0, 0, 0, 0); // Normalize to start of day
       
-      // Find all future earnings dates
-      const futureEarnings = data.filter(earning => {
+      // Get date 12 months ago
+      const twelveMonthsAgo = new Date(today);
+      twelveMonthsAgo.setFullYear(today.getFullYear() - 1);
+      
+      // Find earnings from last 12 months + future earnings
+      const relevantEarnings = data.filter(earning => {
         if (!earning.date) return false;
         
         // Parse date string as local date, not UTC to avoid timezone issues
@@ -535,42 +539,82 @@ const QuoteService = {
         const earningDate = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
         earningDate.setHours(0, 0, 0, 0); // Normalize earnings date to start of day
         
-        return earningDate >= today;
+        // Include if it's within the last 12 months OR in the future
+        return earningDate >= twelveMonthsAgo;
       });
 
-      if (futureEarnings.length === 0) {
-        console.warn(`No future earnings found for ${cleanSymbol} in FMP`);
+      if (relevantEarnings.length === 0) {
+        console.warn(`No recent earnings found for ${cleanSymbol} in FMP (last 12 months + future)`);
         return null;
       }
       
-      // Sort by date and get the next upcoming earnings (earliest future date)
-      const sortedEarnings = futureEarnings.sort((a, b) => new Date(a.date) - new Date(b.date));
-      const nextEarning = sortedEarnings[0];
+      // Sort by date and return relevant earnings dates (last 12 months + future)
+      const sortedEarnings = relevantEarnings.sort((a, b) => new Date(a.date) - new Date(b.date));
       
-      const earningsDate = new Date(nextEarning.date);
+      // Find the next future earnings for backward compatibility
+      const futureEarnings = sortedEarnings.filter(earning => {
+        const dateParts = earning.date.split('-');
+        const earningDate = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
+        earningDate.setHours(0, 0, 0, 0);
+        return earningDate >= today;
+      });
       
       return {
         symbol: cleanSymbol,
         originalSymbol: symbol,
-        nextEarningsDate: nextEarning.date,
-        estimatedEPS: nextEarning.eps ? parseFloat(nextEarning.eps) : null,
-        estimatedEPSHigh: nextEarning.epsEstimatedHigh ? parseFloat(nextEarning.epsEstimatedHigh) : null,
-        estimatedEPSLow: nextEarning.epsEstimatedLow ? parseFloat(nextEarning.epsEstimatedLow) : null,
-        estimatedRevenue: nextEarning.revenueEstimated ? parseFloat(nextEarning.revenueEstimated) : null,
-        numberOfEstimates: nextEarning.numberOfEstimates ? parseInt(nextEarning.numberOfEstimates) : null,
-        time: nextEarning.time || null,
-        updatedFromDate: nextEarning.updatedFromDate || null,
-        fiscalDateEnding: nextEarning.fiscalDateEnding || null,
+        allEarningsDates: sortedEarnings.map(earning => ({
+          date: earning.date,
+          estimatedEPS: earning.eps ? parseFloat(earning.eps) : null,
+          estimatedEPSHigh: earning.epsEstimatedHigh ? parseFloat(earning.epsEstimatedHigh) : null,
+          estimatedEPSLow: earning.epsEstimatedLow ? parseFloat(earning.epsEstimatedLow) : null,
+          estimatedRevenue: earning.revenueEstimated ? parseFloat(earning.revenueEstimated) : null,
+          numberOfEstimates: earning.numberOfEstimates ? parseInt(earning.numberOfEstimates) : null,
+          time: earning.time || null,
+          updatedFromDate: earning.updatedFromDate || null,
+          fiscalDateEnding: earning.fiscalDateEnding || null
+        })),
+        nextEarningsDate: futureEarnings.length > 0 ? futureEarnings[0].date : null, // Keep for backward compatibility
         currency: 'USD', // FMP primarily covers US stocks
         source: 'FMP',
-        isActual: true, // This is from the actual earnings data
-        daysUntilEarnings: Math.ceil((earningsDate - today) / (1000 * 60 * 60 * 24))
+        isActual: true // This is from the actual earnings data
       };
       
     } catch (error) {
       console.error(`Error fetching FMP earnings data for ${cleanSymbol} (original: ${symbol}):`, error);
       return null;
     }
+  },
+
+  // Get earnings from Financial Modeling Prep (backward compatibility)
+  async getUpcomingEarningsFromFMP(symbol) {
+    const allEarnings = await this.getAllUpcomingEarningsFromFMP(symbol);
+    if (!allEarnings || !allEarnings.allEarningsDates || allEarnings.allEarningsDates.length === 0) {
+      return null;
+    }
+    
+    // Return just the next earnings for backward compatibility
+    const nextEarning = allEarnings.allEarningsDates[0];
+    const earningsDate = new Date(nextEarning.date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    return {
+      symbol: allEarnings.symbol,
+      originalSymbol: allEarnings.originalSymbol,
+      nextEarningsDate: nextEarning.date,
+      estimatedEPS: nextEarning.estimatedEPS,
+      estimatedEPSHigh: nextEarning.estimatedEPSHigh,
+      estimatedEPSLow: nextEarning.estimatedEPSLow,
+      estimatedRevenue: nextEarning.estimatedRevenue,
+      numberOfEstimates: nextEarning.numberOfEstimates,
+      time: nextEarning.time,
+      updatedFromDate: nextEarning.updatedFromDate,
+      fiscalDateEnding: nextEarning.fiscalDateEnding,
+      currency: allEarnings.currency,
+      source: allEarnings.source,
+      isActual: allEarnings.isActual,
+      daysUntilEarnings: Math.ceil((earningsDate - today) / (1000 * 60 * 60 * 24))
+    };
   },
 
   // Fallback to Twelve Data for earnings
@@ -678,11 +722,20 @@ const QuoteService = {
     for (let i = 0; i < symbols.length; i++) {
       const symbol = symbols[i];
       try {
-        const earningsData = await this.getUpcomingEarningsDate(symbol);
-        if (earningsData) {
+        // Try to get ALL earnings first (from FMP)
+        const allEarningsData = await this.getAllUpcomingEarningsFromFMP(symbol);
+        if (allEarningsData) {
           // Use the original symbol as the key
-          const keySymbol = earningsData.originalSymbol || symbol;
-          earnings[keySymbol] = earningsData;
+          const keySymbol = allEarningsData.originalSymbol || symbol;
+          earnings[keySymbol] = allEarningsData;
+        } else {
+          // Fallback to single earnings date (Twelve Data)
+          const earningsData = await this.getUpcomingEarningsDate(symbol);
+          if (earningsData) {
+            // Use the original symbol as the key
+            const keySymbol = earningsData.originalSymbol || symbol;
+            earnings[keySymbol] = earningsData;
+          }
         }
       } catch (error) {
         errors[symbol] = error.message;
@@ -1678,6 +1731,28 @@ const ClearlineFlow = () => {
     return earningsData.find(item => item.ticker === ticker && item.cyq === cyq) || {};
   };
 
+  // Helper function to determine CYQ from earnings date
+  const determineCYQFromDate = (dateString) => {
+    if (!dateString) return null;
+    
+    const date = new Date(dateString);
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1; // getMonth() returns 0-11, we need 1-12
+    
+    let quarter;
+    if (month >= 1 && month <= 3) {
+      quarter = 'Q1';
+    } else if (month >= 4 && month <= 6) {
+      quarter = 'Q2';
+    } else if (month >= 7 && month <= 9) {
+      quarter = 'Q3';
+    } else if (month >= 10 && month <= 12) {
+      quarter = 'Q4';
+    }
+    
+    return `${year}${quarter}`;
+  };
+
   // Refresh earnings dates from TwelveData
   const refreshEarningsDates = async (tickersToRefresh, targetCYQ) => {
     if (!tickersToRefresh || tickersToRefresh.length === 0) return { success: 0, errors: {} };
@@ -1685,22 +1760,91 @@ const ClearlineFlow = () => {
     const symbols = tickersToRefresh.map(ticker => ticker.ticker.replace(' US', ''));
     
     try {
-      console.log(`🔄 Refreshing earnings dates for ${symbols.length} tickers for CYQ ${targetCYQ}...`);
+      console.log(`🔄 Refreshing earnings dates for ${symbols.length} tickers...`);
       
       const { earnings, errors } = await QuoteService.getBatchEarnings(symbols);
       
       let successCount = 0;
+      const cyqUpdates = {}; // Track which CYQs we're updating
       
       // Update earnings data for each ticker that returned data
       for (const [symbol, earningsInfo] of Object.entries(earnings)) {
         try {
           const ticker = tickersToRefresh.find(t => t.ticker.replace(' US', '') === symbol);
-          if (ticker && earningsInfo.nextEarningsDate) {
-            await updateEarningsData(ticker.ticker, targetCYQ, {
-              earningsDate: earningsInfo.nextEarningsDate
-            });
-            successCount++;
-            console.log(`✅ Updated earnings date for ${ticker.ticker}: ${earningsInfo.nextEarningsDate}`);
+          if (ticker) {
+            // First, clear all existing earnings data for this ticker
+            console.log(`🔄 Clearing existing earnings data for ${ticker.ticker} before updating...`);
+            
+            // Generate CYQs for last 12 months + next 2 years (more efficient range)
+            const currentYear = new Date().getFullYear();
+            const allCYQs = [];
+            for (let year = currentYear - 1; year <= currentYear + 2; year++) {
+              for (let quarter = 1; quarter <= 4; quarter++) {
+                allCYQs.push(`${year}Q${quarter}`);
+              }
+            }
+            
+            for (const cyq of allCYQs) {
+              const existingData = getEarningsData(ticker.ticker, cyq);
+              if (existingData.earningsDate) {
+                await updateEarningsData(ticker.ticker, cyq, {
+                  earningsDate: null
+                });
+              }
+            }
+            
+            // Process ALL earnings dates if available
+            if (earningsInfo.allEarningsDates && Array.isArray(earningsInfo.allEarningsDates)) {
+              console.log(`📅 Processing ${earningsInfo.allEarningsDates.length} earnings dates for ${ticker.ticker}`);
+              
+              for (const earning of earningsInfo.allEarningsDates) {
+                if (earning.date) {
+                  // Automatically determine the correct CYQ based on the earnings date
+                  const autoCYQ = determineCYQFromDate(earning.date);
+                  
+                  if (autoCYQ) {
+                    await updateEarningsData(ticker.ticker, autoCYQ, {
+                      earningsDate: earning.date
+                    });
+                    
+                    // Track which CYQs we're updating
+                    if (!cyqUpdates[autoCYQ]) cyqUpdates[autoCYQ] = [];
+                    cyqUpdates[autoCYQ].push(ticker.ticker);
+                    
+                    console.log(`✅ Updated earnings date for ${ticker.ticker} in ${autoCYQ}: ${earning.date}`);
+                  } else {
+                    console.warn(`⚠️ Could not determine CYQ for ${ticker.ticker} with date: ${earning.date}`);
+                  }
+                }
+              }
+              
+              successCount++;
+            } else if (earningsInfo.nextEarningsDate) {
+              // Fallback to single earnings date (for Twelve Data or older API responses)
+              console.log(`📅 Processing single earnings date for ${ticker.ticker}`);
+              
+              const autoCYQ = determineCYQFromDate(earningsInfo.nextEarningsDate);
+              
+              if (autoCYQ) {
+                await updateEarningsData(ticker.ticker, autoCYQ, {
+                  earningsDate: earningsInfo.nextEarningsDate
+                });
+                
+                // Track which CYQs we're updating
+                if (!cyqUpdates[autoCYQ]) cyqUpdates[autoCYQ] = [];
+                cyqUpdates[autoCYQ].push(ticker.ticker);
+                
+                successCount++;
+                console.log(`✅ Updated earnings date for ${ticker.ticker} in ${autoCYQ}: ${earningsInfo.nextEarningsDate}`);
+              } else {
+                console.warn(`⚠️ Could not determine CYQ for ${ticker.ticker} with date: ${earningsInfo.nextEarningsDate}`);
+                errors[symbol] = `Could not determine CYQ from date: ${earningsInfo.nextEarningsDate}`;
+              }
+            } else {
+              // No earnings dates found - data already cleared above
+              console.log(`🔄 No earnings dates found for ${ticker.ticker}, data cleared`);
+              successCount++;
+            }
           }
         } catch (updateError) {
           console.error(`Error updating earnings for ${symbol}:`, updateError);
@@ -1708,8 +1852,13 @@ const ClearlineFlow = () => {
         }
       }
       
-      console.log(`🎉 Successfully updated ${successCount} earnings dates`);
-      return { success: successCount, errors };
+      // Log summary of CYQ updates
+      const cyqSummary = Object.entries(cyqUpdates)
+        .map(([cyq, tickers]) => `${cyq}: ${tickers.length} tickers`)
+        .join(', ');
+      
+      console.log(`🎉 Successfully updated ${successCount} earnings dates across CYQs: ${cyqSummary}`);
+      return { success: successCount, errors, cyqUpdates };
       
     } catch (error) {
       console.error('Error refreshing earnings dates:', error);
@@ -5061,6 +5210,11 @@ const TeamOutputPage = ({ tickers, analysts }) => {
 
 // Earnings Tracking Page Component
 const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarningsAnalyst, onSelectEarningsAnalyst, earningsData, onUpdateEarnings, getEarningsData, onRefreshEarnings, analysts, quotes = {}, onUpdateQuote, isLoadingQuotes = false, quoteErrors = {}, formatTradeLevel, formatCompactDate }) => {
+  // State for sorting and filtering
+  const [sortField, setSortField] = useState('days');
+  const [sortDirection, setSortDirection] = useState('asc');
+  const [hideOldEarnings, setHideOldEarnings] = useState(false);
+
   // Filter tickers to only show Portfolio status
   let portfolioTickers = tickers.filter(ticker => ticker.status === 'Portfolio');
   
@@ -5088,15 +5242,6 @@ const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarni
     return diffDays;
   };
 
-  // Sort tickers by Days Until Earnings (smallest first)
-  const sortedTickers = [...portfolioTickers].sort((a, b) => {
-    const aEarningsData = getEarningsData(a.ticker, selectedCYQ);
-    const bEarningsData = getEarningsData(b.ticker, selectedCYQ);
-    const aDays = calculateDaysUntilEarnings(aEarningsData.earningsDate);
-    const bDays = calculateDaysUntilEarnings(bEarningsData.earningsDate);
-    return aDays - bDays;
-  });
-
   // Format days for display
   const formatDaysUntilEarnings = (earningsDate) => {
     if (!earningsDate) return '-';
@@ -5104,6 +5249,73 @@ const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarni
     if (days === 999999) return '-';
     return days;
   };
+
+  // Filter out old earnings events if toggle is enabled
+  const filteredTickers = hideOldEarnings 
+    ? portfolioTickers.filter(ticker => {
+        const earningsData = getEarningsData(ticker.ticker, selectedCYQ);
+        const days = calculateDaysUntilEarnings(earningsData.earningsDate);
+        return days === 999999 || days >= -7; // Show if no date or within last 7 days
+      })
+    : portfolioTickers;
+
+  // Sort tickers based on selected field and direction
+  const sortedTickers = [...filteredTickers].sort((a, b) => {
+    const aEarningsData = getEarningsData(a.ticker, selectedCYQ);
+    const bEarningsData = getEarningsData(b.ticker, selectedCYQ);
+    
+    let aValue, bValue;
+    
+    switch (sortField) {
+      case 'days':
+        aValue = calculateDaysUntilEarnings(aEarningsData.earningsDate);
+        bValue = calculateDaysUntilEarnings(bEarningsData.earningsDate);
+        break;
+      case 'earningsDate':
+        aValue = aEarningsData.earningsDate ? new Date(aEarningsData.earningsDate).getTime() : 0;
+        bValue = bEarningsData.earningsDate ? new Date(bEarningsData.earningsDate).getTime() : 0;
+        break;
+      case 'ticker':
+        aValue = a.ticker;
+        bValue = b.ticker;
+        break;
+      default:
+        aValue = calculateDaysUntilEarnings(aEarningsData.earningsDate);
+        bValue = calculateDaysUntilEarnings(bEarningsData.earningsDate);
+    }
+    
+    if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+    if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  // Handle sorting
+  const handleSort = (field) => {
+    if (field === sortField) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  // Sortable header component
+  const SortableHeader = ({ field, children, style, className = '' }) => (
+    <th 
+      className={`px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 ${className}`}
+      style={style}
+      onClick={() => handleSort(field)}
+    >
+      <div className="flex items-center space-x-1">
+        <span>{children}</span>
+        {sortField === field && (
+          <span className="text-gray-400">
+            {sortDirection === 'asc' ? '↑' : '↓'}
+          </span>
+        )}
+      </div>
+    </th>
+  );
 
   // Refresh earnings state
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -5120,7 +5332,17 @@ const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarni
       const result = await onRefreshEarnings(sortedTickers, selectedCYQ);
       
       if (result.success > 0) {
-        setRefreshMessage(`✅ Successfully updated ${result.success} earnings dates`);
+        // Create a summary of CYQ updates
+        let message = `✅ Successfully updated ${result.success} earnings dates`;
+        
+        if (result.cyqUpdates && Object.keys(result.cyqUpdates).length > 0) {
+          const cyqSummary = Object.entries(result.cyqUpdates)
+            .map(([cyq, tickers]) => `${cyq}: ${tickers.length}`)
+            .join(', ');
+          message += ` across CYQs (${cyqSummary})`;
+        }
+        
+        setRefreshMessage(message);
       } else {
         setRefreshMessage('⚠️ No earnings dates were updated');
       }
@@ -5128,12 +5350,18 @@ const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarni
       // Show any errors
       if (Object.keys(result.errors).length > 0) {
         console.warn('Earnings refresh errors:', result.errors);
+        const errorCount = Object.keys(result.errors).length;
+        if (result.success > 0) {
+          setRefreshMessage(prev => `${prev} (${errorCount} errors - check console)`);
+        } else {
+          setRefreshMessage(`❌ ${errorCount} errors occurred - check console for details`);
+        }
       }
 
-      // Clear message after 5 seconds
+      // Clear message after 7 seconds (longer to read CYQ info)
       setTimeout(() => {
         setRefreshMessage('');
-      }, 5000);
+      }, 7000);
 
     } catch (error) {
       console.error('Error refreshing earnings:', error);
@@ -5267,6 +5495,17 @@ const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarni
                 ))}
               </select>
             </div>
+            <div className="flex items-center space-x-2">
+              <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={hideOldEarnings}
+                  onChange={(e) => setHideOldEarnings(e.target.checked)}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <span>Hide &gt;1 week old</span>
+              </label>
+            </div>
             <button
               onClick={handleRefreshEarnings}
               disabled={isRefreshing || sortedTickers.length === 0}
@@ -5297,11 +5536,11 @@ const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarni
           <table className="min-w-full divide-y divide-gray-200" style={{ tableLayout: 'fixed' }}>
             <thead className="bg-gray-50 sticky top-0 z-10">
               <tr>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-20" style={{ width: '60px' }}>Ticker</th>
+                <SortableHeader field="ticker" style={{ width: '60px' }} className="sticky left-0 bg-gray-50 z-20">Ticker</SortableHeader>
                 <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '45px' }}>Who</th>
                 <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '50px' }}>CYQ</th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '45px' }}>Days</th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '70px' }}>Earnings</th>
+                <SortableHeader field="days" style={{ width: '45px' }}>Days</SortableHeader>
+                <SortableHeader field="earningsDate" style={{ width: '70px' }}>Earnings</SortableHeader>
                 <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '60px' }}>Trade Rec</th>
                 <th className="px-2 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '70px' }}>Trade Level</th>
                 <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '70px' }}>QP Call</th>
