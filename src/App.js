@@ -1557,6 +1557,12 @@ const ClearlineFlow = () => {
         ptBase: formatPriceTarget(tickerData.ptBase),
         ptBull: formatPriceTarget(tickerData.ptBull)
       };
+
+      // Check if ticker already exists
+      const existingTicker = tickers.find(t => t.ticker === capitalizedTickerData.ticker);
+      if (existingTicker) {
+        throw new Error(`Ticker ${capitalizedTickerData.ticker} already exists in the database`);
+      }
       
       const stockData = await fetchStockData(capitalizedTickerData.ticker);
       const newTicker = {
@@ -2674,7 +2680,11 @@ const InputPage = ({ onAddTicker, analysts, currentUser }) => {
       
     } catch (error) {
       console.error('Error in handleSubmit:', error);
-      setSubmitMessage('Error adding investment idea: ' + error.message);
+      if (error.message.includes('already exists')) {
+        setSubmitMessage(`Error: ${error.message}. Please use a different ticker symbol.`);
+      } else {
+        setSubmitMessage('Error adding investment idea: ' + error.message);
+      }
     } finally {
       setIsSubmitting(false);
     }
