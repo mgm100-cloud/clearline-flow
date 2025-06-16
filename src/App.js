@@ -1572,11 +1572,7 @@ const ClearlineFlow = () => {
           month: '2-digit', 
           day: '2-digit' 
         }),
-        pokeDate: new Date().toLocaleDateString('en-US', { 
-          year: '2-digit', 
-          month: '2-digit', 
-          day: '2-digit' 
-        }),
+        pokeDate: new Date().toISOString().split('T')[0],
         name: capitalizedTickerData.name || stockData.name, // Use form data name if available, fallback to API
         inputPrice: stockData.price,
         currentPrice: stockData.price,
@@ -1634,11 +1630,7 @@ const ClearlineFlow = () => {
         ...(cleanUpdates.ptBear !== undefined && { ptBear: formatPriceTarget(cleanUpdates.ptBear) }),
         ...(cleanUpdates.ptBase !== undefined && { ptBase: formatPriceTarget(cleanUpdates.ptBase) }),
         ...(cleanUpdates.ptBull !== undefined && { ptBull: formatPriceTarget(cleanUpdates.ptBull) }),
-        pokeDate: new Date().toLocaleDateString('en-US', { 
-          year: '2-digit', 
-          month: '2-digit', 
-          day: '2-digit' 
-        }),
+        pokeDate: new Date().toISOString().split('T')[0],
         updated_at: new Date().toISOString()
       };
 
