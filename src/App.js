@@ -2520,7 +2520,7 @@ const InputPage = ({ onAddTicker, analysts, currentUser }) => {
     ptBull: '',
     catalystDate: '',
     valueOrGrowth: '',
-    // Boolean fields
+    // Catalysts
     maTargetBuyer: false,
     maTargetValuation: false,
     maTargetSeller: false,
@@ -2531,16 +2531,26 @@ const InputPage = ({ onAddTicker, analysts, currentUser }) => {
     newMgmt: false,
     spin: false,
     bigAcq: false,
+    selfHelp: false,
+    productCycle: false,
+    regulation: false,
+    // Characteristics
     fraudRisk: false,
     regulatoryRisk: false,
     cyclical: false,
     nonCyclical: false,
     highBeta: false,
     momo: false,
-    selfHelp: false,
     rateExposure: false,
     strongDollar: false,
-    extremeValuation: false
+    extremeValuation: false,
+    // Theme
+    aiWinner: false,
+    aiLoser: false,
+    tariffWinner: false,
+    tariffLoser: false,
+    trumpWinner: false,
+    trumpLoser: false
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -2669,7 +2679,13 @@ const InputPage = ({ onAddTicker, analysts, currentUser }) => {
         selfHelp: false,
         rateExposure: false,
         strongDollar: false,
-        extremeValuation: false
+        extremeValuation: false,
+        aiWinner: false,
+        aiLoser: false,
+        tariffWinner: false,
+        tariffLoser: false,
+        trumpWinner: false,
+        trumpLoser: false
       };
       
       setFormData(resetData);
@@ -2960,40 +2976,92 @@ const InputPage = ({ onAddTicker, analysts, currentUser }) => {
 
             {/* Boolean Investment Characteristics */}
             <div className="mb-6">
-              <h5 className="text-sm font-medium text-gray-700 mb-3">Investment Characteristics</h5>
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                {[
-                  { key: 'maTargetBuyer', label: 'M&A Target - Buyer' },
-                  { key: 'maTargetValuation', label: 'M&A Target - Valuation' },
-                  { key: 'maTargetSeller', label: 'M&A Target - Seller' },
-                  { key: 'bigMoveRevert', label: 'Big Move Revert' },
-                  { key: 'activist', label: 'Activist' },
-                  { key: 'activistPotential', label: 'Activist Potential' },
-                  { key: 'insiderTradeSignal', label: 'Insider Trade Signal' },
-                  { key: 'newMgmt', label: 'New Management' },
-                  { key: 'spin', label: 'Spin' },
-                  { key: 'bigAcq', label: 'Big Acquisition' },
-                  { key: 'fraudRisk', label: 'Fraud Risk' },
-                  { key: 'regulatoryRisk', label: 'Regulatory Risk' },
-                  { key: 'cyclical', label: 'Cyclical' },
-                  { key: 'nonCyclical', label: 'Non-Cyclical' },
-                  { key: 'highBeta', label: 'High Beta' },
-                  { key: 'momo', label: 'Momentum' },
-                  { key: 'selfHelp', label: 'Self-Help' },
-                  { key: 'rateExposure', label: 'Rate Exposure' },
-                  { key: 'strongDollar', label: 'Strong Dollar' },
-                  { key: 'extremeValuation', label: 'Extreme Valuation' }
-                ].map(({ key, label }) => (
-                  <div key={key} className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={formData[key]}
-                      onChange={(e) => handleChange(key, e.target.checked)}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    <label className="ml-2 text-sm text-gray-700">{label}</label>
+              <h5 className="text-lg font-semibold text-gray-800 mb-4">Investment Characteristics</h5>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {/* Catalysts */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h6 className="text-base font-semibold text-blue-800 mb-3 border-b border-blue-300 pb-2">Catalysts</h6>
+                  <div className="grid grid-cols-1 gap-3">
+                    {[
+                      { key: 'maTargetBuyer', label: 'M&A Target - Buyer' },
+                      { key: 'maTargetValuation', label: 'M&A Target - Valuation' },
+                      { key: 'maTargetSeller', label: 'M&A Target - Seller' },
+                      { key: 'bigMoveRevert', label: 'Big Move Revert' },
+                      { key: 'activist', label: 'Activist' },
+                      { key: 'activistPotential', label: 'Activist Potential' },
+                      { key: 'insiderTradeSignal', label: 'Insider Trade Signal' },
+                      { key: 'newMgmt', label: 'New Management' },
+                      { key: 'spin', label: 'Spin' },
+                      { key: 'bigAcq', label: 'Big Acquisition' },
+                      { key: 'selfHelp', label: 'Self-Help' },
+                      { key: 'productCycle', label: 'Product Cycle' },
+                      { key: 'regulation', label: 'Regulation' }
+                    ].map(({ key, label }) => (
+                      <div key={key} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={formData[key]}
+                          onChange={(e) => handleChange(key, e.target.checked)}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                        <label className="ml-2 text-sm text-gray-700">{label}</label>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                </div>
+
+                                 {/* Characteristics */}
+                 <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                   <h6 className="text-base font-semibold text-green-800 mb-3 border-b border-green-300 pb-2">Characteristics</h6>
+                   <div className="grid grid-cols-1 gap-3">
+                    {[
+                      { key: 'fraudRisk', label: 'Fraud Risk' },
+                      { key: 'regulatoryRisk', label: 'Regulatory Risk' },
+                      { key: 'cyclical', label: 'Cyclical' },
+                      { key: 'nonCyclical', label: 'Non-Cyclical' },
+                      { key: 'highBeta', label: 'High Beta' },
+                      { key: 'momo', label: 'Momentum' },
+                      { key: 'rateExposure', label: 'Rate Exposure' },
+                      { key: 'strongDollar', label: 'Strong Dollar Beneficiary' },
+                      { key: 'extremeValuation', label: 'Extreme Valuation' }
+                    ].map(({ key, label }) => (
+                      <div key={key} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={formData[key]}
+                          onChange={(e) => handleChange(key, e.target.checked)}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                        <label className="ml-2 text-sm text-gray-700">{label}</label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                                 {/* Theme */}
+                 <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                   <h6 className="text-base font-semibold text-purple-800 mb-3 border-b border-purple-300 pb-2">Theme</h6>
+                   <div className="grid grid-cols-1 gap-3">
+                    {[
+                      { key: 'aiWinner', label: 'AI Winner' },
+                      { key: 'aiLoser', label: 'AI Loser' },
+                      { key: 'tariffWinner', label: 'Tariff Winner' },
+                      { key: 'tariffLoser', label: 'Tariff Loser' },
+                      { key: 'trumpWinner', label: 'Trump Winner' },
+                      { key: 'trumpLoser', label: 'Trump Loser' }
+                    ].map(({ key, label }) => (
+                      <div key={key} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={formData[key]}
+                          onChange={(e) => handleChange(key, e.target.checked)}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                        <label className="ml-2 text-sm text-gray-700">{label}</label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -3547,7 +3615,7 @@ const DatabaseDetailedPage = ({ tickers, onSort, sortField, sortDirection, onUpd
                 </th>
                 <SortableHeader field="status">Status</SortableHeader>
                 <SortableHeader field="analyst">Analyst</SortableHeader>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '80px', minWidth: '80px' }}>
                   Source
                 </th>
                 
@@ -3609,6 +3677,9 @@ const DatabaseDetailedPage = ({ tickers, onSort, sortField, sortDirection, onUpd
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">New Mgmt</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Spin</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Big Acq</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Self-Help</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product Cycle</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Regulation</th>
                 
                 {/* Risk Factors */}
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fraud Risk</th>
@@ -3619,13 +3690,20 @@ const DatabaseDetailedPage = ({ tickers, onSort, sortField, sortDirection, onUpd
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Non-Cyclical</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">High Beta</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Momentum</th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Self Help</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rate Exposure</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Strong Dollar</th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Extreme Val</th>
-                
-                {/* Thesis */}
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thesis</th>
+                                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Extreme Val</th>
+                 
+                 {/* Theme */}
+                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">AI Winner</th>
+                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">AI Loser</th>
+                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tariff Winner</th>
+                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tariff Loser</th>
+                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trump Winner</th>
+                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trump Loser</th>
+                 
+                 {/* Thesis */}
+                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '768px', minWidth: '768px' }}>Thesis</th>
                 
                 {onUpdate && <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>}
               </tr>
@@ -3993,7 +4071,7 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
           <textarea
             value={editData.thesis || ''}
             onChange={(e) => setEditData({...editData, thesis: e.target.value})}
-            className="text-xs border border-gray-300 rounded px-1 py-1 w-40 h-20"
+            className="text-xs border border-gray-300 rounded px-1 py-1 w-[768px] h-20"
           />
         </td>
         {onUpdate && (
@@ -4071,7 +4149,7 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
         {ticker.analyst}
       </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500" style={{ width: '80px', minWidth: '80px' }}>
         {ticker.source || '-'}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
@@ -4169,6 +4247,15 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
         {formatBoolean(ticker.bigAcq)}
       </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+        {formatBoolean(ticker.selfHelp)}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+        {formatBoolean(ticker.productCycle)}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+        {formatBoolean(ticker.regulation)}
+      </td>
       {/* Risk Factors */}
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
         {formatBoolean(ticker.fraudRisk)}
@@ -4190,21 +4277,37 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
         {formatBoolean(ticker.momo)}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-        {formatBoolean(ticker.selfHelp)}
-      </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
         {formatBoolean(ticker.rateExposure)}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
         {formatBoolean(ticker.strongDollar)}
       </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-        {formatBoolean(ticker.extremeValuation)}
-      </td>
-      {/* Thesis */}
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500" title={ticker.thesis}>
-        {ticker.thesis && ticker.thesis.length > 50 ? ticker.thesis.substring(0, 50) + '...' : ticker.thesis || '-'}
-      </td>
+             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+         {formatBoolean(ticker.extremeValuation)}
+       </td>
+       {/* Theme */}
+       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+         {formatBoolean(ticker.aiWinner)}
+       </td>
+       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+         {formatBoolean(ticker.aiLoser)}
+       </td>
+       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+         {formatBoolean(ticker.tariffWinner)}
+       </td>
+       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+         {formatBoolean(ticker.tariffLoser)}
+       </td>
+       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+         {formatBoolean(ticker.trumpWinner)}
+       </td>
+       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+         {formatBoolean(ticker.trumpLoser)}
+       </td>
+       {/* Thesis */}
+       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500" style={{ width: '768px', minWidth: '768px' }}>
+         {ticker.thesis || '-'}
+       </td>
       {onUpdate && (
         <td className="px-6 py-4 whitespace-nowrap text-sm">
           <button
@@ -4474,7 +4577,7 @@ const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst
                 <SortableHeader field="basePercent" style={{ width: '45px' }}>%</SortableHeader>
                 <SortableHeader field="ptBull" style={{ width: '60px' }}>Bull</SortableHeader>
                 <SortableHeader field="bullPercent" style={{ width: '45px' }}>%</SortableHeader>
-                <SortableHeader field="thesis">Thesis</SortableHeader>
+                <SortableHeader field="thesis" style={{ width: '768px' }}>Thesis</SortableHeader>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -4567,7 +4670,7 @@ const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst
                           {bullPercent || '-'}
                         </span>
                       </td>
-                      <td className="px-2 py-2 text-sm text-gray-900">
+                      <td className="px-2 py-2 text-sm text-gray-900" style={{ width: '768px' }}>
                         <div className="break-words whitespace-normal" title={ticker.thesis}>
                           {ticker.thesis}
                         </div>
@@ -6375,7 +6478,7 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
                 <SortableHeader field="basePercent" style={{ width: '45px' }}>%</SortableHeader>
                 <SortableHeader field="ptBull" style={{ width: '60px' }}>Bull</SortableHeader>
                 <SortableHeader field="bullPercent" style={{ width: '45px' }}>%</SortableHeader>
-                <SortableHeader field="thesis">Thesis</SortableHeader>
+                <SortableHeader field="thesis" style={{ width: '768px' }}>Thesis</SortableHeader>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -6473,7 +6576,7 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
                           {bullPercent || '-'}
                         </span>
                       </td>
-                      <td className="px-2 py-2 text-sm text-gray-900">
+                      <td className="px-2 py-2 text-sm text-gray-900" style={{ width: '768px' }}>
                         <div className="break-words whitespace-normal" title={ticker.thesis}>
                           {ticker.thesis}
                         </div>
