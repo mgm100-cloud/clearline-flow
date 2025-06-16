@@ -1394,6 +1394,20 @@ const ClearlineFlow = () => {
     }
   };
 
+  // Refresh earnings data specifically from database
+  const refreshEarningsData = async () => {
+    if (!isAuthenticated) return;
+    
+    try {
+      const earningsDataFromDB = await DatabaseService.getEarningsData();
+      setEarningsData(earningsDataFromDB);
+      return { success: true, message: 'Earnings data refreshed successfully' };
+    } catch (error) {
+      console.error('Error refreshing earnings data from database:', error);
+      return { success: false, message: 'Failed to refresh earnings data' };
+    }
+  };
+
   // Real-time quote functions
   const updateQuotes = useCallback(async (symbolsToUpdate = null) => {
     try {
@@ -1728,7 +1742,13 @@ const ClearlineFlow = () => {
   };
 
   const getEarningsData = (ticker, cyq) => {
-    return earningsData.find(item => item.ticker === ticker && item.cyq === cyq) || {};
+    
+    
+    const result = earningsData.find(item => item.ticker === ticker && item.cyq === cyq) || {};
+    
+   
+    
+    return result;
   };
 
   // Helper function to determine CYQ from earnings date
@@ -2617,6 +2637,7 @@ const ClearlineFlow = () => {
             onUpdateEarnings={updateEarningsData}
             getEarningsData={getEarningsData}
             onRefreshEarnings={refreshEarningsDates}
+            onRefreshEarningsData={refreshEarningsData}
             analysts={analysts}
             quotes={quotes}
             onUpdateQuote={updateSingleQuote}
@@ -5209,7 +5230,7 @@ const TeamOutputPage = ({ tickers, analysts }) => {
 };
 
 // Earnings Tracking Page Component
-const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarningsAnalyst, onSelectEarningsAnalyst, earningsData, onUpdateEarnings, getEarningsData, onRefreshEarnings, analysts, quotes = {}, onUpdateQuote, isLoadingQuotes = false, quoteErrors = {}, formatTradeLevel, formatCompactDate }) => {
+const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarningsAnalyst, onSelectEarningsAnalyst, earningsData, onUpdateEarnings, getEarningsData, onRefreshEarnings, onRefreshEarningsData, analysts, quotes = {}, onUpdateQuote, isLoadingQuotes = false, quoteErrors = {}, formatTradeLevel, formatCompactDate }) => {
   // State for sorting and filtering
   const [sortField, setSortField] = useState('days');
   const [sortDirection, setSortDirection] = useState('asc');
@@ -5320,6 +5341,40 @@ const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarni
   // Refresh earnings state
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshMessage, setRefreshMessage] = useState('');
+  const [isRefreshingData, setIsRefreshingData] = useState(false);
+
+  // Handle refresh earnings data from database
+  const handleRefreshEarningsData = async () => {
+    if (!onRefreshEarningsData) return;
+
+    setIsRefreshingData(true);
+    setRefreshMessage('Refreshing earnings data from database...');
+
+    try {
+      const result = await onRefreshEarningsData();
+      
+      if (result.success) {
+        setRefreshMessage(result.message);
+      } else {
+        setRefreshMessage(result.message);
+      }
+
+      // Clear message after 3 seconds
+      setTimeout(() => {
+        setRefreshMessage('');
+      }, 3000);
+
+    } catch (error) {
+      console.error('Error refreshing earnings data:', error);
+      setRefreshMessage(`❌ Error: ${error.message}`);
+      
+      setTimeout(() => {
+        setRefreshMessage('');
+      }, 3000);
+    } finally {
+      setIsRefreshingData(false);
+    }
+  };
 
   // Handle refresh earnings dates
   const handleRefreshEarnings = async () => {
@@ -5506,6 +5561,18 @@ const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarni
                 <span>Hide &gt;1 week old</span>
               </label>
             </div>
+            <button
+              onClick={handleRefreshEarningsData}
+              disabled={isRefreshingData}
+              className={`flex items-center space-x-1 px-3 py-1 rounded text-sm font-medium ${
+                isRefreshingData
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                  : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+              }`}
+            >
+              <RefreshCw className={`h-4 w-4 ${isRefreshingData ? 'animate-spin' : ''}`} />
+              <span>Refresh Data</span>
+            </button>
             <button
               onClick={handleRefreshEarnings}
               disabled={isRefreshing || sortedTickers.length === 0}

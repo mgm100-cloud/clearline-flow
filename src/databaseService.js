@@ -229,19 +229,40 @@ export const DatabaseService = {
   // Earnings data operations
   async getEarningsData() {
     try {
-      const { data, error } = await supabase
-        .from('earnings_tracking')
-        .select(`
-          *,
-          tickers!ticker_id (
-            ticker
-          )
-        `)
+      let allData = [];
+      let from = 0;
+      const pageSize = 1000;
+      let hasMore = true;
       
-      if (error) throw error
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from('earnings_tracking')
+          .select(`
+            *,
+            tickers!ticker_id (
+              ticker
+            )
+          `)
+          .range(from, from + pageSize - 1)
+        
+        if (error) throw error
+        
+        if (data && data.length > 0) {
+          allData = allData.concat(data);
+          
+          // If we got less than pageSize records, we've reached the end
+          if (data.length < pageSize) {
+            hasMore = false;
+          } else {
+            from += pageSize;
+          }
+        } else {
+          hasMore = false;
+        }
+      }
       
       // Convert snake_case to camelCase and flatten ticker data
-      return (data || []).map(item => {
+      const processedData = allData.map(item => {
         const converted = convertFromDbFormat(item);
         // Add ticker symbol from the joined tickers table
         if (item.tickers) {
@@ -249,6 +270,8 @@ export const DatabaseService = {
         }
         return converted;
       });
+      
+      return processedData;
     } catch (error) {
       console.error('Error fetching earnings data:', error)
       throw error
