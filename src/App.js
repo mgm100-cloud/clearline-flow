@@ -4067,11 +4067,83 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
             className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
           />
         </td>
-        <td className="px-3 py-4 whitespace-nowrap">
+        {/* Product Cycle */}
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.productCycle || false}
+            onChange={(e) => setEditData({...editData, productCycle: e.target.checked})}
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          />
+        </td>
+        {/* Regulation */}
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.regulation || false}
+            onChange={(e) => setEditData({...editData, regulation: e.target.checked})}
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          />
+        </td>
+        {/* AI Winner */}
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.aiWinner || false}
+            onChange={(e) => setEditData({...editData, aiWinner: e.target.checked})}
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          />
+        </td>
+        {/* AI Loser */}
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.aiLoser || false}
+            onChange={(e) => setEditData({...editData, aiLoser: e.target.checked})}
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          />
+        </td>
+        {/* Tariff Winner */}
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.tariffWinner || false}
+            onChange={(e) => setEditData({...editData, tariffWinner: e.target.checked})}
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          />
+        </td>
+        {/* Tariff Loser */}
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.tariffLoser || false}
+            onChange={(e) => setEditData({...editData, tariffLoser: e.target.checked})}
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          />
+        </td>
+        {/* Trump Winner */}
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.trumpWinner || false}
+            onChange={(e) => setEditData({...editData, trumpWinner: e.target.checked})}
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          />
+        </td>
+        {/* Trump Loser */}
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.trumpLoser || false}
+            onChange={(e) => setEditData({...editData, trumpLoser: e.target.checked})}
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          />
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap" style={{ width: '450px', minWidth: '450px', maxWidth: '450px' }}>
           <textarea
             value={editData.thesis || ''}
             onChange={(e) => setEditData({...editData, thesis: e.target.value})}
-            className="text-xs border border-gray-300 rounded px-1 py-1 w-[300px] h-20"
+            className="text-xs border border-gray-300 rounded px-1 py-1 w-full h-20"
           />
         </td>
         {onUpdate && (
