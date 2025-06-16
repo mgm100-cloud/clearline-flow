@@ -3615,7 +3615,7 @@ const DatabaseDetailedPage = ({ tickers, onSort, sortField, sortDirection, onUpd
                 </th>
                 <SortableHeader field="status">Status</SortableHeader>
                 <SortableHeader field="analyst">Analyst</SortableHeader>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '80px', minWidth: '80px' }}>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '240px', minWidth: '240px' }}>
                   Source
                 </th>
                 
@@ -3703,7 +3703,7 @@ const DatabaseDetailedPage = ({ tickers, onSort, sortField, sortDirection, onUpd
                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trump Loser</th>
                  
                  {/* Thesis */}
-                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '768px', minWidth: '768px' }}>Thesis</th>
+                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '450px', minWidth: '450px' }}>Thesis</th>
                 
                 {onUpdate && <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>}
               </tr>
@@ -3833,12 +3833,12 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
             ))}
           </select>
         </td>
-        <td className="px-3 py-4 whitespace-nowrap">
+        <td className="px-3 py-4" style={{ width: '240px', maxWidth: '240px' }}>
           <input
             type="text"
             value={editData.source || ''}
             onChange={(e) => setEditData({...editData, source: e.target.value})}
-            className="text-xs border border-gray-300 rounded px-1 py-1 w-20"
+            className="text-xs border border-gray-300 rounded px-1 py-1 w-60"
           />
         </td>
         <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
@@ -4071,7 +4071,7 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
           <textarea
             value={editData.thesis || ''}
             onChange={(e) => setEditData({...editData, thesis: e.target.value})}
-            className="text-xs border border-gray-300 rounded px-1 py-1 w-[768px] h-20"
+            className="text-xs border border-gray-300 rounded px-1 py-1 w-[300px] h-20"
           />
         </td>
         {onUpdate && (
@@ -4149,7 +4149,7 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
         {ticker.analyst}
       </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500" style={{ width: '80px', minWidth: '80px' }}>
+      <td className="px-6 py-4 text-sm text-gray-500 truncate" style={{ width: '240px', minWidth: '240px', maxWidth: '240px' }} title={ticker.source || ''}>
         {ticker.source || '-'}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
@@ -4305,8 +4305,10 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
          {formatBoolean(ticker.trumpLoser)}
        </td>
        {/* Thesis */}
-       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500" style={{ width: '768px', minWidth: '768px' }}>
-         {ticker.thesis || '-'}
+       <td className="px-6 py-4 text-sm text-gray-500" style={{ width: '450px', minWidth: '450px', maxWidth: '450px' }} title={ticker.thesis || ''}>
+         <div className="break-words whitespace-normal">
+           {ticker.thesis || '-'}
+         </div>
        </td>
       {onUpdate && (
         <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -4396,7 +4398,7 @@ const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst
                field === 'priority' ? '35px' :
                field === 'currentPrice' ? '75px' :
                field === 'ptBear' || field === 'ptBase' || field === 'ptBull' ? '60px' :
-               field === 'thesis' ? 'auto' : '45px' 
+               field === 'thesis' ? '300px' : '45px' 
       }}
     >
       <div className="flex items-center space-x-1">
@@ -4499,7 +4501,7 @@ const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst
           7: { cellWidth: 15 }, // Base %
           8: { cellWidth: 18 }, // PT Bull
           9: { cellWidth: 15 }, // Bull %
-          10: { cellWidth: 85 }  // Thesis (wider since no analyst column)
+          10: { cellWidth: 300 }  // Thesis (wider since no analyst column)
         },
         didParseCell: function(data) {
           // Highlight status header rows
@@ -4577,7 +4579,7 @@ const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst
                 <SortableHeader field="basePercent" style={{ width: '45px' }}>%</SortableHeader>
                 <SortableHeader field="ptBull" style={{ width: '60px' }}>Bull</SortableHeader>
                 <SortableHeader field="bullPercent" style={{ width: '45px' }}>%</SortableHeader>
-                <SortableHeader field="thesis" style={{ width: '768px' }}>Thesis</SortableHeader>
+                <SortableHeader field="thesis" style={{ width: '300px' }}>Thesis</SortableHeader>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -4670,7 +4672,7 @@ const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst
                           {bullPercent || '-'}
                         </span>
                       </td>
-                      <td className="px-2 py-2 text-sm text-gray-900" style={{ width: '768px' }}>
+                      <td className="px-2 py-2 text-sm text-gray-900" style={{ width: '300px' }}>
                         <div className="break-words whitespace-normal" title={ticker.thesis}>
                           {ticker.thesis}
                         </div>
@@ -6423,7 +6425,7 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
                field === 'analyst' ? '60px' :
                field === 'currentPrice' ? '75px' :
                field === 'ptBear' || field === 'ptBase' || field === 'ptBull' ? '60px' :
-               field === 'thesis' ? 'auto' : '45px' 
+               field === 'thesis' ? '300px' : '45px' 
       }}
     >
       <div className="flex items-center space-x-1">
@@ -6478,7 +6480,7 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
                 <SortableHeader field="basePercent" style={{ width: '45px' }}>%</SortableHeader>
                 <SortableHeader field="ptBull" style={{ width: '60px' }}>Bull</SortableHeader>
                 <SortableHeader field="bullPercent" style={{ width: '45px' }}>%</SortableHeader>
-                <SortableHeader field="thesis" style={{ width: '768px' }}>Thesis</SortableHeader>
+                <SortableHeader field="thesis" style={{ width: '300px' }}>Thesis</SortableHeader>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -6576,7 +6578,7 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
                           {bullPercent || '-'}
                         </span>
                       </td>
-                      <td className="px-2 py-2 text-sm text-gray-900" style={{ width: '768px' }}>
+                      <td className="px-2 py-2 text-sm text-gray-900" style={{ width: '300px' }}>
                         <div className="break-words whitespace-normal" title={ticker.thesis}>
                           {ticker.thesis}
                         </div>
