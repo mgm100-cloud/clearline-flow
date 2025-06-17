@@ -2052,7 +2052,7 @@ const ClearlineFlow = () => {
       const newTodo = {
         ...todoData,
         dateEntered: new Date().toISOString(),
-        isOpen: true
+        isOpen: todoData.isOpen !== undefined ? todoData.isOpen : true
       };
       
       // Save to Supabase
@@ -5876,6 +5876,7 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
   const [sortField, setSortField] = useState('dateEntered');
   const [sortDirection, setSortDirection] = useState('desc');
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showAddCompletedForm, setShowAddCompletedForm] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isEmailSending, setIsEmailSending] = useState(false);
   const [newTodo, setNewTodo] = useState({
@@ -5884,7 +5885,32 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
     priority: 'medium',
     item: ''
   });
+  const [newCompletedTodo, setNewCompletedTodo] = useState({
+    ticker: '',
+    analyst: '',
+    priority: 'medium',
+    item: ''
+  });
   const isFirstMount = useRef(true);
+
+  // Helper function to reset todo form with current user preselected
+  const getInitialTodoState = () => ({
+    ticker: '',
+    analyst: currentUser ? AuthService.getUserAnalystCode(currentUser) : '',
+    priority: 'medium',
+    item: ''
+  });
+
+  // Update forms when currentUser changes
+  useEffect(() => {
+    if (currentUser) {
+      const analystCode = AuthService.getUserAnalystCode(currentUser);
+      if (analystCode) {
+        setNewTodo(prev => ({ ...prev, analyst: analystCode }));
+        setNewCompletedTodo(prev => ({ ...prev, analyst: analystCode }));
+      }
+    }
+  }, [currentUser]);
 
   // Initial refresh when component is mounted - only run once
   useEffect(() => {
@@ -6020,19 +6046,49 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">Todo List</h1>
-        <div className="flex space-x-4">
+        
+        {/* Primary Action Buttons - Prominent */}
+        {(userRole === 'readwrite' || userRole === 'admin') && (
+          <div className="flex space-x-3">
+            <button
+              onClick={() => {
+                setShowAddForm(!showAddForm);
+                setShowAddCompletedForm(false);
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg text-sm font-semibold flex items-center shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 min-w-[140px] justify-center"
+            >
+              <Plus className="h-5 w-5 mr-2" />
+              Add Todo
+            </button>
+            <button
+              onClick={() => {
+                setShowAddCompletedForm(!showAddCompletedForm);
+                setShowAddForm(false);
+              }}
+              className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg text-sm font-semibold flex items-center shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 min-w-[140px] justify-center"
+            >
+              <Plus className="h-5 w-5 mr-2" />
+              Add Completed
+            </button>
+          </div>
+        )}
+      </div>
+      
+      {/* Secondary Utility Buttons - Less prominent */}
+      <div className="flex justify-end items-center">
+        <div className="flex space-x-2">
           <button
             onClick={handleRefresh}
             disabled={isRefreshing}
-            className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${
+            className={`inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md bg-white hover:bg-gray-50 min-w-[100px] justify-center transition-all duration-200 ${
               isRefreshing 
-                ? 'bg-gray-400 cursor-not-allowed' 
-                : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
+                ? 'text-gray-400 cursor-not-allowed' 
+                : 'text-gray-700 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 hover:shadow-sm'
             }`}
           >
             {isRefreshing ? (
               <>
-                <svg className="animate-spin -ml-1 mr-3 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 0 1 4 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
@@ -6041,7 +6097,7 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
             ) : (
               <>
                 <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh List
+                Refresh
               </>
             )}
           </button>
@@ -6261,10 +6317,10 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
               }
             }}
             disabled={isEmailSending}
-            className={`px-4 py-2 rounded-md text-sm font-medium flex items-center ${
+            className={`inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md bg-white hover:bg-gray-50 min-w-[100px] justify-center transition-all duration-200 ${
               isEmailSending 
-                ? 'bg-gray-400 cursor-not-allowed text-white' 
-                : 'bg-blue-600 hover:bg-blue-700 text-white'
+                ? 'text-gray-400 cursor-not-allowed' 
+                : 'text-gray-700 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 hover:shadow-sm'
             }`}
           >
             {isEmailSending ? (
@@ -6346,20 +6402,11 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
               
               doc.save(`todo-list-${selectedTodoAnalyst || 'all'}-${new Date().toISOString().split('T')[0]}.pdf`);
             }}
-            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center"
+            className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md bg-white hover:bg-gray-50 min-w-[100px] justify-center transition-all duration-200 text-gray-700 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 hover:shadow-sm"
           >
             <Download className="h-4 w-4 mr-2" />
             Export PDF
           </button>
-          {(userRole === 'readwrite' || userRole === 'admin') && (
-            <button
-              onClick={() => setShowAddForm(!showAddForm)}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Todo
-            </button>
-          )}
         </div>
       </div>
 
@@ -6388,7 +6435,7 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
             
             try {
               await onAddTodo(newTodo);
-              setNewTodo({ ticker: '', analyst: '', priority: 'medium', item: '' });
+              setNewTodo(getInitialTodoState());
               setShowAddForm(false);
             } catch (error) {
               console.error('Error adding todo:', error);
@@ -6453,6 +6500,95 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
               <textarea
                 value={newTodo.item}
                 onChange={(e) => setNewTodo({...newTodo, item: e.target.value})}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                rows="3"
+                required
+              />
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Add Completed Todo Form */}
+      {showAddCompletedForm && (userRole === 'readwrite' || userRole === 'admin') && (
+        <div className="bg-gray-50 p-4 rounded-lg">
+          <h3 className="text-lg font-medium mb-4">Add Completed Todo</h3>
+          <form onSubmit={async (e) => {
+            e.preventDefault();
+            if (!newCompletedTodo.ticker || !newCompletedTodo.analyst || !newCompletedTodo.item) return;
+            
+            try {
+              // Add todo with isOpen set to false and dateClosed set to current timestamp
+              await onAddTodo({ 
+                ...newCompletedTodo, 
+                isOpen: false,
+                dateClosed: new Date().toISOString()
+              });
+              setNewCompletedTodo(getInitialTodoState());
+              setShowAddCompletedForm(false);
+            } catch (error) {
+              console.error('Error adding completed todo:', error);
+            }
+          }} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Ticker</label>
+              <input
+                type="text"
+                value={newCompletedTodo.ticker}
+                onChange={(e) => setNewCompletedTodo({...newCompletedTodo, ticker: e.target.value.toUpperCase()})}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Analyst</label>
+              <select
+                value={newCompletedTodo.analyst}
+                onChange={(e) => setNewCompletedTodo({...newCompletedTodo, analyst: e.target.value})}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                required
+              >
+                <option value="">Select Analyst</option>
+                {analysts.map(analyst => (
+                  <option key={analyst} value={analyst}>{analyst}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+              <select
+                value={newCompletedTodo.priority}
+                onChange={(e) => setNewCompletedTodo({...newCompletedTodo, priority: e.target.value})}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+              >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+            <div className="md:col-span-2 lg:col-span-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Actions</label>
+              <div className="flex space-x-2">
+                <button
+                  type="submit"
+                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+                >
+                  Add Completed
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowAddCompletedForm(false)}
+                  className="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-md text-sm font-medium"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+            <div className="md:col-span-2 lg:col-span-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Item Description</label>
+              <textarea
+                value={newCompletedTodo.item}
+                onChange={(e) => setNewCompletedTodo({...newCompletedTodo, item: e.target.value})}
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                 rows="3"
                 required
