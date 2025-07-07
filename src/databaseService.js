@@ -55,7 +55,9 @@ const toSnakeCase = (str) => {
     'earningsDate': 'earnings_date',
     'qpCallDate': 'qp_call_date',
     'previewDate': 'preview_date',
-    'callbackDate': 'callback_date'
+    'callbackDate': 'callback_date',
+    'irName': 'ir_name',
+    'irEmail': 'ir_email'
   };
   
   if (specialCases[str]) {
@@ -120,7 +122,9 @@ const toCamelCase = (str) => {
     'earnings_date': 'earningsDate',
     'qp_call_date': 'qpCallDate',
     'preview_date': 'previewDate',
-    'callback_date': 'callbackDate'
+    'callback_date': 'callbackDate',
+    'ir_name': 'irName',
+    'ir_email': 'irEmail'
   };
   
   if (specialCases[str]) {
@@ -146,7 +150,7 @@ const cleanDataForDb = (obj) => {
       cleaned[key] = value === '' ? null : value;
     }
     // Convert empty strings to null for other optional fields
-    else if (['source', 'valueOrGrowth', 'value_or_growth', 'tradeRec', 'trade_rec'].includes(key)) {
+    else if (['source', 'valueOrGrowth', 'value_or_growth', 'tradeRec', 'trade_rec', 'irName', 'ir_name', 'irEmail', 'ir_email'].includes(key)) {
       cleaned[key] = value === '' ? null : value;
     }
     else {

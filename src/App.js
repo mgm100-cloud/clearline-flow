@@ -2659,6 +2659,7 @@ const ClearlineFlow = () => {
             quoteErrors={quoteErrors}
             formatTradeLevel={formatTradeLevel}
             formatCompactDate={formatCompactDate}
+            currentUser={currentUser}
           />
         )}
         {activeTab === 'todos' && (
@@ -5707,7 +5708,7 @@ const TeamOutputPage = ({ tickers, analysts }) => {
 };
 
 // Earnings Tracking Page Component
-const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarningsAnalyst, earningsData, onUpdateEarnings, getEarningsData, onRefreshEarnings, onRefreshEarningsData, analysts, quotes = {}, onUpdateQuote, isLoadingQuotes = false, quoteErrors = {}, formatTradeLevel, formatCompactDate }) => {
+const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarningsAnalyst, earningsData, onUpdateEarnings, getEarningsData, onRefreshEarnings, onRefreshEarningsData, analysts, quotes = {}, onUpdateQuote, isLoadingQuotes = false, quoteErrors = {}, formatTradeLevel, formatCompactDate, currentUser }) => {
   // State for sorting and filtering
   const [sortField, setSortField] = useState('days');
   const [sortDirection, setSortDirection] = useState('asc');
@@ -6127,7 +6128,7 @@ const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarnin
                 <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '70px' }}>QP Call</th>
                 <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '70px' }}>Preview</th>
                 <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '70px' }}>Callback</th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '80px' }}>Actions</th>
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '140px' }}>Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -6144,6 +6145,7 @@ const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarnin
                   onUpdateQuote={onUpdateQuote}
                   isLoadingQuotes={isLoadingQuotes}
                   quoteErrors={quoteErrors}
+                  currentUser={currentUser}
                 />
               ))}
             </tbody>
@@ -6166,8 +6168,14 @@ const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarnin
 };
 
 // Earnings Tracking Row Component
-const EarningsTrackingRow = ({ ticker, earningsData, onUpdateEarnings, formatDaysUntilEarnings, formatTradeLevel, formatCompactDate, quotes = {}, onUpdateQuote, isLoadingQuotes = false, quoteErrors = {} }) => {
+const EarningsTrackingRow = ({ ticker, earningsData, onUpdateEarnings, formatDaysUntilEarnings, formatTradeLevel, formatCompactDate, quotes = {}, onUpdateQuote, isLoadingQuotes = false, quoteErrors = {}, currentUser }) => {
  const [isEditing, setIsEditing] = useState(false);
+ const [showIRPopup, setShowIRPopup] = useState(false);
+ const [pendingEmailType, setPendingEmailType] = useState(null); // 'qp' or 'callback'
+ const [irData, setIrData] = useState({
+   irName: ticker.irName || '',
+   irEmail: ticker.irEmail || ''
+ });
  const [editData, setEditData] = useState({
    earningsDate: earningsData.earningsDate || '',
    qpCallDate: earningsData.qpCallDate || '',
@@ -6207,6 +6215,110 @@ const EarningsTrackingRow = ({ ticker, earningsData, onUpdateEarnings, formatDay
      tradeLevel: earningsData.tradeLevel || ''
    });
    setIsEditing(false);
+ };
+
+ // Email functions
+ const composeQPCallEmail = () => {
+   setPendingEmailType('qp');
+   setShowIRPopup(true);
+ };
+
+ const composeCallbackEmail = () => {
+   setPendingEmailType('callback');
+   setShowIRPopup(true);
+ };
+
+ // Handle saving IR data and proceeding with email
+ const handleSaveIRData = async () => {
+   if (!irData.irName || !irData.irEmail) {
+     alert('Please fill in both IR Name and IR Email fields.');
+     return;
+   }
+
+   try {
+     // Update ticker with IR data
+     await DatabaseService.updateTicker(ticker.id, {
+       irName: irData.irName,
+       irEmail: irData.irEmail
+     });
+
+     // Update local ticker object
+     ticker.irName = irData.irName;
+     ticker.irEmail = irData.irEmail;
+
+     // Close popup
+     setShowIRPopup(false);
+
+     // Compose email based on pending type
+     const userFirstName = currentUser?.user_metadata?.full_name?.split(' ')[0] || 'there';
+     const userFullName = currentUser?.user_metadata?.full_name || '';
+     const userEmail = currentUser?.email || '';
+     const irFirstName = irData.irName.split(' ')[0] || 'there';
+
+     let subject, body;
+
+     if (pendingEmailType === 'qp') {
+       subject = `Clearline - Quarterly Call Request`;
+       body = `Dear ${irFirstName},
+
+Can we please schedule a catch-up call before ${ticker.ticker} enters its quiet period?
+
+Thank you,
+${userFirstName}
+
+------------------------------------------------------------------
+
+${userFullName}
+Clearline Capital LP
+750 Lexington Avenue, 25th Floor
+New York, NY 10022
+Email: ${userEmail}
+
+------------------------------------------------------------------
+
+This email and any files transmitted with it may contain privileged or confidential information, and any use, disclosure, copying, or distribution by anyone other than an intended recipient is strictly prohibited. If you have received this email in error, please notify the sender by reply email and then immediately delete this email. Information contained herein is provided for informational purposes only and does not constitute an offer or a solicitation to buy, hold, or sell securities or investment advisory services, and is not intended as investment, tax, or legal advice. Any opinions expressed herein are those of the author and do not necessarily reflect the opinions of Clearline Capital LP or its affiliates.`;
+     } else if (pendingEmailType === 'callback') {
+       subject = `Clearline - Post Earnings Callback Request`;
+       body = `Dear ${irFirstName},
+
+Can we schedule a post earnings callback?
+
+Thank you,
+${userFirstName}
+
+------------------------------------------------------------------
+
+${userFullName}
+Clearline Capital LP
+750 Lexington Avenue, 25th Floor
+New York, NY 10022
+Email: ${userEmail}
+
+------------------------------------------------------------------
+
+This email and any files transmitted with it may contain privileged or confidential information, and any use, disclosure, copying, or distribution by anyone other than an intended recipient is strictly prohibited. If you have received this email in error, please notify the sender by reply email and then immediately delete this email. Information contained herein is provided for informational purposes only and does not constitute an offer or a solicitation to buy, hold, or sell securities or investment advisory services, and is not intended as investment, tax, or legal advice. Any opinions expressed herein are those of the author and do not necessarily reflect the opinions of Clearline Capital LP or its affiliates.`;
+     }
+
+     // Open email client
+     if (subject && body) {
+       const mailtoLink = `mailto:${irData.irEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+       window.open(mailtoLink);
+     }
+
+     setPendingEmailType(null);
+   } catch (error) {
+     console.error('Error saving IR data:', error);
+     alert('Error saving IR information. Please try again.');
+   }
+ };
+
+ const handleCancelIRPopup = () => {
+   setShowIRPopup(false);
+   setPendingEmailType(null);
+   setIrData({
+     irName: ticker.irName || '',
+     irEmail: ticker.irEmail || ''
+   });
  };
 
  const daysUntilEarnings = formatDaysUntilEarnings(earningsData.earningsDate);
@@ -6330,7 +6442,61 @@ const EarningsTrackingRow = ({ ticker, earningsData, onUpdateEarnings, formatDay
  }
 
  return (
-   <tr className={`hover:bg-gray-50 ${getRowBackgroundColor()}`} onDoubleClick={() => setIsEditing(true)}>
+   <>
+     {/* IR Information Popup */}
+     {showIRPopup && (
+       <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+         <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+           <div className="mt-3">
+             <h3 className="text-lg font-medium text-gray-900 mb-4">
+               Add IR Contact Information for {ticker.ticker}
+             </h3>
+             <div className="space-y-4">
+               <div>
+                 <label className="block text-sm font-medium text-gray-700 mb-1">
+                   IR Contact Name
+                 </label>
+                 <input
+                   type="text"
+                   value={irData.irName}
+                   onChange={(e) => setIrData({...irData, irName: e.target.value})}
+                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                   placeholder="e.g., John Smith"
+                 />
+               </div>
+               <div>
+                 <label className="block text-sm font-medium text-gray-700 mb-1">
+                   IR Email Address
+                 </label>
+                 <input
+                   type="email"
+                   value={irData.irEmail}
+                   onChange={(e) => setIrData({...irData, irEmail: e.target.value})}
+                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                   placeholder="e.g., ir@company.com"
+                 />
+               </div>
+             </div>
+             <div className="flex justify-end space-x-3 mt-6">
+               <button
+                 onClick={handleCancelIRPopup}
+                 className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
+               >
+                 Cancel
+               </button>
+               <button
+                 onClick={handleSaveIRData}
+                 className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+               >
+                 Save & Send Email
+               </button>
+             </div>
+           </div>
+         </div>
+       </div>
+     )}
+
+     <tr className={`hover:bg-gray-50 ${getRowBackgroundColor()}`} onDoubleClick={() => setIsEditing(true)}>
      <td className={`px-2 py-4 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 z-10 ${getRowBackgroundColor() || 'bg-white'}`} style={{ width: '60px' }}>
        <div className="truncate" title={ticker.ticker}>
          {ticker.ticker}
@@ -6381,15 +6547,33 @@ const EarningsTrackingRow = ({ ticker, earningsData, onUpdateEarnings, formatDay
      <td className="px-2 py-4 whitespace-nowrap text-xs text-gray-500" style={{ width: '70px' }}>
        {formatCompactDate ? formatCompactDate(earningsData.callbackDate) : (earningsData.callbackDate || '-')}
      </td>
-     <td className="px-2 py-4 whitespace-nowrap text-sm" style={{ width: '80px' }}>
-       <button
-         onClick={() => setIsEditing(true)}
-         className="text-blue-600 hover:text-blue-900 text-xs font-bold border border-blue-500 px-2 py-1 rounded"
-       >
-         🔧 Edit
-       </button>
+     <td className="px-2 py-4 whitespace-nowrap text-sm" style={{ width: '140px' }}>
+       <div className="flex space-x-1">
+         <button
+           onClick={() => setIsEditing(true)}
+           className="text-blue-600 hover:text-blue-900 text-xs font-bold border border-blue-500 px-1 py-1 rounded"
+           title="Edit earnings data"
+         >
+           🔧
+         </button>
+         <button
+           onClick={composeQPCallEmail}
+           className="text-green-600 hover:text-green-900 text-xs font-bold border border-green-500 px-1 py-1 rounded bg-green-50 hover:bg-green-100"
+           title="Schedule QP Call"
+         >
+           QP
+         </button>
+         <button
+           onClick={composeCallbackEmail}
+           className="text-orange-600 hover:text-orange-900 text-xs font-bold border border-orange-500 px-1 py-1 rounded bg-orange-50 hover:bg-orange-100"
+           title="Schedule Callback"
+         >
+           CB
+         </button>
+       </div>
      </td>
    </tr>
+   </>
  );
 };
 
