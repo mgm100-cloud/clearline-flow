@@ -3991,7 +3991,7 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
     }
   };
 
-  const formatBoolean = (value) => value ? '✓' : '';
+  const formatBoolean = (value) => value ? '✓' : '☐';
   
   const formatDate = (dateString) => {
     if (!dateString) return '-';
