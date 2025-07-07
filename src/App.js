@@ -3924,6 +3924,8 @@ const DatabaseDetailedPage = ({ tickers, onSort, sortField, sortDirection, onUpd
 const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors, formatMarketCap, formatVolumeDollars }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState(ticker);
+  const [editingField, setEditingField] = useState(null);
+  const [editValue, setEditValue] = useState('');
 
   // Helper function to format price targets to 2 decimal places
   const formatPriceTarget = (value) => {
@@ -3941,6 +3943,52 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
   const handleCancel = () => {
     setEditData(ticker);
     setIsEditing(false);
+  };
+
+  const handleDoubleClick = (field, currentValue) => {
+    if (!onUpdate) return; // Only allow editing if onUpdate is provided
+    
+    // Handle boolean fields - toggle directly
+    if (typeof currentValue === 'boolean') {
+      handleToggleBoolean(field, currentValue);
+      return;
+    }
+    
+    setEditingField(field);
+    setEditValue(currentValue);
+  };
+
+  const handleToggleBoolean = async (field, currentValue) => {
+    try {
+      await onUpdate(ticker.id, { [field]: !currentValue });
+    } catch (error) {
+      console.error('Error toggling boolean field:', error);
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (editingField && editValue !== ticker[editingField]) {
+      try {
+        await onUpdate(ticker.id, { [editingField]: editValue });
+      } catch (error) {
+        console.error('Error updating ticker:', error);
+      }
+    }
+    setEditingField(null);
+    setEditValue('');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingField(null);
+    setEditValue('');
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleSaveEdit();
+    } else if (e.key === 'Escape') {
+      handleCancelEdit();
+    }
   };
 
   const formatBoolean = (value) => value ? '✓' : '';
@@ -4081,12 +4129,15 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
           />
         </td>
         <td className="px-3 py-4 whitespace-nowrap">
-          <input
-            type="text"
+          <select
             value={editData.valueOrGrowth || ''}
             onChange={(e) => setEditData({...editData, valueOrGrowth: e.target.value})}
             className="text-xs border border-gray-300 rounded px-1 py-1 w-20"
-          />
+          >
+            <option value="">-</option>
+            <option value="Value">Value</option>
+            <option value="Growth">Growth</option>
+          </select>
         </td>
         {/* M&A Characteristics */}
         <td className="px-3 py-4 whitespace-nowrap text-center">
@@ -4392,40 +4443,139 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
         {formatDate(ticker.pokeDate)}
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
-        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-          ticker.lsPosition === 'Long' 
-            ? 'bg-green-100 text-green-800' 
-            : 'bg-red-100 text-red-800'
-        }`}>
-          {ticker.lsPosition}
-        </span>
+        {editingField === 'lsPosition' ? (
+          <select
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onBlur={handleSaveEdit}
+            onKeyDown={handleKeyPress}
+            autoFocus
+            className="border border-blue-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="Long">Long</option>
+            <option value="Short">Short</option>
+          </select>
+        ) : (
+          <span 
+            className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full cursor-pointer ${onUpdate ? 'hover:ring-2 hover:ring-blue-300' : ''} ${
+              ticker.lsPosition === 'Long' 
+                ? 'bg-green-100 text-green-800' 
+                : 'bg-red-100 text-red-800'
+            }`}
+            title={onUpdate ? 'Double-click to edit' : ''}
+            onDoubleClick={() => handleDoubleClick('lsPosition', ticker.lsPosition || 'Long')}
+          >
+            {ticker.lsPosition}
+          </span>
+        )}
       </td>
       <td className="px-6 py-4 whitespace-nowrap w-12">
-        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-          ticker.priority === 'A' ? 'bg-red-100 text-red-800' :
-          ticker.priority === 'B' ? 'bg-yellow-100 text-yellow-800' :
-          ticker.priority === 'C' ? 'bg-blue-100 text-blue-800' :
-          'bg-gray-100 text-gray-800'
-        }`}>
-          {ticker.priority}
-        </span>
+        {editingField === 'priority' ? (
+          <select
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onBlur={handleSaveEdit}
+            onKeyDown={handleKeyPress}
+            autoFocus
+            className="border border-blue-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="A">A</option>
+            <option value="B">B</option>
+            <option value="C">C</option>
+            <option value="F">F</option>
+          </select>
+        ) : (
+          <span 
+            className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full cursor-pointer ${onUpdate ? 'hover:ring-2 hover:ring-blue-300' : ''} ${
+              ticker.priority === 'A' ? 'bg-red-100 text-red-800' :
+              ticker.priority === 'B' ? 'bg-yellow-100 text-yellow-800' :
+              ticker.priority === 'C' ? 'bg-blue-100 text-blue-800' :
+              'bg-gray-100 text-gray-800'
+            }`}
+            title={onUpdate ? 'Double-click to edit' : ''}
+            onDoubleClick={() => handleDoubleClick('priority', ticker.priority || 'A')}
+          >
+            {ticker.priority}
+          </span>
+        )}
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
-        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-          ticker.status === 'Portfolio' ? 'bg-green-100 text-green-800' :
-          ticker.status === 'Current' ? 'bg-blue-100 text-blue-800' :
-          ticker.status === 'New' ? 'bg-purple-100 text-purple-800' :
-          ticker.status === 'On-Deck' ? 'bg-yellow-100 text-yellow-800' :
-          'bg-gray-100 text-gray-800'
-        }`}>
-          {ticker.status}
-        </span>
+        {editingField === 'status' ? (
+          <select
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onBlur={handleSaveEdit}
+            onKeyDown={handleKeyPress}
+            autoFocus
+            className="border border-blue-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="New">New</option>
+            <option value="Portfolio">Portfolio</option>
+            <option value="Current">Current</option>
+            <option value="On-Deck">On-Deck</option>
+            <option value="Old">Old</option>
+          </select>
+        ) : (
+          <span 
+            className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full cursor-pointer ${onUpdate ? 'hover:ring-2 hover:ring-blue-300' : ''} ${
+              ticker.status === 'Portfolio' ? 'bg-green-100 text-green-800' :
+              ticker.status === 'Current' ? 'bg-blue-100 text-blue-800' :
+              ticker.status === 'New' ? 'bg-purple-100 text-purple-800' :
+              ticker.status === 'On-Deck' ? 'bg-yellow-100 text-yellow-800' :
+              'bg-gray-100 text-gray-800'
+            }`}
+            title={onUpdate ? 'Double-click to edit' : ''}
+            onDoubleClick={() => handleDoubleClick('status', ticker.status || 'New')}
+          >
+            {ticker.status}
+          </span>
+        )}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-        {ticker.analyst}
+        {editingField === 'analyst' ? (
+          <select
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onBlur={handleSaveEdit}
+            onKeyDown={handleKeyPress}
+            autoFocus
+            className="border border-blue-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">-</option>
+            {analysts.map(analyst => (
+              <option key={analyst} value={analyst}>{analyst}</option>
+            ))}
+          </select>
+        ) : (
+          <div 
+            className={`cursor-pointer hover:bg-gray-50 p-1 rounded ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+            title={onUpdate ? 'Double-click to edit' : ''}
+            onDoubleClick={() => handleDoubleClick('analyst', ticker.analyst || '')}
+          >
+            {ticker.analyst}
+          </div>
+        )}
       </td>
-      <td className="px-6 py-4 text-sm text-gray-500 truncate" style={{ width: '240px', minWidth: '240px', maxWidth: '240px' }} title={ticker.source || ''}>
-        {ticker.source || '-'}
+      <td className="px-6 py-4 text-sm text-gray-500 truncate" style={{ width: '240px', minWidth: '240px', maxWidth: '240px' }}>
+        {editingField === 'source' ? (
+          <input
+            type="text"
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onBlur={handleSaveEdit}
+            onKeyDown={handleKeyPress}
+            autoFocus
+            className="w-full border border-blue-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        ) : (
+          <div 
+            className={`cursor-pointer hover:bg-gray-50 p-1 rounded truncate ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+            title={onUpdate ? `${ticker.source || '-'} (Double-click to edit)` : ticker.source || ''}
+            onDoubleClick={() => handleDoubleClick('source', ticker.source || '')}
+          >
+            {ticker.source || '-'}
+          </div>
+        )}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
         {ticker.inputPrice ? `$${parseFloat(ticker.inputPrice).toFixed(2)}` : '-'}
@@ -4475,30 +4625,144 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
       </td>
       {/* Price Targets */}
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-        {ticker.ptBear ? formatPriceTarget(ticker.ptBear) : '-'}
+        {editingField === 'ptBear' ? (
+          <input
+            type="number"
+            step="0.01"
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onBlur={handleSaveEdit}
+            onKeyDown={handleKeyPress}
+            autoFocus
+            className="w-16 border border-blue-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        ) : (
+          <div 
+            className={`cursor-pointer hover:bg-gray-50 p-1 rounded ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+            title={onUpdate ? 'Double-click to edit' : ''}
+            onDoubleClick={() => handleDoubleClick('ptBear', ticker.ptBear || '')}
+          >
+            {ticker.ptBear ? formatPriceTarget(ticker.ptBear) : '-'}
+          </div>
+        )}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-        {ticker.ptBase ? formatPriceTarget(ticker.ptBase) : '-'}
+        {editingField === 'ptBase' ? (
+          <input
+            type="number"
+            step="0.01"
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onBlur={handleSaveEdit}
+            onKeyDown={handleKeyPress}
+            autoFocus
+            className="w-16 border border-blue-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        ) : (
+          <div 
+            className={`cursor-pointer hover:bg-gray-50 p-1 rounded ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+            title={onUpdate ? 'Double-click to edit' : ''}
+            onDoubleClick={() => handleDoubleClick('ptBase', ticker.ptBase || '')}
+          >
+            {ticker.ptBase ? formatPriceTarget(ticker.ptBase) : '-'}
+          </div>
+        )}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-        {ticker.ptBull ? formatPriceTarget(ticker.ptBull) : '-'}
+        {editingField === 'ptBull' ? (
+          <input
+            type="number"
+            step="0.01"
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onBlur={handleSaveEdit}
+            onKeyDown={handleKeyPress}
+            autoFocus
+            className="w-16 border border-blue-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        ) : (
+          <div 
+            className={`cursor-pointer hover:bg-gray-50 p-1 rounded ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+            title={onUpdate ? 'Double-click to edit' : ''}
+            onDoubleClick={() => handleDoubleClick('ptBull', ticker.ptBull || '')}
+          >
+            {ticker.ptBull ? formatPriceTarget(ticker.ptBull) : '-'}
+          </div>
+        )}
       </td>
       {/* Additional Info */}
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-        {formatDate(ticker.catalystDate)}
+        {editingField === 'catalystDate' ? (
+          <input
+            type="date"
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onBlur={handleSaveEdit}
+            onKeyDown={handleKeyPress}
+            autoFocus
+            className="border border-blue-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        ) : (
+          <div 
+            className={`cursor-pointer hover:bg-gray-50 p-1 rounded ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+            title={onUpdate ? 'Double-click to edit' : ''}
+            onDoubleClick={() => handleDoubleClick('catalystDate', ticker.catalystDate || '')}
+          >
+            {formatDate(ticker.catalystDate)}
+          </div>
+        )}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-        {ticker.valueOrGrowth || '-'}
+        {editingField === 'valueOrGrowth' ? (
+          <select
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onBlur={handleSaveEdit}
+            onKeyDown={handleKeyPress}
+            autoFocus
+            className="border border-blue-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">-</option>
+            <option value="Value">Value</option>
+            <option value="Growth">Growth</option>
+          </select>
+        ) : (
+          <div 
+            className={`cursor-pointer hover:bg-gray-50 p-1 rounded ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+            title={onUpdate ? 'Double-click to edit' : ''}
+            onDoubleClick={() => handleDoubleClick('valueOrGrowth', ticker.valueOrGrowth || '')}
+          >
+            {ticker.valueOrGrowth || '-'}
+          </div>
+        )}
       </td>
       {/* M&A Characteristics */}
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-        {formatBoolean(ticker.maTargetBuyer)}
+        <div 
+          className={`cursor-pointer hover:bg-gray-50 p-1 rounded ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+          title={onUpdate ? 'Double-click to toggle' : ''}
+          onDoubleClick={() => handleDoubleClick('maTargetBuyer', ticker.maTargetBuyer)}
+        >
+          {formatBoolean(ticker.maTargetBuyer)}
+        </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-        {formatBoolean(ticker.maTargetValuation)}
+        <div 
+          className={`cursor-pointer hover:bg-gray-50 p-1 rounded ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+          title={onUpdate ? 'Double-click to toggle' : ''}
+          onDoubleClick={() => handleDoubleClick('maTargetValuation', ticker.maTargetValuation)}
+        >
+          {formatBoolean(ticker.maTargetValuation)}
+        </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-        {formatBoolean(ticker.maTargetSeller)}
+        <div 
+          className={`cursor-pointer hover:bg-gray-50 p-1 rounded ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+          title={onUpdate ? 'Double-click to toggle' : ''}
+          onDoubleClick={() => handleDoubleClick('maTargetSeller', ticker.maTargetSeller)}
+        >
+          {formatBoolean(ticker.maTargetSeller)}
+        </div>
       </td>
       {/* Other Investment Characteristics */}
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
@@ -4583,10 +4847,26 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
          {formatBoolean(ticker.trumpLoser)}
        </td>
        {/* Thesis */}
-       <td className="px-6 py-4 text-sm text-gray-500" style={{ width: '450px', minWidth: '450px', maxWidth: '450px' }} title={ticker.thesis || ''}>
-         <div className="break-words whitespace-normal">
-           {ticker.thesis || '-'}
-         </div>
+       <td className="px-6 py-4 text-sm text-gray-500" style={{ width: '450px', minWidth: '450px', maxWidth: '450px' }}>
+         {editingField === 'thesis' ? (
+           <textarea
+             value={editValue}
+             onChange={(e) => setEditValue(e.target.value)}
+             onBlur={handleSaveEdit}
+             onKeyDown={handleKeyPress}
+             autoFocus
+             className="w-full border border-blue-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+             rows="3"
+           />
+         ) : (
+           <div 
+             className={`cursor-pointer hover:bg-gray-50 p-1 rounded break-words whitespace-normal ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+             title={onUpdate ? `${ticker.thesis || '-'} (Double-click to edit)` : ticker.thesis || ''}
+             onDoubleClick={() => handleDoubleClick('thesis', ticker.thesis || '')}
+           >
+             {ticker.thesis || '-'}
+           </div>
+         )}
        </td>
       {onUpdate && (
         <td className="px-6 py-4 whitespace-nowrap text-sm">
