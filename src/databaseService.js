@@ -485,6 +485,27 @@ export const DatabaseService = {
     }
   },
 
+  // Get current user's analyst code from user_profiles table
+  async getCurrentUserAnalystCode() {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('No authenticated user');
+      
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('analyst_code')
+        .eq('id', user.id)
+        .single();
+      
+      if (error) throw error;
+      
+      return data?.analyst_code || '';
+    } catch (error) {
+      console.error('Error fetching current user analyst code:', error);
+      return '';
+    }
+  },
+
   // Get analysts list - use database function to bypass RLS and get all analyst codes
   async getAnalysts() {
     try {

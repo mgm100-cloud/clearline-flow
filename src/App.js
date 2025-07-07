@@ -2315,7 +2315,24 @@ const ClearlineFlow = () => {
 
   const handleTabSwitch = async (tab) => {
     setActiveTab(tab);
-    setSelectedTodoAnalyst(null);
+    
+    // Set default analyst filter based on the tab and current user
+    if (tab === 'todos') {
+      try {
+        const userAnalystCode = await DatabaseService.getCurrentUserAnalystCode();
+        // Check if user's analyst code exists in the dropdown, otherwise default to "All Analysts"
+        if (userAnalystCode && analysts.includes(userAnalystCode)) {
+          setSelectedTodoAnalyst(userAnalystCode);
+        } else {
+          setSelectedTodoAnalyst(''); // "All Analysts"
+        }
+      } catch (error) {
+        console.error('Error getting user analyst code:', error);
+        setSelectedTodoAnalyst(''); // Default to "All Analysts" on error
+      }
+    } else {
+      setSelectedTodoAnalyst(null);
+    }
     
     // Refresh data based on the selected tab
     try {
@@ -2332,7 +2349,7 @@ const ClearlineFlow = () => {
             refreshAnalysts()
           ]);
           break;
-        case 'todoList':
+        case 'todos':
           // Only refresh analysts, let TodoList component handle its own refresh
           await refreshAnalysts();
           break;
