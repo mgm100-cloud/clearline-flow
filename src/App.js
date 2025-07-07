@@ -1081,7 +1081,6 @@ const ClearlineFlow = () => {
   
   // Earnings tracking state
   const [earningsData, setEarningsData] = useState([]);
-  const [selectedCYQ, setSelectedCYQ] = useState('2025Q2');
   const [selectedEarningsAnalyst, setSelectedEarningsAnalyst] = useState('');
   
   // Todo state
@@ -1774,7 +1773,7 @@ const ClearlineFlow = () => {
   };
 
   // Refresh earnings dates from TwelveData
-  const refreshEarningsDates = async (tickersToRefresh, targetCYQ) => {
+  const refreshEarningsDates = async (tickersToRefresh) => {
     if (!tickersToRefresh || tickersToRefresh.length === 0) return { success: 0, errors: {} };
 
     const symbols = tickersToRefresh.map(ticker => ticker.ticker.replace(' US', ''));
@@ -2646,8 +2645,6 @@ const ClearlineFlow = () => {
         {activeTab === 'earnings' && (
           <EarningsTrackingPage 
             tickers={tickers}
-            selectedCYQ={selectedCYQ}
-            onSelectCYQ={setSelectedCYQ}
             selectedEarningsAnalyst={selectedEarningsAnalyst}
             onSelectEarningsAnalyst={setSelectedEarningsAnalyst}
             earningsData={earningsData}
@@ -5710,10 +5707,11 @@ const TeamOutputPage = ({ tickers, analysts }) => {
 };
 
 // Earnings Tracking Page Component
-const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarningsAnalyst, onSelectEarningsAnalyst, earningsData, onUpdateEarnings, getEarningsData, onRefreshEarnings, onRefreshEarningsData, analysts, quotes = {}, onUpdateQuote, isLoadingQuotes = false, quoteErrors = {}, formatTradeLevel, formatCompactDate }) => {
+const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarningsAnalyst, earningsData, onUpdateEarnings, getEarningsData, onRefreshEarnings, onRefreshEarningsData, analysts, quotes = {}, onUpdateQuote, isLoadingQuotes = false, quoteErrors = {}, formatTradeLevel, formatCompactDate }) => {
   // State for sorting and filtering
   const [sortField, setSortField] = useState('days');
   const [sortDirection, setSortDirection] = useState('asc');
+  const [daysRange, setDaysRange] = useState({ min: -10, max: 90 });
   const [hideOldEarnings, setHideOldEarnings] = useState(false);
 
   // Filter tickers to only show Portfolio status
@@ -5722,15 +5720,6 @@ const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarni
   // Apply analyst filter if selected and not "All Analysts"
   if (selectedEarningsAnalyst && selectedEarningsAnalyst !== 'All Analysts') {
     portfolioTickers = portfolioTickers.filter(ticker => ticker.analyst === selectedEarningsAnalyst);
-  }
-  
-  // Generate CYQ options (current year and next year, all quarters)
-  const currentYear = new Date().getFullYear();
-  const cyqOptions = [];
-  for (let year of [currentYear - 1, currentYear, currentYear + 1]) {
-    for (let quarter of ['Q1', 'Q2', 'Q3', 'Q4']) {
-      cyqOptions.push(`${year}${quarter}`);
-    }
   }
 
   // Calculate days until earnings
@@ -5751,26 +5740,72 @@ const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarni
     return days;
   };
 
-  // Filter out old earnings events if toggle is enabled
-  const filteredTickers = hideOldEarnings 
-    ? portfolioTickers.filter(ticker => {
-        const earningsData = getEarningsData(ticker.ticker, selectedCYQ);
-        const days = calculateDaysUntilEarnings(earningsData.earningsDate);
-        return days === 999999 || days >= -7; // Show if no date or within last 7 days
-      })
-    : portfolioTickers;
+  // Filter by days range and earnings availability
+  const filteredTickers = portfolioTickers.filter(ticker => {
+    // Get all earnings data for this ticker to find the best match
+    let allEarningsData = [];
+    const currentYear = new Date().getFullYear();
+    
+    // Check CYQs from previous year to next year
+    for (let year of [currentYear - 1, currentYear, currentYear + 1]) {
+      for (let quarter of ['Q1', 'Q2', 'Q3', 'Q4']) {
+        const cyq = `${year}${quarter}`;
+        const earningsData = getEarningsData(ticker.ticker, cyq);
+        if (earningsData.earningsDate) {
+          const days = calculateDaysUntilEarnings(earningsData.earningsDate);
+          if (days !== 999999) {
+            allEarningsData.push({ ...earningsData, cyq, days });
+          }
+        }
+      }
+    }
+    
+    // If hideOldEarnings is enabled, apply the old filter
+    if (hideOldEarnings) {
+      allEarningsData = allEarningsData.filter(data => data.days >= -7);
+    }
+    
+    // Filter by days range - show if any earnings date falls within range
+    return allEarningsData.some(data => data.days >= daysRange.min && data.days <= daysRange.max);
+  });
+
+  // Add the best earnings data to each ticker for display
+  const tickersWithEarnings = filteredTickers.map(ticker => {
+    const allEarningsData = [];
+    const currentYear = new Date().getFullYear();
+    
+    // Collect all earnings data for this ticker
+    for (let year of [currentYear - 1, currentYear, currentYear + 1]) {
+      for (let quarter of ['Q1', 'Q2', 'Q3', 'Q4']) {
+        const cyq = `${year}${quarter}`;
+        const earningsData = getEarningsData(ticker.ticker, cyq);
+        if (earningsData.earningsDate) {
+          const days = calculateDaysUntilEarnings(earningsData.earningsDate);
+          if (days !== 999999 && days >= daysRange.min && days <= daysRange.max) {
+            allEarningsData.push({ ...earningsData, cyq, days });
+          }
+        }
+      }
+    }
+    
+    // Sort by days and take the earliest one within range
+    allEarningsData.sort((a, b) => a.days - b.days);
+    const bestEarnings = allEarningsData[0] || { cyq: '', days: 999999 };
+    
+    return { ...ticker, bestEarnings };
+  });
 
   // Sort tickers based on selected field and direction
-  const sortedTickers = [...filteredTickers].sort((a, b) => {
-    const aEarningsData = getEarningsData(a.ticker, selectedCYQ);
-    const bEarningsData = getEarningsData(b.ticker, selectedCYQ);
+  const sortedTickers = [...tickersWithEarnings].sort((a, b) => {
+    const aEarningsData = a.bestEarnings;
+    const bEarningsData = b.bestEarnings;
     
     let aValue, bValue;
     
     switch (sortField) {
       case 'days':
-        aValue = calculateDaysUntilEarnings(aEarningsData.earningsDate);
-        bValue = calculateDaysUntilEarnings(bEarningsData.earningsDate);
+        aValue = aEarningsData.days !== undefined ? aEarningsData.days : 999999;
+        bValue = bEarningsData.days !== undefined ? bEarningsData.days : 999999;
         break;
       case 'earningsDate':
         aValue = aEarningsData.earningsDate ? new Date(aEarningsData.earningsDate).getTime() : 0;
@@ -5781,8 +5816,8 @@ const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarni
         bValue = b.ticker;
         break;
       default:
-        aValue = calculateDaysUntilEarnings(aEarningsData.earningsDate);
-        bValue = calculateDaysUntilEarnings(bEarningsData.earningsDate);
+        aValue = aEarningsData.days !== undefined ? aEarningsData.days : 999999;
+        bValue = bEarningsData.days !== undefined ? bEarningsData.days : 999999;
     }
     
     if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
@@ -5864,7 +5899,7 @@ const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarni
     setRefreshMessage('Fetching earnings dates from TwelveData...');
 
     try {
-      const result = await onRefreshEarnings(sortedTickers, selectedCYQ);
+      const result = await onRefreshEarnings(sortedTickers);
       
       if (result.success > 0) {
         // Create a summary of CYQ updates
@@ -5919,8 +5954,8 @@ const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarni
       // Add title
       doc.setFontSize(18);
       const title = selectedEarningsAnalyst 
-        ? `Clearline Flow - Earnings Tracking: ${selectedEarningsAnalyst} (${selectedCYQ})`
-        : `Clearline Flow - Earnings Tracking: All Analysts (${selectedCYQ})`;
+        ? `Clearline Flow - Earnings Tracking: ${selectedEarningsAnalyst} (${daysRange.min} to ${daysRange.max} days)`
+        : `Clearline Flow - Earnings Tracking: All Analysts (${daysRange.min} to ${daysRange.max} days)`;
       doc.text(title, 14, 22);
       
       // Add timestamp
@@ -5931,13 +5966,13 @@ const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarni
       const tableData = [];
       
       sortedTickers.forEach(ticker => {
-        const currentEarningsData = getEarningsData(ticker.ticker, selectedCYQ);
+        const currentEarningsData = ticker.bestEarnings;
         
         const row = [
           ticker.ticker || '-',
           ticker.analyst || '-',
-          selectedCYQ || '-',
-          formatDaysUntilEarnings(currentEarningsData.earningsDate) || '-',
+          currentEarningsData.cyq || '-',
+          currentEarningsData.days !== 999999 ? currentEarningsData.days.toString() : '-',
           currentEarningsData.earningsDate || '-',
           currentEarningsData.tradeRec || '-',
           formatTradeLevel ? formatTradeLevel(currentEarningsData.tradeLevel) || '-' : currentEarningsData.tradeLevel || '-',
@@ -5980,7 +6015,7 @@ const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarni
       
       // Save the PDF
       const analystSuffix = selectedEarningsAnalyst ? `-${selectedEarningsAnalyst.replace(/\s+/g, '-').toLowerCase()}` : '-all-analysts';
-      const fileName = `earnings-tracking${analystSuffix}-${selectedCYQ}-${new Date().toISOString().split('T')[0]}.pdf`;
+      const fileName = `earnings-tracking${analystSuffix}-${daysRange.min}to${daysRange.max}days-${new Date().toISOString().split('T')[0]}.pdf`;
       console.log('Saving Earnings Tracking PDF as:', fileName);
       doc.save(fileName);
       console.log('Earnings Tracking PDF export completed successfully');
@@ -6019,16 +6054,24 @@ const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarni
               </select>
             </div>
             <div className="flex items-center space-x-2">
-              <label className="text-sm font-medium text-gray-700">CYQ:</label>
-              <select
-                value={selectedCYQ}
-                onChange={(e) => onSelectCYQ(e.target.value)}
-                className="border border-gray-300 rounded-md px-3 py-1 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              >
-                {cyqOptions.map(cyq => (
-                  <option key={cyq} value={cyq}>{cyq}</option>
-                ))}
-              </select>
+              <label className="text-sm font-medium text-gray-700">Days:</label>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="number"
+                  value={daysRange.min}
+                  onChange={(e) => setDaysRange(prev => ({ ...prev, min: parseInt(e.target.value) || -10 }))}
+                  className="border border-gray-300 rounded-md px-2 py-1 w-16 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  placeholder="-10"
+                />
+                <span className="text-gray-500">to</span>
+                <input
+                  type="number"
+                  value={daysRange.max}
+                  onChange={(e) => setDaysRange(prev => ({ ...prev, max: parseInt(e.target.value) || 90 }))}
+                  className="border border-gray-300 rounded-md px-2 py-1 w-16 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  placeholder="90"
+                />
+              </div>
             </div>
             <div className="flex items-center space-x-2">
               <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
@@ -6099,10 +6142,10 @@ const EarningsTrackingPage = ({ tickers, selectedCYQ, onSelectCYQ, selectedEarni
             <tbody className="bg-white divide-y divide-gray-200">
               {sortedTickers.map((ticker) => (
                 <EarningsTrackingRow 
-                  key={`${ticker.ticker}-${selectedCYQ}`}
+                  key={`${ticker.ticker}-${ticker.bestEarnings.cyq || 'no-cyq'}`}
                   ticker={ticker}
-                  cyq={selectedCYQ}
-                  earningsData={getEarningsData(ticker.ticker, selectedCYQ)}
+                  cyq={ticker.bestEarnings.cyq || ''}
+                  earningsData={ticker.bestEarnings}
                   onUpdateEarnings={onUpdateEarnings}
                   formatDaysUntilEarnings={formatDaysUntilEarnings}
                   formatTradeLevel={formatTradeLevel}
@@ -6144,9 +6187,23 @@ const EarningsTrackingRow = ({ ticker, cyq, earningsData, onUpdateEarnings, form
    tradeLevel: earningsData.tradeLevel || ''
  });
 
- const handleSave = () => {
-   onUpdateEarnings(ticker.ticker, cyq, editData);
-   setIsEditing(false);
+ const handleSave = async () => {
+   try {
+     console.log('Saving earnings data:', { ticker: ticker.ticker, cyq, editData });
+     await onUpdateEarnings(ticker.ticker, cyq, editData);
+     setIsEditing(false);
+   } catch (error) {
+     console.error('Error updating earnings data:', error);
+     console.error('Error details:', { 
+       message: error.message, 
+       name: error.name,
+       stack: error.stack,
+       ticker: ticker.ticker,
+       cyq,
+       editData 
+     });
+     alert(`Error updating earnings data: ${error.message || 'Unknown error occurred'}`);
+   }
  };
 
  const handleCancel = () => {

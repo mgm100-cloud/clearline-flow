@@ -49,7 +49,13 @@ const toSnakeCase = (str) => {
     'cyq1Date': 'cyq1_date',
     'cyq2Date': 'cyq2_date',
     'cyq3Date': 'cyq3_date',
-    'cyq4Date': 'cyq4_date'
+    'cyq4Date': 'cyq4_date',
+    'tradeRec': 'trade_rec',
+    'tradeLevel': 'trade_level',
+    'earningsDate': 'earnings_date',
+    'qpCallDate': 'qp_call_date',
+    'previewDate': 'preview_date',
+    'callbackDate': 'callback_date'
   };
   
   if (specialCases[str]) {
@@ -108,7 +114,13 @@ const toCamelCase = (str) => {
     'cyq1_date': 'cyq1Date',
     'cyq2_date': 'cyq2Date',
     'cyq3_date': 'cyq3Date',
-    'cyq4_date': 'cyq4Date'
+    'cyq4_date': 'cyq4Date',
+    'trade_rec': 'tradeRec',
+    'trade_level': 'tradeLevel',
+    'earnings_date': 'earningsDate',
+    'qp_call_date': 'qpCallDate',
+    'preview_date': 'previewDate',
+    'callback_date': 'callbackDate'
   };
   
   if (specialCases[str]) {
@@ -129,12 +141,12 @@ const cleanDataForDb = (obj) => {
       cleaned[key] = value === '' ? null : value;
     }
     // Convert empty strings to null for numeric fields
-    else if (['inputPrice', 'currentPrice', 'marketCap', 'adv3Month', 'ptBear', 'ptBase', 'ptBull',
-              'input_price', 'current_price', 'market_cap', 'adv_3_month', 'pt_bear', 'pt_base', 'pt_bull'].includes(key)) {
+    else if (['inputPrice', 'currentPrice', 'marketCap', 'adv3Month', 'ptBear', 'ptBase', 'ptBull', 'tradeLevel',
+              'input_price', 'current_price', 'market_cap', 'adv_3_month', 'pt_bear', 'pt_base', 'pt_bull', 'trade_level'].includes(key)) {
       cleaned[key] = value === '' ? null : value;
     }
     // Convert empty strings to null for other optional fields
-    else if (['source', 'valueOrGrowth', 'value_or_growth'].includes(key)) {
+    else if (['source', 'valueOrGrowth', 'value_or_growth', 'tradeRec', 'trade_rec'].includes(key)) {
       cleaned[key] = value === '' ? null : value;
     }
     else {
