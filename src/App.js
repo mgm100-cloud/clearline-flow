@@ -2706,6 +2706,7 @@ const InputPage = ({ onAddTicker, analysts, currentUser }) => {
     rateExposure: false,
     strongDollar: false,
     extremeValuation: false,
+    crapco: false,
     // Theme
     aiWinner: false,
     aiLoser: false,
@@ -2842,6 +2843,7 @@ const InputPage = ({ onAddTicker, analysts, currentUser }) => {
         rateExposure: false,
         strongDollar: false,
         extremeValuation: false,
+        crapco: false,
         aiWinner: false,
         aiLoser: false,
         tariffWinner: false,
@@ -3185,7 +3187,8 @@ const InputPage = ({ onAddTicker, analysts, currentUser }) => {
                       { key: 'momo', label: 'Momentum' },
                       { key: 'rateExposure', label: 'Rate Exposure' },
                       { key: 'strongDollar', label: 'Strong Dollar Beneficiary' },
-                      { key: 'extremeValuation', label: 'Extreme Valuation' }
+                      { key: 'extremeValuation', label: 'Extreme Valuation' },
+                      { key: 'crapco', label: 'Crapco' }
                     ].map(({ key, label }) => (
                       <div key={key} className="flex items-center">
                         <input
@@ -3855,6 +3858,7 @@ const DatabaseDetailedPage = ({ tickers, onSort, sortField, sortDirection, onUpd
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rate Exposure</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Strong Dollar</th>
                                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Extreme Val</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Crapco</th>
                  
                  {/* Theme */}
                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">AI Winner</th>
@@ -4149,83 +4153,13 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
             className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
           />
         </td>
-        <td className="px-3 py-4 whitespace-nowrap text-center">
-          <input
-            type="checkbox"
-            checked={editData.fraudRisk || false}
-            onChange={(e) => setEditData({...editData, fraudRisk: e.target.checked})}
-            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-          />
-        </td>
-        <td className="px-3 py-4 whitespace-nowrap text-center">
-          <input
-            type="checkbox"
-            checked={editData.regulatoryRisk || false}
-            onChange={(e) => setEditData({...editData, regulatoryRisk: e.target.checked})}
-            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-          />
-        </td>
-        <td className="px-3 py-4 whitespace-nowrap text-center">
-          <input
-            type="checkbox"
-            checked={editData.cyclical || false}
-            onChange={(e) => setEditData({...editData, cyclical: e.target.checked})}
-            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-          />
-        </td>
-        <td className="px-3 py-4 whitespace-nowrap text-center">
-          <input
-            type="checkbox"
-            checked={editData.nonCyclical || false}
-            onChange={(e) => setEditData({...editData, nonCyclical: e.target.checked})}
-            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-          />
-        </td>
-        <td className="px-3 py-4 whitespace-nowrap text-center">
-          <input
-            type="checkbox"
-            checked={editData.highBeta || false}
-            onChange={(e) => setEditData({...editData, highBeta: e.target.checked})}
-            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-          />
-        </td>
-        <td className="px-3 py-4 whitespace-nowrap text-center">
-          <input
-            type="checkbox"
-            checked={editData.momo || false}
-            onChange={(e) => setEditData({...editData, momo: e.target.checked})}
-            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-          />
-        </td>
+
+        {/* Self-Help */}
         <td className="px-3 py-4 whitespace-nowrap text-center">
           <input
             type="checkbox"
             checked={editData.selfHelp || false}
             onChange={(e) => setEditData({...editData, selfHelp: e.target.checked})}
-            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-          />
-        </td>
-        <td className="px-3 py-4 whitespace-nowrap text-center">
-          <input
-            type="checkbox"
-            checked={editData.rateExposure || false}
-            onChange={(e) => setEditData({...editData, rateExposure: e.target.checked})}
-            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-          />
-        </td>
-        <td className="px-3 py-4 whitespace-nowrap text-center">
-          <input
-            type="checkbox"
-            checked={editData.strongDollar || false}
-            onChange={(e) => setEditData({...editData, strongDollar: e.target.checked})}
-            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-          />
-        </td>
-        <td className="px-3 py-4 whitespace-nowrap text-center">
-          <input
-            type="checkbox"
-            checked={editData.extremeValuation || false}
-            onChange={(e) => setEditData({...editData, extremeValuation: e.target.checked})}
             className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
           />
         </td>
@@ -4244,6 +4178,96 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
             type="checkbox"
             checked={editData.regulation || false}
             onChange={(e) => setEditData({...editData, regulation: e.target.checked})}
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          />
+        </td>
+        {/* Fraud Risk */}
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.fraudRisk || false}
+            onChange={(e) => setEditData({...editData, fraudRisk: e.target.checked})}
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          />
+        </td>
+        {/* Regulatory Risk */}
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.regulatoryRisk || false}
+            onChange={(e) => setEditData({...editData, regulatoryRisk: e.target.checked})}
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          />
+        </td>
+        {/* Cyclical */}
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.cyclical || false}
+            onChange={(e) => setEditData({...editData, cyclical: e.target.checked})}
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          />
+        </td>
+        {/* Non-Cyclical */}
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.nonCyclical || false}
+            onChange={(e) => setEditData({...editData, nonCyclical: e.target.checked})}
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          />
+        </td>
+        {/* High Beta */}
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.highBeta || false}
+            onChange={(e) => setEditData({...editData, highBeta: e.target.checked})}
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          />
+        </td>
+        {/* Momentum */}
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.momo || false}
+            onChange={(e) => setEditData({...editData, momo: e.target.checked})}
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          />
+        </td>
+        {/* Rate Exposure */}
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.rateExposure || false}
+            onChange={(e) => setEditData({...editData, rateExposure: e.target.checked})}
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          />
+        </td>
+        {/* Strong Dollar */}
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.strongDollar || false}
+            onChange={(e) => setEditData({...editData, strongDollar: e.target.checked})}
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          />
+        </td>
+        {/* Extreme Valuation */}
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.extremeValuation || false}
+            onChange={(e) => setEditData({...editData, extremeValuation: e.target.checked})}
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          />
+        </td>
+        {/* Crapco */}
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.crapco || false}
+            onChange={(e) => setEditData({...editData, crapco: e.target.checked})}
             className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
           />
         </td>
@@ -4518,6 +4542,9 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
       </td>
              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
          {formatBoolean(ticker.extremeValuation)}
+       </td>
+       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+         {formatBoolean(ticker.crapco)}
        </td>
        {/* Theme */}
        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
