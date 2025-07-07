@@ -4766,85 +4766,241 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
       </td>
       {/* Other Investment Characteristics */}
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-        {formatBoolean(ticker.bigMoveRevert)}
+        <div 
+          className={`cursor-pointer hover:bg-gray-50 p-1 rounded ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+          title={onUpdate ? 'Double-click to toggle' : ''}
+          onDoubleClick={() => handleDoubleClick('bigMoveRevert', ticker.bigMoveRevert)}
+        >
+          {formatBoolean(ticker.bigMoveRevert)}
+        </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-        {formatBoolean(ticker.activist)}
+        <div 
+          className={`cursor-pointer hover:bg-gray-50 p-1 rounded ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+          title={onUpdate ? 'Double-click to toggle' : ''}
+          onDoubleClick={() => handleDoubleClick('activist', ticker.activist)}
+        >
+          {formatBoolean(ticker.activist)}
+        </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-        {formatBoolean(ticker.activistPotential)}
+        <div 
+          className={`cursor-pointer hover:bg-gray-50 p-1 rounded ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+          title={onUpdate ? 'Double-click to toggle' : ''}
+          onDoubleClick={() => handleDoubleClick('activistPotential', ticker.activistPotential)}
+        >
+          {formatBoolean(ticker.activistPotential)}
+        </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-        {formatBoolean(ticker.insiderTradeSignal)}
+        <div 
+          className={`cursor-pointer hover:bg-gray-50 p-1 rounded ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+          title={onUpdate ? 'Double-click to toggle' : ''}
+          onDoubleClick={() => handleDoubleClick('insiderTradeSignal', ticker.insiderTradeSignal)}
+        >
+          {formatBoolean(ticker.insiderTradeSignal)}
+        </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-        {formatBoolean(ticker.newMgmt)}
+        <div 
+          className={`cursor-pointer hover:bg-gray-50 p-1 rounded ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+          title={onUpdate ? 'Double-click to toggle' : ''}
+          onDoubleClick={() => handleDoubleClick('newMgmt', ticker.newMgmt)}
+        >
+          {formatBoolean(ticker.newMgmt)}
+        </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-        {formatBoolean(ticker.spin)}
+        <div 
+          className={`cursor-pointer hover:bg-gray-50 p-1 rounded ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+          title={onUpdate ? 'Double-click to toggle' : ''}
+          onDoubleClick={() => handleDoubleClick('spin', ticker.spin)}
+        >
+          {formatBoolean(ticker.spin)}
+        </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-        {formatBoolean(ticker.bigAcq)}
+        <div 
+          className={`cursor-pointer hover:bg-gray-50 p-1 rounded ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+          title={onUpdate ? 'Double-click to toggle' : ''}
+          onDoubleClick={() => handleDoubleClick('bigAcq', ticker.bigAcq)}
+        >
+          {formatBoolean(ticker.bigAcq)}
+        </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-        {formatBoolean(ticker.selfHelp)}
+        <div 
+          className={`cursor-pointer hover:bg-gray-50 p-1 rounded ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+          title={onUpdate ? 'Double-click to toggle' : ''}
+          onDoubleClick={() => handleDoubleClick('selfHelp', ticker.selfHelp)}
+        >
+          {formatBoolean(ticker.selfHelp)}
+        </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-        {formatBoolean(ticker.productCycle)}
+        <div 
+          className={`cursor-pointer hover:bg-gray-50 p-1 rounded ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+          title={onUpdate ? 'Double-click to toggle' : ''}
+          onDoubleClick={() => handleDoubleClick('productCycle', ticker.productCycle)}
+        >
+          {formatBoolean(ticker.productCycle)}
+        </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-        {formatBoolean(ticker.regulation)}
+        <div 
+          className={`cursor-pointer hover:bg-gray-50 p-1 rounded ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+          title={onUpdate ? 'Double-click to toggle' : ''}
+          onDoubleClick={() => handleDoubleClick('regulation', ticker.regulation)}
+        >
+          {formatBoolean(ticker.regulation)}
+        </div>
       </td>
       {/* Risk Factors */}
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-        {formatBoolean(ticker.fraudRisk)}
+        <div 
+          className={`cursor-pointer hover:bg-gray-50 p-1 rounded ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+          title={onUpdate ? 'Double-click to toggle' : ''}
+          onDoubleClick={() => handleDoubleClick('fraudRisk', ticker.fraudRisk)}
+        >
+          {formatBoolean(ticker.fraudRisk)}
+        </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-        {formatBoolean(ticker.regulatoryRisk)}
+        <div 
+          className={`cursor-pointer hover:bg-gray-50 p-1 rounded ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+          title={onUpdate ? 'Double-click to toggle' : ''}
+          onDoubleClick={() => handleDoubleClick('regulatoryRisk', ticker.regulatoryRisk)}
+        >
+          {formatBoolean(ticker.regulatoryRisk)}
+        </div>
       </td>
       {/* Market Characteristics */}
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-        {formatBoolean(ticker.cyclical)}
+        <div 
+          className={`cursor-pointer hover:bg-gray-50 p-1 rounded ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+          title={onUpdate ? 'Double-click to toggle' : ''}
+          onDoubleClick={() => handleDoubleClick('cyclical', ticker.cyclical)}
+        >
+          {formatBoolean(ticker.cyclical)}
+        </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-        {formatBoolean(ticker.nonCyclical)}
+        <div 
+          className={`cursor-pointer hover:bg-gray-50 p-1 rounded ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+          title={onUpdate ? 'Double-click to toggle' : ''}
+          onDoubleClick={() => handleDoubleClick('nonCyclical', ticker.nonCyclical)}
+        >
+          {formatBoolean(ticker.nonCyclical)}
+        </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-        {formatBoolean(ticker.highBeta)}
+        <div 
+          className={`cursor-pointer hover:bg-gray-50 p-1 rounded ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+          title={onUpdate ? 'Double-click to toggle' : ''}
+          onDoubleClick={() => handleDoubleClick('highBeta', ticker.highBeta)}
+        >
+          {formatBoolean(ticker.highBeta)}
+        </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-        {formatBoolean(ticker.momo)}
+        <div 
+          className={`cursor-pointer hover:bg-gray-50 p-1 rounded ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+          title={onUpdate ? 'Double-click to toggle' : ''}
+          onDoubleClick={() => handleDoubleClick('momo', ticker.momo)}
+        >
+          {formatBoolean(ticker.momo)}
+        </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-        {formatBoolean(ticker.rateExposure)}
+        <div 
+          className={`cursor-pointer hover:bg-gray-50 p-1 rounded ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+          title={onUpdate ? 'Double-click to toggle' : ''}
+          onDoubleClick={() => handleDoubleClick('rateExposure', ticker.rateExposure)}
+        >
+          {formatBoolean(ticker.rateExposure)}
+        </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-        {formatBoolean(ticker.strongDollar)}
+        <div 
+          className={`cursor-pointer hover:bg-gray-50 p-1 rounded ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+          title={onUpdate ? 'Double-click to toggle' : ''}
+          onDoubleClick={() => handleDoubleClick('strongDollar', ticker.strongDollar)}
+        >
+          {formatBoolean(ticker.strongDollar)}
+        </div>
       </td>
-             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-         {formatBoolean(ticker.extremeValuation)}
-       </td>
-       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-         {formatBoolean(ticker.crapco)}
-       </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+        <div 
+          className={`cursor-pointer hover:bg-gray-50 p-1 rounded ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+          title={onUpdate ? 'Double-click to toggle' : ''}
+          onDoubleClick={() => handleDoubleClick('extremeValuation', ticker.extremeValuation)}
+        >
+          {formatBoolean(ticker.extremeValuation)}
+        </div>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+        <div 
+          className={`cursor-pointer hover:bg-gray-50 p-1 rounded ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+          title={onUpdate ? 'Double-click to toggle' : ''}
+          onDoubleClick={() => handleDoubleClick('crapco', ticker.crapco)}
+        >
+          {formatBoolean(ticker.crapco)}
+        </div>
+      </td>
        {/* Theme */}
        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-         {formatBoolean(ticker.aiWinner)}
+         <div 
+           className={`cursor-pointer hover:bg-gray-50 p-1 rounded ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+           title={onUpdate ? 'Double-click to toggle' : ''}
+           onDoubleClick={() => handleDoubleClick('aiWinner', ticker.aiWinner)}
+         >
+           {formatBoolean(ticker.aiWinner)}
+         </div>
        </td>
        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-         {formatBoolean(ticker.aiLoser)}
+         <div 
+           className={`cursor-pointer hover:bg-gray-50 p-1 rounded ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+           title={onUpdate ? 'Double-click to toggle' : ''}
+           onDoubleClick={() => handleDoubleClick('aiLoser', ticker.aiLoser)}
+         >
+           {formatBoolean(ticker.aiLoser)}
+         </div>
        </td>
        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-         {formatBoolean(ticker.tariffWinner)}
+         <div 
+           className={`cursor-pointer hover:bg-gray-50 p-1 rounded ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+           title={onUpdate ? 'Double-click to toggle' : ''}
+           onDoubleClick={() => handleDoubleClick('tariffWinner', ticker.tariffWinner)}
+         >
+           {formatBoolean(ticker.tariffWinner)}
+         </div>
        </td>
        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-         {formatBoolean(ticker.tariffLoser)}
+         <div 
+           className={`cursor-pointer hover:bg-gray-50 p-1 rounded ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+           title={onUpdate ? 'Double-click to toggle' : ''}
+           onDoubleClick={() => handleDoubleClick('tariffLoser', ticker.tariffLoser)}
+         >
+           {formatBoolean(ticker.tariffLoser)}
+         </div>
        </td>
        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-         {formatBoolean(ticker.trumpWinner)}
+         <div 
+           className={`cursor-pointer hover:bg-gray-50 p-1 rounded ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+           title={onUpdate ? 'Double-click to toggle' : ''}
+           onDoubleClick={() => handleDoubleClick('trumpWinner', ticker.trumpWinner)}
+         >
+           {formatBoolean(ticker.trumpWinner)}
+         </div>
        </td>
        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-         {formatBoolean(ticker.trumpLoser)}
+         <div 
+           className={`cursor-pointer hover:bg-gray-50 p-1 rounded ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+           title={onUpdate ? 'Double-click to toggle' : ''}
+           onDoubleClick={() => handleDoubleClick('trumpLoser', ticker.trumpLoser)}
+         >
+           {formatBoolean(ticker.trumpLoser)}
+         </div>
        </td>
        {/* Thesis */}
        <td className="px-6 py-4 text-sm text-gray-500" style={{ width: '450px', minWidth: '450px', maxWidth: '450px' }}>
