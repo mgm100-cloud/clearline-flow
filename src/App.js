@@ -5740,13 +5740,14 @@ const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarnin
     return days;
   };
 
-  // Filter by days range and earnings availability
-  const filteredTickers = portfolioTickers.filter(ticker => {
-    // Get all earnings data for this ticker to find the best match
+  // Process tickers to get all earnings within range
+  const allTickerEarnings = [];
+  
+  portfolioTickers.forEach(ticker => {
     let allEarningsData = [];
     const currentYear = new Date().getFullYear();
     
-    // Check CYQs from previous year to next year
+    // Collect all earnings data for this ticker across multiple years
     for (let year of [currentYear - 1, currentYear, currentYear + 1]) {
       for (let quarter of ['Q1', 'Q2', 'Q3', 'Q4']) {
         const cyq = `${year}${quarter}`;
@@ -5760,43 +5761,34 @@ const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarnin
       }
     }
     
-    // If hideOldEarnings is enabled, apply the old filter
+    // If hideOldEarnings is enabled, apply the old filter first
     if (hideOldEarnings) {
       allEarningsData = allEarningsData.filter(data => data.days >= -7);
     }
     
-    // Filter by days range - show if any earnings date falls within range
-    return allEarningsData.some(data => data.days >= daysRange.min && data.days <= daysRange.max);
+    // Filter by days range
+    const earningsInRange = allEarningsData.filter(data => 
+      data.days >= daysRange.min && data.days <= daysRange.max
+    );
+    
+    // Sort by days
+    earningsInRange.sort((a, b) => a.days - b.days);
+    
+    // Create a separate entry for each earnings date within range
+    earningsInRange.forEach(earningsData => {
+      allTickerEarnings.push({
+        ...ticker,
+        bestEarnings: earningsData,
+        earningsData: earningsData
+      });
+    });
   });
 
-  // Add the best earnings data to each ticker for display
-  const tickersWithEarnings = filteredTickers.map(ticker => {
-    const allEarningsData = [];
-    const currentYear = new Date().getFullYear();
-    
-    // Collect all earnings data for this ticker
-    for (let year of [currentYear - 1, currentYear, currentYear + 1]) {
-      for (let quarter of ['Q1', 'Q2', 'Q3', 'Q4']) {
-        const cyq = `${year}${quarter}`;
-        const earningsData = getEarningsData(ticker.ticker, cyq);
-        if (earningsData.earningsDate) {
-          const days = calculateDaysUntilEarnings(earningsData.earningsDate);
-          if (days !== 999999 && days >= daysRange.min && days <= daysRange.max) {
-            allEarningsData.push({ ...earningsData, cyq, days });
-          }
-        }
-      }
-    }
-    
-    // Sort by days and take the earliest one within range
-    allEarningsData.sort((a, b) => a.days - b.days);
-    const bestEarnings = allEarningsData[0] || { cyq: '', days: 999999 };
-    
-    return { ...ticker, bestEarnings };
-  });
+  // Use all ticker earnings as the filtered tickers
+  const filteredTickers = allTickerEarnings;
 
   // Sort tickers based on selected field and direction
-  const sortedTickers = [...tickersWithEarnings].sort((a, b) => {
+  const sortedTickers = [...filteredTickers].sort((a, b) => {
     const aEarningsData = a.bestEarnings;
     const bEarningsData = b.bestEarnings;
     
@@ -6128,7 +6120,6 @@ const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarnin
               <tr>
                 <SortableHeader field="ticker" style={{ width: '60px' }} className="sticky left-0 bg-gray-50 z-20">Ticker</SortableHeader>
                 <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '45px' }}>Who</th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '50px' }}>CYQ</th>
                 <SortableHeader field="days" style={{ width: '45px' }}>Days</SortableHeader>
                 <SortableHeader field="earningsDate" style={{ width: '70px' }}>Earnings</SortableHeader>
                 <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '60px' }}>Trade Rec</th>
@@ -6142,9 +6133,8 @@ const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarnin
             <tbody className="bg-white divide-y divide-gray-200">
               {sortedTickers.map((ticker) => (
                 <EarningsTrackingRow 
-                  key={`${ticker.ticker}-${ticker.bestEarnings.cyq || 'no-cyq'}`}
+                  key={`${ticker.ticker}-${ticker.bestEarnings.cyq || 'no-cyq'}-${ticker.bestEarnings.earningsDate || 'no-date'}`}
                   ticker={ticker}
-                  cyq={ticker.bestEarnings.cyq || ''}
                   earningsData={ticker.bestEarnings}
                   onUpdateEarnings={onUpdateEarnings}
                   formatDaysUntilEarnings={formatDaysUntilEarnings}
@@ -6176,7 +6166,7 @@ const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarnin
 };
 
 // Earnings Tracking Row Component
-const EarningsTrackingRow = ({ ticker, cyq, earningsData, onUpdateEarnings, formatDaysUntilEarnings, formatTradeLevel, formatCompactDate, quotes = {}, onUpdateQuote, isLoadingQuotes = false, quoteErrors = {} }) => {
+const EarningsTrackingRow = ({ ticker, earningsData, onUpdateEarnings, formatDaysUntilEarnings, formatTradeLevel, formatCompactDate, quotes = {}, onUpdateQuote, isLoadingQuotes = false, quoteErrors = {} }) => {
  const [isEditing, setIsEditing] = useState(false);
  const [editData, setEditData] = useState({
    earningsDate: earningsData.earningsDate || '',
@@ -6189,6 +6179,7 @@ const EarningsTrackingRow = ({ ticker, cyq, earningsData, onUpdateEarnings, form
 
  const handleSave = async () => {
    try {
+     const cyq = earningsData.cyq || '';
      console.log('Saving earnings data:', { ticker: ticker.ticker, cyq, editData });
      await onUpdateEarnings(ticker.ticker, cyq, editData);
      setIsEditing(false);
@@ -6199,7 +6190,7 @@ const EarningsTrackingRow = ({ ticker, cyq, earningsData, onUpdateEarnings, form
        name: error.name,
        stack: error.stack,
        ticker: ticker.ticker,
-       cyq,
+       cyq: earningsData.cyq,
        editData 
      });
      alert(`Error updating earnings data: ${error.message || 'Unknown error occurred'}`);
@@ -6257,9 +6248,6 @@ const EarningsTrackingRow = ({ ticker, cyq, earningsData, onUpdateEarnings, form
        </td>
        <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500" style={{ width: '45px' }}>
          {ticker.analyst || '-'}
-       </td>
-       <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500" style={{ width: '50px' }}>
-         {cyq}
        </td>
        <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500" style={{ width: '45px' }}>
          {daysUntilEarnings}
@@ -6352,9 +6340,6 @@ const EarningsTrackingRow = ({ ticker, cyq, earningsData, onUpdateEarnings, form
        <div className="truncate" title={ticker.analyst || '-'}>
          {ticker.analyst || '-'}
        </div>
-     </td>
-     <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500" style={{ width: '50px' }}>
-       {cyq}
      </td>
      <td className="px-2 py-4 whitespace-nowrap text-sm" style={{ width: '45px' }}>
        <span className={`${
