@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { TrendingUp, Eye, EyeOff, Mail, Lock, User, UserCheck } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, User, UserCheck } from 'lucide-react';
 import { AuthService } from '../services/authService';
 
 const LoginScreen = ({ onAuthSuccess, authError, isLoading }) => {
@@ -165,7 +165,7 @@ const LoginScreen = ({ onAuthSuccess, authError, isLoading }) => {
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
           <img 
-            src="http://clearlinecap.com/ClearLine_LOGO_288_300.jpg" 
+            src="/clearline-logo.jpg" 
             alt="ClearLine Logo" 
             className="h-12 w-auto"
           />

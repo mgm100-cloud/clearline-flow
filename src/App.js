@@ -2370,7 +2370,7 @@ const ClearlineFlow = () => {
       <div className="min-h-screen bg-gray-50 flex flex-col justify-center items-center">
         <div className="flex justify-center mb-4">
           <img 
-            src="http://clearlinecap.com/ClearLine_LOGO_288_300.jpg" 
+            src="/clearline-logo.jpg" 
             alt="ClearLine Logo" 
             className="h-12 w-auto"
           />
@@ -2400,7 +2400,7 @@ const ClearlineFlow = () => {
           <div className="flex justify-between items-center py-6">
             <div className="flex items-center">
               <img 
-                src="http://clearlinecap.com/ClearLine_LOGO_288_300.jpg" 
+                src="/clearline-logo.jpg" 
                 alt="ClearLine Logo" 
                 className="h-8 w-auto mr-3"
               />
