@@ -2369,7 +2369,11 @@ const ClearlineFlow = () => {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col justify-center items-center">
         <div className="flex justify-center mb-4">
-          <TrendingUp className="h-12 w-12 text-blue-600" />
+          <img 
+            src="http://clearlinecap.com/ClearLine_LOGO_288_300.jpg" 
+            alt="ClearLine Logo" 
+            className="h-12 w-auto"
+          />
         </div>
         <div className="text-lg font-medium text-gray-900 mb-2">Clearline Flow</div>
         <div className="text-sm text-gray-600">Loading...</div>
@@ -2395,7 +2399,11 @@ const ClearlineFlow = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div className="flex items-center">
-              <TrendingUp className="h-8 w-8 text-blue-600 mr-3" />
+              <img 
+                src="http://clearlinecap.com/ClearLine_LOGO_288_300.jpg" 
+                alt="ClearLine Logo" 
+                className="h-8 w-auto mr-3"
+              />
               <h1 className="text-2xl font-bold text-gray-900">Clearline Flow</h1>
               {isTabSwitching && (
                 <div className="ml-4 text-sm text-blue-600 animate-pulse">
@@ -7163,7 +7171,7 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
                 value={newTodo.analyst}
                 onChange={(e) => setNewTodo({...newTodo, analyst: e.target.value})}
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                required
+ page                required
               >
                 <option value="">Select Analyst</option>
                 {analysts.map(analyst => (
