@@ -105,7 +105,7 @@ function buildSummaryEmail(lateItems) {
 
   // Group by analyst (who)
   const groups = lateItems.reduce((acc, item) => {
-    const who = (item.who || 'UNKNOWN').trim();
+    const who = (item.who || 'UNKNOWN').trim().toUpperCase();
     if (!acc[who]) acc[who] = [];
     acc[who].push(item);
     return acc;
@@ -290,11 +290,26 @@ export default async function handler(req, res) {
 
     // Email each analyst
     const byAnalyst = lateItems.reduce((acc, item) => {
-      const key = (item.who || 'UNKNOWN').trim();
+      const key = (item.who || 'UNKNOWN').trim().toUpperCase();
       if (!acc[key]) acc[key] = [];
       acc[key].push(item);
       return acc;
     }, {});
+
+    // Load optional static mapping from env
+    let staticMap = {};
+    const rawMap = process.env.ANALYST_EMAIL_MAP;
+    if (rawMap && typeof rawMap === 'string') {
+      try {
+        const parsed = JSON.parse(rawMap);
+        // Normalize keys to uppercase
+        Object.keys(parsed || {}).forEach(k => {
+          if (parsed[k]) staticMap[k.toUpperCase()] = parsed[k];
+        });
+      } catch (e) {
+        console.warn('Invalid ANALYST_EMAIL_MAP JSON:', e?.message || e);
+      }
+    }
 
     let analystEmailMap = {};
     try {
@@ -304,12 +319,15 @@ export default async function handler(req, res) {
       analystEmailMap = {};
     }
 
+    // Normalize Supabase map keys to uppercase and merge static map (static overrides)
+    const mergedMap = { ...Object.fromEntries(Object.entries(analystEmailMap).map(([k,v]) => [String(k).toUpperCase(), v])), ...staticMap };
+
     const groupsInfo = Object.fromEntries(Object.entries(byAnalyst).map(([k, v]) => [k, v.length]));
 
     let sentCount = 0;
     for (const [analyst, items] of Object.entries(byAnalyst)) {
-      // If testTo provided, send to that address; else use mapped analyst email
-      const toEmail = testTo || analystEmailMap[analyst];
+      // If testTo provided, send to that address; else use merged map
+      const toEmail = testTo || mergedMap[analyst];
       if (!toEmail) continue; // skip if we cannot find an email for this analyst and no test override
       const msg = buildAnalystEmail(analyst, items);
       await resend.emails.send({
@@ -323,6 +341,7 @@ export default async function handler(req, res) {
 
     const response = { success: true, forced: !!forceRun, adminMessageId: adminSend?.id || null, sentToAnalysts: sentCount, lateCount: lateItems.length, testTo: testTo || undefined };
     if (debug) response.groups = groupsInfo;
+    if (debug) response.mappedAnalysts = Object.keys(mergedMap);
     return res.status(200).json(response);
   } catch (error) {
     console.error('Error in cron-earnings-late:', error);
