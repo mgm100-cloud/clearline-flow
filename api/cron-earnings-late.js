@@ -208,7 +208,7 @@ function buildAnalystEmail(analyst, lateItems) {
     </div>`;
 
   return {
-    subject: `Earnings Late Check: ${lateItems.length} late`,
+    subject: `Earnings Late Check [${analyst}]: ${lateItems.length} late`,
     html
   };
 }
@@ -360,6 +360,7 @@ export default async function handler(req, res) {
 
     let sentCount = 0;
     const lookupDetails = [];
+    const analystMessageIds = [];
     for (const [analyst, items] of Object.entries(byAnalyst)) {
       // If testTo provided, send to that address; else use merged map
       const toEmail = testTo || mergedMap[analyst];
@@ -369,7 +370,7 @@ export default async function handler(req, res) {
         continue; // skip if we cannot find an email for this analyst and no test override
       }
       const msg = buildAnalystEmail(analyst, items);
-      await resend.emails.send({
+      const sendRes = await resend.emails.send({
         from: `${process.env.FROM_NAME || 'Clearline Flow App'} <${process.env.FROM_EMAIL || 'noreply@clearlineflow.com'}>`,
         to: [toEmail],
         subject: msg.subject,
@@ -377,6 +378,7 @@ export default async function handler(req, res) {
       });
       sentCount += 1;
       lookupDetails.push({ analyst, resolved: true, source, toEmail });
+      analystMessageIds.push({ analyst, id: sendRes?.id || null });
     }
 
     const response = {
@@ -385,7 +387,8 @@ export default async function handler(req, res) {
       adminMessageId: adminSend?.id || null,
       sentToAnalysts: sentCount,
       lateCount: lateItems.length,
-      testTo: testTo || undefined
+      testTo: testTo || undefined,
+      analystMessageIds
     };
     if (debug) {
       response.groups = groupsInfo;
