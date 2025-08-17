@@ -105,7 +105,7 @@ function buildSummaryEmail(lateItems) {
 
   // Group by analyst (who)
   const groups = lateItems.reduce((acc, item) => {
-    const who = item.who || 'UNKNOWN';
+    const who = (item.who || 'UNKNOWN').trim();
     if (!acc[who]) acc[who] = [];
     acc[who].push(item);
     return acc;
@@ -266,6 +266,12 @@ export default async function handler(req, res) {
       ''
     );
 
+    // Optional debug flag to return grouping info
+    const debug = (
+      (req.query && (req.query.debug === '1' || req.query.debug === 'true')) ||
+      (req.body && (req.body.debug === '1' || req.body.debug === 'true'))
+    );
+
     if (!forceRun && hourNY !== 17) {
       return res.status(200).json({ success: true, skipped: true, reason: `Current NY hour ${hourNY} != 17` });
     }
@@ -284,7 +290,7 @@ export default async function handler(req, res) {
 
     // Email each analyst
     const byAnalyst = lateItems.reduce((acc, item) => {
-      const key = item.who || 'UNKNOWN';
+      const key = (item.who || 'UNKNOWN').trim();
       if (!acc[key]) acc[key] = [];
       acc[key].push(item);
       return acc;
@@ -297,6 +303,8 @@ export default async function handler(req, res) {
       console.warn('Skipping analyst emails; failed to fetch users:', err?.message || err);
       analystEmailMap = {};
     }
+
+    const groupsInfo = Object.fromEntries(Object.entries(byAnalyst).map(([k, v]) => [k, v.length]));
 
     let sentCount = 0;
     for (const [analyst, items] of Object.entries(byAnalyst)) {
@@ -313,7 +321,9 @@ export default async function handler(req, res) {
       sentCount += 1;
     }
 
-    return res.status(200).json({ success: true, forced: !!forceRun, adminMessageId: adminSend?.id || null, sentToAnalysts: sentCount, lateCount: lateItems.length, testTo: testTo || undefined });
+    const response = { success: true, forced: !!forceRun, adminMessageId: adminSend?.id || null, sentToAnalysts: sentCount, lateCount: lateItems.length, testTo: testTo || undefined };
+    if (debug) response.groups = groupsInfo;
+    return res.status(200).json(response);
   } catch (error) {
     console.error('Error in cron-earnings-late:', error);
     return res.status(500).json({ success: false, error: error.message });
