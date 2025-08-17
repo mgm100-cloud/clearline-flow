@@ -214,33 +214,60 @@ function buildAnalystEmail(analyst, lateItems) {
 }
 
 async function getAnalystEmailMap(lateItems) {
-  // Build a set of analyst codes we need emails for
-  const codes = Array.from(new Set((lateItems || []).map(i => i.who).filter(Boolean)));
-  if (!codes.length) return {};
+  // Build a set of analyst identifiers we need emails for
+  const needed = Array.from(new Set((lateItems || []).map(i => (i.who || 'UNKNOWN').trim().toUpperCase()).filter(Boolean)));
+  if (!needed.length) return {};
 
   const supabaseUrl = process.env.SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-  // List all users, then filter by metadata.analyst_code
+  // List all users, then build a flexible key->email map
   const users = [];
-  let nextPage = null;
-  do {
-    const { data, error } = await supabase.auth.admin.listUsers({ page: nextPage || 1 });
+  let page = 1;
+  let keepPaging = true;
+  while (keepPaging) {
+    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage: 1000 });
     if (error) throw error;
     users.push(...(data?.users || []));
-    // listUsers in v2 returns { users, nextPage } if paginated; fall back if not provided
-    nextPage = data?.nextPage || null;
-  } while (nextPage);
-
-  const map = {};
-  for (const u of users) {
-    const code = u?.user_metadata?.analyst_code;
-    if (code && codes.includes(code)) {
-      map[code] = u.email;
+    if (data?.users && data.users.length === 1000) {
+      page += 1;
+    } else {
+      keepPaging = false;
     }
   }
-  return map;
+
+  const keyToEmail = {};
+
+  const normalize = (s) => String(s || '').trim().toUpperCase();
+  const initialsOf = (fullName) => {
+    const parts = String(fullName || '').trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return '';
+    return parts.map(p => p[0]).join('').toUpperCase();
+  };
+
+  for (const u of users) {
+    const email = u?.email;
+    if (!email) continue;
+    const meta = u?.user_metadata || {};
+    const code = normalize(meta.analyst_code);
+    const fullName = normalize(meta.full_name);
+    const initials = initialsOf(meta.full_name);
+    const localPart = normalize(email.split('@')[0]);
+
+    // Collect possible keys
+    const keys = new Set([code, fullName, initials, localPart].filter(Boolean));
+    for (const k of keys) {
+      if (!keyToEmail[k]) keyToEmail[k] = email;
+    }
+  }
+
+  // Return only keys that are needed
+  const result = {};
+  for (const k of needed) {
+    if (keyToEmail[k]) result[k] = keyToEmail[k];
+  }
+  return result;
 }
 
 export default async function handler(req, res) {
