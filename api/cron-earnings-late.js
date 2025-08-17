@@ -359,12 +359,11 @@ export default async function handler(req, res) {
     const groupsInfo = Object.fromEntries(Object.entries(byAnalyst).map(([k, v]) => [k, v.length]));
     const whoKeys = Object.keys(byAnalyst);
 
-    const analystTasks = Object.entries(byAnalyst).map(async ([analyst, items]) => {
+    // Helper to send one analyst email with error handling and proper ID extraction
+    const sendOne = async (analyst, items) => {
       const toEmail = testTo || mergedMap[analyst];
       const source = testTo ? 'testTo' : (mergedMap[analyst] ? 'map' : 'none');
-      if (!toEmail) {
-        return { analyst, ok: false, source, toEmail: null, id: null, error: 'no-email' };
-      }
+      if (!toEmail) return { analyst, ok: false, source, toEmail: null, id: null, error: 'no-email' };
       const msg = buildAnalystEmail(analyst, items);
       try {
         const res = await resend.emails.send({
@@ -373,24 +372,41 @@ export default async function handler(req, res) {
           subject: msg.subject,
           html: msg.html
         });
+        // Resend may return { id } or { data: { id } } or { error }
+        const errorMsg = res?.error?.message || res?.error;
+        if (errorMsg) return { analyst, ok: false, source, toEmail, id: null, error: String(errorMsg) };
         const id = (res && (res.id || (res.data && res.data.id))) || null;
         return { analyst, ok: true, source, toEmail, id };
       } catch (e) {
         return { analyst, ok: false, source, toEmail, id: null, error: e?.message || String(e) };
       }
-    });
-    const settled = await Promise.allSettled(analystTasks);
+    };
+
+    // Send strategy: if testTo is used (same recipient), send sequentially with small delay to avoid suppression
     const analystMessageIds = [];
     const lookupDetails = [];
     let sentCount = 0;
-    for (const s of settled) {
-      if (s.status === 'fulfilled') {
-        const r = s.value;
+    const entries = Object.entries(byAnalyst);
+    if (testTo) {
+      const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+      for (const [analyst, items] of entries) {
+        const r = await sendOne(analyst, items);
         if (r.ok) sentCount += 1;
         analystMessageIds.push({ analyst: r.analyst, id: r.id, status: r.ok ? 'ok' : 'error', error: r.error });
         lookupDetails.push({ analyst: r.analyst, resolved: r.ok, source: r.source, toEmail: r.toEmail, error: r.error });
-      } else {
-        analystMessageIds.push({ analyst: 'unknown', id: null, status: 'error', error: s.reason?.message || String(s.reason) });
+        await sleep(400); // brief delay to reduce provider suppression for identical recipient
+      }
+    } else {
+      const settled = await Promise.allSettled(entries.map(([analyst, items]) => sendOne(analyst, items)));
+      for (const s of settled) {
+        if (s.status === 'fulfilled') {
+          const r = s.value;
+          if (r.ok) sentCount += 1;
+          analystMessageIds.push({ analyst: r.analyst, id: r.id, status: r.ok ? 'ok' : 'error', error: r.error });
+          lookupDetails.push({ analyst: r.analyst, resolved: r.ok, source: r.source, toEmail: r.toEmail, error: r.error });
+        } else {
+          analystMessageIds.push({ analyst: 'unknown', id: null, status: 'error', error: s.reason?.message || String(s.reason) });
+        }
       }
     }
 
