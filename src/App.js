@@ -1129,11 +1129,15 @@ const ClearlineFlow = () => {
   const formatCompactDate = (dateString) => {
     if (!dateString) return '-';
     try {
-      const date = new Date(dateString);
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      const year = String(date.getFullYear()).slice(-2);
-      return `${month}/${day}/${year}`;
+      const raw = typeof dateString === 'string' ? dateString : '';
+      const ymd = raw.split('T')[0];
+      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
+      if (match) {
+        const [, y, m, d] = match;
+        return `${m}/${d}/${y.slice(-2)}`;
+      }
+      // Fallback: return as-is if it is not a plain YYYY-MM-DD string
+      return raw || dateString;
     } catch {
       return dateString;
     }
