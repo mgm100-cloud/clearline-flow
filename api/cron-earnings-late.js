@@ -210,6 +210,13 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Only execute at 5pm America/New_York to avoid DST discrepancies if scheduled twice
+    const nowNY = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+    const hourNY = nowNY.getHours();
+    if (hourNY !== 17) {
+      return res.status(200).json({ success: true, skipped: true, reason: `Current NY hour ${hourNY} != 17` });
+    }
+
     const lateItems = await fetchLateTickers();
 
     // Always email MM

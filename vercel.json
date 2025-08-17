@@ -1,8 +1,6 @@
 {
   "crons": [
-    {
-      "path": "/api/cron-earnings-late",
-      "schedule": "0 22 * * *"
-    }
+    { "path": "/api/cron-earnings-late", "schedule": "0 22 * * *" },
+    { "path": "/api/cron-earnings-late", "schedule": "0 21 * * *" }
   ]
 } 
