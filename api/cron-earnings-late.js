@@ -103,34 +103,61 @@ function buildSummaryEmail(lateItems) {
     };
   }
 
-  const rows = lateItems
-    .sort((a, b) => (a.earningsDate < b.earningsDate ? -1 : 1))
-    .map(item => `
-      <tr>
-        <td style="padding:6px 8px; border:1px solid #e5e7eb; font-family:Arial, sans-serif;">${item.ticker}</td>
-        <td style="padding:6px 8px; border:1px solid #e5e7eb; font-family:Arial, sans-serif;">${formatDateMMDDYY(item.earningsDate)}</td>
-        <td style="padding:6px 8px; border:1px solid #e5e7eb; font-family:Arial, sans-serif;">${item.who || '-'}</td>
-        <td style="padding:6px 8px; border:1px solid #e5e7eb; font-family:Arial, sans-serif;">${item.days}</td>
-      </tr>`)
-    .join('');
+  // Group by analyst (who)
+  const groups = lateItems.reduce((acc, item) => {
+    const who = item.who || 'UNKNOWN';
+    if (!acc[who]) acc[who] = [];
+    acc[who].push(item);
+    return acc;
+  }, {});
+
+  const sections = Object.keys(groups)
+    .sort()
+    .map((who) => {
+      const rows = groups[who]
+        .sort((a, b) => (a.earningsDate < b.earningsDate ? -1 : 1))
+        .map(item => {
+          const previewBlank = item.previewDate ? 'No' : 'Yes';
+          const callbackBlank = item.callbackDate ? 'No' : 'Yes';
+          const emphasize = item.days < 10;
+          const rowStyle = emphasize
+            ? 'color:#b91c1c; font-weight:700;'
+            : '';
+          return `
+            <tr style="${rowStyle}">
+              <td style=\"padding:6px 8px; border:1px solid #e5e7eb; font-family:Arial, sans-serif;\">${item.ticker}</td>
+              <td style=\"padding:6px 8px; border:1px solid #e5e7eb; font-family:Arial, sans-serif;\">${formatDateMMDDYY(item.earningsDate)}</td>
+              <td style=\"padding:6px 8px; border:1px solid #e5e7eb; font-family:Arial, sans-serif;\">${item.days}</td>
+              <td style=\"padding:6px 8px; border:1px solid #e5e7eb; font-family:Arial, sans-serif;\">${previewBlank}</td>
+              <td style=\"padding:6px 8px; border:1px solid #e5e7eb; font-family:Arial, sans-serif;\">${callbackBlank}</td>
+            </tr>`;
+        })
+        .join('');
+
+      return `
+        <h3 style=\"margin:16px 0 8px 0; font-family:Arial, sans-serif;\">${who}</h3>
+        <table style=\"border-collapse: collapse;\">
+          <thead>
+            <tr>
+              <th style=\"padding:6px 8px; border:1px solid #e5e7eb; text-align:left;\">Ticker</th>
+              <th style=\"padding:6px 8px; border:1px solid #e5e7eb; text-align:left;\">Earnings</th>
+              <th style=\"padding:6px 8px; border:1px solid #e5e7eb; text-align:left;\">Days</th>
+              <th style=\"padding:6px 8px; border:1px solid #e5e7eb; text-align:left;\">Preview Blank</th>
+              <th style=\"padding:6px 8px; border:1px solid #e5e7eb; text-align:left;\">Callback Blank</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}
+          </tbody>
+        </table>`;
+    })
+    .join('\n');
 
   const html = `
-    <div style="font-family: Arial, sans-serif; color: #111;">
-      <h2 style="margin:0 0 8px 0;">Late Earnings (0-14 days)</h2>
-      <p style="margin:0 0 12px 0;">Tickers with blank Preview or Callback dates.</p>
-      <table style="border-collapse: collapse;">
-        <thead>
-          <tr>
-            <th style="padding:6px 8px; border:1px solid #e5e7eb; text-align:left;">Ticker</th>
-            <th style="padding:6px 8px; border:1px solid #e5e7eb; text-align:left;">Earnings</th>
-            <th style="padding:6px 8px; border:1px solid #e5e7eb; text-align:left;">Who</th>
-            <th style="padding:6px 8px; border:1px solid #e5e7eb; text-align:left;">Days</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows}
-        </tbody>
-      </table>
+    <div style=\"font-family: Arial, sans-serif; color: #111;\">
+      <h2 style=\"margin:0 0 8px 0;\">Late Earnings (0-14 days)</h2>
+      <p style=\"margin:0 0 12px 0;\">Tickers with blank Preview or Callback dates.</p>
+      ${sections}
     </div>`;
 
   return {
@@ -142,24 +169,36 @@ function buildSummaryEmail(lateItems) {
 function buildAnalystEmail(analyst, lateItems) {
   const rows = lateItems
     .sort((a, b) => (a.earningsDate < b.earningsDate ? -1 : 1))
-    .map(item => `
-      <tr>
-        <td style="padding:6px 8px; border:1px solid #e5e7eb; font-family:Arial, sans-serif;">${item.ticker}</td>
-        <td style="padding:6px 8px; border:1px solid #e5e7eb; font-family:Arial, sans-serif;">${formatDateMMDDYY(item.earningsDate)}</td>
-        <td style="padding:6px 8px; border:1px solid #e5e7eb; font-family:Arial, sans-serif;">${item.days}</td>
-      </tr>`)
+    .map(item => {
+      const previewBlank = item.previewDate ? 'No' : 'Yes';
+      const callbackBlank = item.callbackDate ? 'No' : 'Yes';
+      const emphasize = item.days < 10;
+      const rowStyle = emphasize
+        ? 'color:#b91c1c; font-weight:700;'
+        : '';
+      return `
+        <tr style="${rowStyle}">
+          <td style=\"padding:6px 8px; border:1px solid #e5e7eb; font-family:Arial, sans-serif;\">${item.ticker}</td>
+          <td style=\"padding:6px 8px; border:1px solid #e5e7eb; font-family:Arial, sans-serif;\">${formatDateMMDDYY(item.earningsDate)}</td>
+          <td style=\"padding:6px 8px; border:1px solid #e5e7eb; font-family:Arial, sans-serif;\">${item.days}</td>
+          <td style=\"padding:6px 8px; border:1px solid #e5e7eb; font-family:Arial, sans-serif;\">${previewBlank}</td>
+          <td style=\"padding:6px 8px; border:1px solid #e5e7eb; font-family:Arial, sans-serif;\">${callbackBlank}</td>
+        </tr>`;
+    })
     .join('');
 
   const html = `
-    <div style="font-family: Arial, sans-serif; color: #111;">
-      <h2 style="margin:0 0 8px 0;">Late Earnings (0-14 days)</h2>
-      <p style="margin:0 0 12px 0;">Tickers with blank Preview or Callback dates.</p>
-      <table style="border-collapse: collapse;">
+    <div style=\"font-family: Arial, sans-serif; color: #111;\">
+      <h2 style=\"margin:0 0 8px 0;\">Late Earnings (0-14 days)</h2>
+      <p style=\"margin:0 0 12px 0;\">Tickers with blank Preview or Callback dates.</p>
+      <table style=\"border-collapse: collapse;\">
         <thead>
           <tr>
-            <th style="padding:6px 8px; border:1px solid #e5e7eb; text-align:left;">Ticker</th>
-            <th style="padding:6px 8px; border:1px solid #e5e7eb; text-align:left;">Earnings</th>
-            <th style="padding:6px 8px; border:1px solid #e5e7eb; text-align:left;">Days</th>
+            <th style=\"padding:6px 8px; border:1px solid #e5e7eb; text-align:left;\">Ticker</th>
+            <th style=\"padding:6px 8px; border:1px solid #e5e7eb; text-align:left;\">Earnings</th>
+            <th style=\"padding:6px 8px; border:1px solid #e5e7eb; text-align:left;\">Days</th>
+            <th style=\"padding:6px 8px; border:1px solid #e5e7eb; text-align:left;\">Preview Blank</th>
+            <th style=\"padding:6px 8px; border:1px solid #e5e7eb; text-align:left;\">Callback Blank</th>
           </tr>
         </thead>
         <tbody>
