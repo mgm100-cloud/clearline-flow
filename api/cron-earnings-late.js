@@ -370,15 +370,22 @@ export default async function handler(req, res) {
         continue; // skip if we cannot find an email for this analyst and no test override
       }
       const msg = buildAnalystEmail(analyst, items);
-      const sendRes = await resend.emails.send({
-        from: `${process.env.FROM_NAME || 'Clearline Flow App'} <${process.env.FROM_EMAIL || 'noreply@clearlineflow.com'}>`,
-        to: [toEmail],
-        subject: msg.subject,
-        html: msg.html
-      });
-      sentCount += 1;
-      lookupDetails.push({ analyst, resolved: true, source, toEmail });
-      analystMessageIds.push({ analyst, id: sendRes?.id || null });
+      try {
+        const sendRes = await resend.emails.send({
+          from: `${process.env.FROM_NAME || 'Clearline Flow App'} <${process.env.FROM_EMAIL || 'noreply@clearlineflow.com'}>`,
+          to: [toEmail],
+          subject: msg.subject,
+          html: msg.html
+        });
+        sentCount += 1;
+        lookupDetails.push({ analyst, resolved: true, source, toEmail });
+        analystMessageIds.push({ analyst, id: sendRes?.id || null, status: 'ok' });
+      } catch (e) {
+        console.error('Analyst email send failed:', analyst, e?.message || e);
+        lookupDetails.push({ analyst, resolved: true, source, toEmail, error: e?.message || String(e) });
+        analystMessageIds.push({ analyst, id: null, status: 'error', error: e?.message || String(e) });
+        // continue to next analyst
+      }
     }
 
     const response = {
