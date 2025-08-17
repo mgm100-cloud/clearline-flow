@@ -244,7 +244,13 @@ export default async function handler(req, res) {
       return acc;
     }, {});
 
-    const analystEmailMap = await getAnalystEmailMap(lateItems);
+    let analystEmailMap = {};
+    try {
+      analystEmailMap = await getAnalystEmailMap(lateItems);
+    } catch (err) {
+      console.warn('Skipping analyst emails; failed to fetch users:', err?.message || err);
+      analystEmailMap = {};
+    }
 
     for (const [analyst, items] of Object.entries(byAnalyst)) {
       const toEmail = analystEmailMap[analyst];
@@ -258,7 +264,7 @@ export default async function handler(req, res) {
       });
     }
 
-    return res.status(200).json({ success: true, forced: !!forceRun, sentToAnalysts: Object.keys(byAnalyst).length, lateCount: lateItems.length });
+    return res.status(200).json({ success: true, forced: !!forceRun, sentToAnalysts: Object.keys(analystEmailMap).length, lateCount: lateItems.length });
   } catch (error) {
     console.error('Error in cron-earnings-late:', error);
     return res.status(500).json({ success: false, error: error.message });
