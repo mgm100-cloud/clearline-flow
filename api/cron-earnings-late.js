@@ -213,7 +213,14 @@ export default async function handler(req, res) {
     // Only execute at 5pm America/New_York to avoid DST discrepancies if scheduled twice
     const nowNY = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
     const hourNY = nowNY.getHours();
-    if (hourNY !== 17) {
+
+    // Test override: allow force run via query or body
+    const forceRun = (
+      (req.query && (req.query.force === '1' || req.query.force === 'true')) ||
+      (req.body && (req.body.force === '1' || req.body.force === 'true'))
+    );
+
+    if (!forceRun && hourNY !== 17) {
       return res.status(200).json({ success: true, skipped: true, reason: `Current NY hour ${hourNY} != 17` });
     }
 
@@ -251,7 +258,7 @@ export default async function handler(req, res) {
       });
     }
 
-    return res.status(200).json({ success: true, sentToAnalysts: Object.keys(byAnalyst).length, lateCount: lateItems.length });
+    return res.status(200).json({ success: true, forced: !!forceRun, sentToAnalysts: Object.keys(byAnalyst).length, lateCount: lateItems.length });
   } catch (error) {
     console.error('Error in cron-earnings-late:', error);
     return res.status(500).json({ success: false, error: error.message });
