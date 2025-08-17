@@ -259,6 +259,13 @@ export default async function handler(req, res) {
       (req.body && (req.body.force === '1' || req.body.force === 'true'))
     );
 
+    // Optional test recipient override for analyst emails
+    const testTo = (
+      (req.query && typeof req.query.testTo === 'string' && req.query.testTo) ||
+      (req.body && typeof req.body.testTo === 'string' && req.body.testTo) ||
+      ''
+    );
+
     if (!forceRun && hourNY !== 17) {
       return res.status(200).json({ success: true, skipped: true, reason: `Current NY hour ${hourNY} != 17` });
     }
@@ -268,7 +275,7 @@ export default async function handler(req, res) {
     // Always email MM
     const adminEmail = 'mmajzner@clearlinecap.com';
     const adminSummary = buildSummaryEmail(lateItems);
-    await resend.emails.send({
+    const adminSend = await resend.emails.send({
       from: `${process.env.FROM_NAME || 'Clearline Flow App'} <${process.env.FROM_EMAIL || 'noreply@clearlineflow.com'}>`,
       to: [adminEmail],
       subject: adminSummary.subject,
@@ -291,9 +298,11 @@ export default async function handler(req, res) {
       analystEmailMap = {};
     }
 
+    let sentCount = 0;
     for (const [analyst, items] of Object.entries(byAnalyst)) {
-      const toEmail = analystEmailMap[analyst];
-      if (!toEmail) continue; // skip if we cannot find an email for this analyst
+      // If testTo provided, send to that address; else use mapped analyst email
+      const toEmail = testTo || analystEmailMap[analyst];
+      if (!toEmail) continue; // skip if we cannot find an email for this analyst and no test override
       const msg = buildAnalystEmail(analyst, items);
       await resend.emails.send({
         from: `${process.env.FROM_NAME || 'Clearline Flow App'} <${process.env.FROM_EMAIL || 'noreply@clearlineflow.com'}>`,
@@ -301,9 +310,10 @@ export default async function handler(req, res) {
         subject: msg.subject,
         html: msg.html
       });
+      sentCount += 1;
     }
 
-    return res.status(200).json({ success: true, forced: !!forceRun, sentToAnalysts: Object.keys(analystEmailMap).length, lateCount: lateItems.length });
+    return res.status(200).json({ success: true, forced: !!forceRun, adminMessageId: adminSend?.id || null, sentToAnalysts: sentCount, lateCount: lateItems.length, testTo: testTo || undefined });
   } catch (error) {
     console.error('Error in cron-earnings-late:', error);
     return res.status(500).json({ success: false, error: error.message });
