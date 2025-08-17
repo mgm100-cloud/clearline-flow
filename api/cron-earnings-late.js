@@ -213,10 +213,10 @@ function buildAnalystEmail(analyst, lateItems) {
   };
 }
 
-async function getAnalystEmailMap(lateItems) {
+async function getAnalystEmailMap(lateItems, debug = false) {
   // Build a set of analyst identifiers we need emails for
   const needed = Array.from(new Set((lateItems || []).map(i => (i.who || 'UNKNOWN').trim().toUpperCase()).filter(Boolean)));
-  if (!needed.length) return {};
+  if (!needed.length) return debug ? { map: {}, userKeyMap: {} } : {};
 
   const supabaseUrl = process.env.SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -238,6 +238,7 @@ async function getAnalystEmailMap(lateItems) {
   }
 
   const keyToEmail = {};
+  const userKeyMap = {}; // debug: email -> keys
 
   const normalize = (s) => String(s || '').trim().toUpperCase();
   const initialsOf = (fullName) => {
@@ -256,7 +257,8 @@ async function getAnalystEmailMap(lateItems) {
     const localPart = normalize(email.split('@')[0]);
 
     // Collect possible keys
-    const keys = new Set([code, fullName, initials, localPart].filter(Boolean));
+    const keys = Array.from(new Set([code, fullName, initials, localPart].filter(Boolean)));
+    userKeyMap[email] = keys;
     for (const k of keys) {
       if (!keyToEmail[k]) keyToEmail[k] = email;
     }
@@ -267,7 +269,8 @@ async function getAnalystEmailMap(lateItems) {
   for (const k of needed) {
     if (keyToEmail[k]) result[k] = keyToEmail[k];
   }
-  return result;
+
+  return debug ? { map: result, userKeyMap } : result;
 }
 
 export default async function handler(req, res) {
@@ -339,8 +342,11 @@ export default async function handler(req, res) {
     }
 
     let analystEmailMap = {};
+    let userKeyMap = {};
     try {
-      analystEmailMap = await getAnalystEmailMap(lateItems);
+      const lookup = await getAnalystEmailMap(lateItems, debug);
+      analystEmailMap = debug ? lookup.map : lookup;
+      userKeyMap = debug ? lookup.userKeyMap : {};
     } catch (err) {
       console.warn('Skipping analyst emails; failed to fetch users:', err?.message || err);
       analystEmailMap = {};
@@ -350,12 +356,18 @@ export default async function handler(req, res) {
     const mergedMap = { ...Object.fromEntries(Object.entries(analystEmailMap).map(([k,v]) => [String(k).toUpperCase(), v])), ...staticMap };
 
     const groupsInfo = Object.fromEntries(Object.entries(byAnalyst).map(([k, v]) => [k, v.length]));
+    const whoKeys = Object.keys(byAnalyst);
 
     let sentCount = 0;
+    const lookupDetails = [];
     for (const [analyst, items] of Object.entries(byAnalyst)) {
       // If testTo provided, send to that address; else use merged map
       const toEmail = testTo || mergedMap[analyst];
-      if (!toEmail) continue; // skip if we cannot find an email for this analyst and no test override
+      const source = testTo ? 'testTo' : (mergedMap[analyst] ? 'map' : 'none');
+      if (!toEmail) {
+        lookupDetails.push({ analyst, resolved: false, source });
+        continue; // skip if we cannot find an email for this analyst and no test override
+      }
       const msg = buildAnalystEmail(analyst, items);
       await resend.emails.send({
         from: `${process.env.FROM_NAME || 'Clearline Flow App'} <${process.env.FROM_EMAIL || 'noreply@clearlineflow.com'}>`,
@@ -364,11 +376,32 @@ export default async function handler(req, res) {
         html: msg.html
       });
       sentCount += 1;
+      lookupDetails.push({ analyst, resolved: true, source, toEmail });
     }
 
-    const response = { success: true, forced: !!forceRun, adminMessageId: adminSend?.id || null, sentToAnalysts: sentCount, lateCount: lateItems.length, testTo: testTo || undefined };
-    if (debug) response.groups = groupsInfo;
-    if (debug) response.mappedAnalysts = Object.keys(mergedMap);
+    const response = {
+      success: true,
+      forced: !!forceRun,
+      adminMessageId: adminSend?.id || null,
+      sentToAnalysts: sentCount,
+      lateCount: lateItems.length,
+      testTo: testTo || undefined
+    };
+    if (debug) {
+      response.groups = groupsInfo;
+      response.mappedAnalysts = Object.keys(mergedMap);
+      response.whoKeys = whoKeys;
+      response.lookupDetails = lookupDetails;
+      // Limit userKeyMap sample size for response
+      const sample = {};
+      let count = 0;
+      for (const [email, keys] of Object.entries(userKeyMap)) {
+        sample[email] = keys;
+        count += 1;
+        if (count >= 25) break;
+      }
+      response.userKeyMapSample = sample;
+    }
     return res.status(200).json(response);
   } catch (error) {
     console.error('Error in cron-earnings-late:', error);
