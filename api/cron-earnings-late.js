@@ -311,12 +311,13 @@ export default async function handler(req, res) {
     // Always email MM
     const adminEmail = 'mmajzner@clearlinecap.com';
     const adminSummary = buildSummaryEmail(lateItems);
-    const adminSend = await resend.emails.send({
+    const adminSendRes = await resend.emails.send({
       from: `${process.env.FROM_NAME || 'Clearline Flow App'} <${process.env.FROM_EMAIL || 'noreply@clearlineflow.com'}>`,
       to: [adminEmail],
       subject: adminSummary.subject,
       html: adminSummary.html
     });
+    const adminSend = { id: (adminSendRes && (adminSendRes.id || (adminSendRes.data && adminSendRes.data.id))) || null };
 
     // Email each analyst
     const byAnalyst = lateItems.reduce((acc, item) => {
@@ -358,33 +359,38 @@ export default async function handler(req, res) {
     const groupsInfo = Object.fromEntries(Object.entries(byAnalyst).map(([k, v]) => [k, v.length]));
     const whoKeys = Object.keys(byAnalyst);
 
-    let sentCount = 0;
-    const lookupDetails = [];
-    const analystMessageIds = [];
-    for (const [analyst, items] of Object.entries(byAnalyst)) {
-      // If testTo provided, send to that address; else use merged map
+    const analystTasks = Object.entries(byAnalyst).map(async ([analyst, items]) => {
       const toEmail = testTo || mergedMap[analyst];
       const source = testTo ? 'testTo' : (mergedMap[analyst] ? 'map' : 'none');
       if (!toEmail) {
-        lookupDetails.push({ analyst, resolved: false, source });
-        continue; // skip if we cannot find an email for this analyst and no test override
+        return { analyst, ok: false, source, toEmail: null, id: null, error: 'no-email' };
       }
       const msg = buildAnalystEmail(analyst, items);
       try {
-        const sendRes = await resend.emails.send({
+        const res = await resend.emails.send({
           from: `${process.env.FROM_NAME || 'Clearline Flow App'} <${process.env.FROM_EMAIL || 'noreply@clearlineflow.com'}>`,
           to: [toEmail],
           subject: msg.subject,
           html: msg.html
         });
-        sentCount += 1;
-        lookupDetails.push({ analyst, resolved: true, source, toEmail });
-        analystMessageIds.push({ analyst, id: sendRes?.id || null, status: 'ok' });
+        const id = (res && (res.id || (res.data && res.data.id))) || null;
+        return { analyst, ok: true, source, toEmail, id };
       } catch (e) {
-        console.error('Analyst email send failed:', analyst, e?.message || e);
-        lookupDetails.push({ analyst, resolved: true, source, toEmail, error: e?.message || String(e) });
-        analystMessageIds.push({ analyst, id: null, status: 'error', error: e?.message || String(e) });
-        // continue to next analyst
+        return { analyst, ok: false, source, toEmail, id: null, error: e?.message || String(e) };
+      }
+    });
+    const settled = await Promise.allSettled(analystTasks);
+    const analystMessageIds = [];
+    const lookupDetails = [];
+    let sentCount = 0;
+    for (const s of settled) {
+      if (s.status === 'fulfilled') {
+        const r = s.value;
+        if (r.ok) sentCount += 1;
+        analystMessageIds.push({ analyst: r.analyst, id: r.id, status: r.ok ? 'ok' : 'error', error: r.error });
+        lookupDetails.push({ analyst: r.analyst, resolved: r.ok, source: r.source, toEmail: r.toEmail, error: r.error });
+      } else {
+        analystMessageIds.push({ analyst: 'unknown', id: null, status: 'error', error: s.reason?.message || String(s.reason) });
       }
     }
 
