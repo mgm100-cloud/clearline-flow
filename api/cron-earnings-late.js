@@ -279,9 +279,12 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Only execute at 5pm America/New_York to avoid DST discrepancies if scheduled twice
-    const nowNY = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
-    const hourNY = nowNY.getHours();
+    // Only execute at 5pm America/New_York (robust hour extraction)
+    const hourNY = parseInt(new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York',
+      hour: '2-digit',
+      hour12: false
+    }).format(new Date()), 10);
 
     // Test override: allow force run via query or body
     const forceRun = (
