@@ -6130,13 +6130,16 @@ const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarnin
 
   // Handle refresh earnings dates
   const handleRefreshEarnings = async () => {
-    if (!onRefreshEarnings || sortedTickers.length === 0) return;
+    // Refresh ALL portfolio tickers (respecting analyst filter), not just those already visible
+    // This ensures tickers with no existing earnings (e.g., newly added) also get fetched
+    const tickersToRefresh = portfolioTickers || [];
+    if (!onRefreshEarnings || tickersToRefresh.length === 0) return;
 
     setIsRefreshing(true);
     setRefreshMessage('Fetching earnings dates from TwelveData...');
 
     try {
-      const result = await onRefreshEarnings(sortedTickers);
+      const result = await onRefreshEarnings(tickersToRefresh);
       
       if (result.success > 0) {
         // Create a summary of CYQ updates
