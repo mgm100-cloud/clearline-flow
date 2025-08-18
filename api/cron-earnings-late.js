@@ -279,6 +279,8 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Prevent any CDN/proxy caching
+    try { res.setHeader('Cache-Control', 'no-store'); } catch (e) {}
     // Only execute at 5pm America/New_York (robust hour extraction)
     const hourNY = parseInt(new Intl.DateTimeFormat('en-US', {
       timeZone: 'America/New_York',
@@ -290,6 +292,12 @@ export default async function handler(req, res) {
     const forceRun = (
       (req.query && (req.query.force === '1' || req.query.force === 'true')) ||
       (req.body && (req.body.force === '1' || req.body.force === 'true'))
+    );
+
+    // Optional: trigger a fresh earnings refresh in the same environment before reading
+    const doRefresh = (
+      (req.query && (req.query.refresh === '1' || req.query.refresh === 'true')) ||
+      (req.body && (req.body.refresh === '1' || req.body.refresh === 'true'))
     );
 
     // Env override (useful for Vercel "Run" button): FORCE_CRON=1/true/yes/on
@@ -310,6 +318,23 @@ export default async function handler(req, res) {
 
     if (!forceRun && !envForce && hourNY !== 17) {
       return res.status(200).json({ success: true, skipped: true, reason: `Current NY hour ${hourNY} != 17` });
+    }
+
+    if (doRefresh) {
+      const host = (req.headers && req.headers.host) || '';
+      const proto = 'https:'; // Vercel production uses HTTPS
+      const url = `${proto}//${host}/api/cron-refresh-earnings?force=1`;
+      try {
+        const r = await fetch(url, { method: 'GET', headers: { 'Cache-Control': 'no-store' } });
+        // best-effort; ignore body
+        if (!r.ok) {
+          console.warn('Pre-refresh call failed:', r.status);
+        }
+        // Small delay to let writes settle
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } catch (e) {
+        console.warn('Pre-refresh call error:', e?.message || e);
+      }
     }
 
     const lateItems = await fetchLateTickers();
