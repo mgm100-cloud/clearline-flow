@@ -46,9 +46,12 @@ async function fetchLateTickers() {
   if (!supabaseUrl || !serviceRoleKey) {
     throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
   }
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
+  const supabase = createClient(supabaseUrl, serviceRoleKey, {
+    db: { schema: 'public' },
+    global: { headers: { 'Cache-Control': 'no-cache' } }
+  });
 
-  // Pull all earnings tracking with joined ticker + analyst
+  // Force fresh query with explicit ordering to bypass any caching
   const { data, error } = await supabase
     .from('earnings_tracking')
     .select(`
@@ -57,11 +60,13 @@ async function fetchLateTickers() {
       preview_date,
       callback_date,
       cyq,
+      updated_at,
       tickers!ticker_id (
         ticker,
         analyst
       )
-    `);
+    `)
+    .order('updated_at', { ascending: false });
 
   if (error) throw error;
 
@@ -220,7 +225,10 @@ async function getAnalystEmailMap(lateItems, debug = false) {
 
   const supabaseUrl = process.env.SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
+  const supabase = createClient(supabaseUrl, serviceRoleKey, {
+    db: { schema: 'public' },
+    global: { headers: { 'Cache-Control': 'no-cache' } }
+  });
 
   // List all users, then build a flexible key->email map
   const users = [];
