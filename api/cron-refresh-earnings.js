@@ -24,7 +24,7 @@ function getAllCYQsWindow() {
 }
 
 async function fetchFmpEarnings(symbol) {
-  const apiKey = process.env.FMP_API_KEY;
+  const apiKey = process.env.REACT_APP_FMP_API_KEY;
   if (!apiKey) {
     console.log(`FMP: No API key available`);
     return null;
@@ -76,7 +76,7 @@ async function fetchFmpEarnings(symbol) {
 }
 
 async function fetchTwelveDataEarnings(symbol) {
-  const key = process.env.TWELVE_DATA_API_KEY;
+  const key = process.env.REACT_APP_TWELVE_DATA_API_KEY;
   if (!key) {
     console.log(`TwelveData: No API key available`);
     return null;
@@ -125,8 +125,8 @@ export default async function handler(req, res) {
 
     // Debug API key availability
     console.log('API Key Status:');
-    console.log('- FMP_API_KEY:', process.env.FMP_API_KEY ? `Available (${process.env.FMP_API_KEY.length} chars)` : 'Missing');
-    console.log('- TWELVE_DATA_API_KEY:', process.env.TWELVE_DATA_API_KEY ? `Available (${process.env.TWELVE_DATA_API_KEY.length} chars)` : 'Missing');
+    console.log('- REACT_APP_FMP_API_KEY:', process.env.REACT_APP_FMP_API_KEY ? `Available (${process.env.REACT_APP_FMP_API_KEY.length} chars)` : 'Missing');
+    console.log('- REACT_APP_TWELVE_DATA_API_KEY:', process.env.REACT_APP_TWELVE_DATA_API_KEY ? `Available (${process.env.REACT_APP_TWELVE_DATA_API_KEY.length} chars)` : 'Missing');
 
     // Determine if we should run now: every midnight America/New_York
     const hourNY = parseInt(new Intl.DateTimeFormat('en-US', {
