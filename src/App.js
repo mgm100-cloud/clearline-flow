@@ -1252,7 +1252,6 @@ const QuoteService = {
     }
   }
 };
-
 const ClearlineFlow = () => {
   console.log('🚀 ClearlineFlow component loaded');
   
@@ -1983,7 +1982,6 @@ const ClearlineFlow = () => {
     
     return `${year}${quarter}`;
   };
-
   // Refresh earnings dates from TwelveData
   const refreshEarningsDates = async (tickersToRefresh) => {
     if (!tickersToRefresh || tickersToRefresh.length === 0) return { success: 0, errors: {} };
@@ -2613,7 +2611,6 @@ const ClearlineFlow = () => {
       />
     );
   }
-
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -3137,7 +3134,6 @@ const InputPage = ({ onAddTicker, analysts, currentUser }) => {
       [field]: formatted
     }));
   };
-
   return (
     <div className="bg-white shadow rounded-lg">
       <div className="px-4 py-5 sm:p-6">
@@ -3906,7 +3902,6 @@ const EnhancedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
     </tr>
   );
 };
-
 // Database Detailed Page Component - Shows all fields with quotes integration
 const DatabaseDetailedPage = ({ tickers, onSort, sortField, sortDirection, onUpdate, analysts, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors, onRefreshMarketData, isRefreshingMarketData, onRefreshData, isRefreshingData, formatMarketCap, formatVolumeDollars }) => {
   const SortableHeader = ({ field, children }) => (
@@ -4649,7 +4644,6 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
       </tr>
     );
   }
-
   return (
     <tr className="hover:bg-gray-50">
       <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 bg-white hover:bg-gray-50 z-10" style={{ width: '80px', minWidth: '80px' }}>
@@ -5265,7 +5259,6 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
     </tr>
   );
 };
-
 // Analyst Detail Page Component with quotes integration
 const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors }) => {
   const [sortField, setSortField] = useState('');
@@ -5936,7 +5929,6 @@ const TeamOutputPage = ({ tickers, analysts }) => {
    </div>
  );
 };
-
 // Earnings Tracking Page Component
 const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarningsAnalyst, earningsData, onUpdateEarnings, getEarningsData, onRefreshEarnings, onRefreshEarningsData, analysts, quotes = {}, onUpdateQuote, isLoadingQuotes = false, quoteErrors = {}, formatTradeLevel, formatCompactDate, currentUser }) => {
   // State for sorting and filtering
@@ -5956,11 +5948,33 @@ const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarnin
   // Calculate days until earnings
   const calculateDaysUntilEarnings = (earningsDate) => {
     if (!earningsDate) return 999999; // Put items without dates at the bottom
-    const today = new Date();
-    const earnings = new Date(earningsDate);
-    const diffTime = earnings - today;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
+
+    // Helper to get NY midnight epoch days
+    const getTodayEpochDaysNY = () => {
+      const nowNY = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+      return Math.floor(Date.UTC(
+        nowNY.getFullYear(),
+        nowNY.getMonth(),
+        nowNY.getDate()
+      ) / 86400000);
+    };
+
+    // Parse YYYY-MM-DD as a date-only target
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(earningsDate));
+    let targetDays;
+    if (m) {
+      const y = parseInt(m[1], 10);
+      const mo = parseInt(m[2], 10);
+      const d = parseInt(m[3], 10);
+      targetDays = Math.floor(Date.UTC(y, mo - 1, d) / 86400000);
+    } else {
+      // Fallback: normalize arbitrary date to date-only
+      const dt = new Date(earningsDate);
+      targetDays = Math.floor(Date.UTC(dt.getFullYear(), dt.getMonth(), dt.getDate()) / 86400000);
+    }
+
+    const todayDays = getTodayEpochDaysNY();
+    return targetDays - todayDays;
   };
 
   // Format days for display
@@ -6510,7 +6524,6 @@ This email and any files transmitted with it may contain privileged or confident
      } else if (pendingEmailType === 'callback') {
        subject = `Clearline - Post Earnings Callback Request`;
        body = `Dear ${irFirstName},
-
 Can we schedule a post earnings callback?
 
 Thank you,
@@ -6977,7 +6990,6 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
       </div>
     </th>
   );
-
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -7758,7 +7770,6 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, 
     </tr>
   );
 };
-
 // Enhanced Quote Display Component
 const QuoteDisplay = ({ ticker, quote, onUpdateQuote, isLoading, hasError }) => {
   const cleanSymbol = ticker.replace(' US', '');
