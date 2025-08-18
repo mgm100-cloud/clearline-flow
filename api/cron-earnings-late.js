@@ -319,6 +319,12 @@ export default async function handler(req, res) {
     });
     const adminSend = { id: (adminSendRes && (adminSendRes.id || (adminSendRes.data && adminSendRes.data.id))) || null };
 
+    // Simple sleep helper
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    // Small delay after admin email to respect provider rate limits
+    await sleep(800);
+
     // Email each analyst
     const byAnalyst = lateItems.reduce((acc, item) => {
       const key = (item.who || 'UNKNOWN').trim().toUpperCase();
@@ -359,55 +365,49 @@ export default async function handler(req, res) {
     const groupsInfo = Object.fromEntries(Object.entries(byAnalyst).map(([k, v]) => [k, v.length]));
     const whoKeys = Object.keys(byAnalyst);
 
-    // Helper to send one analyst email with error handling and proper ID extraction
+    // Helper to send one analyst email with retry/backoff on rate limits
     const sendOne = async (analyst, items) => {
       const toEmail = testTo || mergedMap[analyst];
       const source = testTo ? 'testTo' : (mergedMap[analyst] ? 'map' : 'none');
       if (!toEmail) return { analyst, ok: false, source, toEmail: null, id: null, error: 'no-email' };
       const msg = buildAnalystEmail(analyst, items);
-      try {
-        const res = await resend.emails.send({
-          from: `${process.env.FROM_NAME || 'Clearline Flow App'} <${process.env.FROM_EMAIL || 'noreply@clearlineflow.com'}>`,
-          to: [toEmail],
-          subject: msg.subject,
-          html: msg.html
-        });
-        // Resend may return { id } or { data: { id } } or { error }
-        const errorMsg = res?.error?.message || res?.error;
-        if (errorMsg) return { analyst, ok: false, source, toEmail, id: null, error: String(errorMsg) };
-        const id = (res && (res.id || (res.data && res.data.id))) || null;
-        return { analyst, ok: true, source, toEmail, id };
-      } catch (e) {
-        return { analyst, ok: false, source, toEmail, id: null, error: e?.message || String(e) };
+
+      const maxRetries = 3;
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          const res = await resend.emails.send({
+            from: `${process.env.FROM_NAME || 'Clearline Flow App'} <${process.env.FROM_EMAIL || 'noreply@clearlineflow.com'}>`,
+            to: [toEmail],
+            subject: msg.subject,
+            html: msg.html
+          });
+          const errorMsg = res?.error?.message || res?.error;
+          if (errorMsg) throw new Error(String(errorMsg));
+          const id = (res && (res.id || (res.data && res.data.id))) || null;
+          return { analyst, ok: true, source, toEmail, id };
+        } catch (e) {
+          const msgText = String(e?.message || e);
+          const isRate = msgText.toLowerCase().includes('too many requests') || msgText.includes('429');
+          if (isRate && attempt < maxRetries) {
+            // Exponential backoff with base 900ms
+            await sleep(900 * (attempt + 1));
+            continue;
+          }
+          return { analyst, ok: false, source, toEmail, id: null, error: msgText };
+        }
       }
     };
 
-    // Send strategy: if testTo is used (same recipient), send sequentially with small delay to avoid suppression
+    // Always send sequentially with delays to respect rate limit across admin + analysts
     const analystMessageIds = [];
     const lookupDetails = [];
     let sentCount = 0;
-    const entries = Object.entries(byAnalyst);
-    if (testTo) {
-      const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-      for (const [analyst, items] of entries) {
-        const r = await sendOne(analyst, items);
-        if (r.ok) sentCount += 1;
-        analystMessageIds.push({ analyst: r.analyst, id: r.id, status: r.ok ? 'ok' : 'error', error: r.error });
-        lookupDetails.push({ analyst: r.analyst, resolved: r.ok, source: r.source, toEmail: r.toEmail, error: r.error });
-        await sleep(400); // brief delay to reduce provider suppression for identical recipient
-      }
-    } else {
-      const settled = await Promise.allSettled(entries.map(([analyst, items]) => sendOne(analyst, items)));
-      for (const s of settled) {
-        if (s.status === 'fulfilled') {
-          const r = s.value;
-          if (r.ok) sentCount += 1;
-          analystMessageIds.push({ analyst: r.analyst, id: r.id, status: r.ok ? 'ok' : 'error', error: r.error });
-          lookupDetails.push({ analyst: r.analyst, resolved: r.ok, source: r.source, toEmail: r.toEmail, error: r.error });
-        } else {
-          analystMessageIds.push({ analyst: 'unknown', id: null, status: 'error', error: s.reason?.message || String(s.reason) });
-        }
-      }
+    for (const [analyst, items] of Object.entries(byAnalyst)) {
+      const r = await sendOne(analyst, items);
+      if (r.ok) sentCount += 1;
+      analystMessageIds.push({ analyst: r.analyst, id: r.id, status: r.ok ? 'ok' : 'error', error: r.error });
+      lookupDetails.push({ analyst: r.analyst, resolved: r.ok, source: r.source, toEmail: r.toEmail, error: r.error });
+      await sleep(800);
     }
 
     const response = {
