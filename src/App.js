@@ -477,6 +477,100 @@ const QuoteService = {
     }
   },
 
+  // Batch daily volume data for multiple symbols
+  async getBatchDailyVolumeData(symbols, days = 90) {
+    const volumesMap = {};
+    const errors = {};
+
+    if (!TWELVE_DATA_API_KEY || TWELVE_DATA_API_KEY === 'YOUR_API_KEY_HERE') {
+      for (const s of symbols) {
+        try {
+          const v = await this.getDailyVolumeData(s, days);
+          const key = v.originalSymbol || s;
+          volumesMap[key] = v;
+        } catch (e) {
+          errors[s] = e.message;
+        }
+      }
+      return { volumes: volumesMap, errors };
+    }
+
+    const originalToConverted = {};
+    const convertedList = symbols.map(s => {
+      const conv = this.convertBloombergToTwelveData(s);
+      originalToConverted[s] = conv;
+      return conv;
+    });
+
+    const chunkSize = 25;
+    for (let i = 0; i < convertedList.length; i += chunkSize) {
+      const chunk = convertedList.slice(i, i + chunkSize);
+      try {
+        const url = `${TWELVE_DATA_BASE_URL}/time_series?symbol=${encodeURIComponent(chunk.join(','))}&interval=1day&outputsize=${days}&apikey=${TWELVE_DATA_API_KEY}`;
+        console.log('Fetching batch daily volume from:', url);
+        const resp = await fetch(url);
+        const data = await resp.json();
+
+        if (data && (data.error || data.code || data.status === 'error')) {
+          const msg = data.message || data.error || 'Unknown error';
+          chunk.forEach(conv => {
+            const original = Object.keys(originalToConverted).find(k => originalToConverted[k] === conv) || conv;
+            errors[original] = String(msg);
+          });
+          continue;
+        }
+
+        let entries = [];
+        if (Array.isArray(data?.data)) entries = data.data;
+        else if (Array.isArray(data)) entries = data;
+        else if (data && data.values) entries = [data];
+        else if (data && typeof data === 'object') entries = Object.values(data);
+
+        for (const item of entries) {
+          const convSym = item.symbol || item?.meta?.symbol || null;
+          if (!convSym) continue;
+          const original = Object.keys(originalToConverted).find(k => originalToConverted[k] === convSym) || convSym;
+          const timeSeries = item.values || item.data || item['values'];
+          if (!Array.isArray(timeSeries)) {
+            volumesMap[original] = { symbol: convSym, originalSymbol: original, averageDailyVolume: null };
+            continue;
+          }
+          const vols = timeSeries.slice(0, days).map(x => parseFloat(x.volume)).filter(v => v > 0);
+          const avg = vols.length ? Math.round(vols.reduce((a, b) => a + b, 0) / vols.length) : null;
+          volumesMap[original] = { symbol: convSym, originalSymbol: original, averageDailyVolume: avg, daysCalculated: vols.length, periodRequested: days };
+        }
+
+        const returned = new Set(Object.keys(volumesMap));
+        for (const conv of chunk) {
+          const original = Object.keys(originalToConverted).find(k => originalToConverted[k] === conv) || conv;
+          if (!returned.has(original)) {
+            try {
+              const v = await this.getDailyVolumeData(original, days);
+              const key = v.originalSymbol || original;
+              volumesMap[key] = v;
+            } catch (e) {
+              errors[original] = e.message;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Batch daily volume fetch failed, falling back sequentially:', e);
+        for (const conv of chunk) {
+          const original = Object.keys(originalToConverted).find(k => originalToConverted[k] === conv) || conv;
+          try {
+            const v = await this.getDailyVolumeData(original, days);
+            const key = v.originalSymbol || original;
+            volumesMap[key] = v;
+          } catch (err) {
+            errors[original] = err.message;
+          }
+        }
+      }
+    }
+
+    return { volumes: volumesMap, errors };
+  },
+
   // Get upcoming earnings date using Financial Modeling Prep with Twelve Data fallback
   async getUpcomingEarningsDate(symbol) {
     // Try FMP first
