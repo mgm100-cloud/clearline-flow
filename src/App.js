@@ -697,20 +697,124 @@ const QuoteService = {
   async getBatchQuotes(symbols) {
     const quotes = {};
     const errors = {};
-    
-    // TwelveData premium tier allows 75 calls per minute
-    for (let i = 0; i < symbols.length; i++) {
-      const symbol = symbols[i];
+
+    if (!TWELVE_DATA_API_KEY || TWELVE_DATA_API_KEY === 'YOUR_API_KEY_HERE') {
+      // Fall back to sequential with clear error if no key
+      for (const symbol of symbols) {
+        try {
+          const q = await this.getQuote(symbol);
+          const keySymbol = q.originalSymbol || symbol;
+          quotes[keySymbol] = q;
+        } catch (e) {
+          errors[symbol] = e.message;
+        }
+      }
+      return { quotes, errors };
+    }
+
+    // Build mapping original -> converted and list of converted symbols
+    const originalToConverted = {};
+    const convertedList = [];
+    symbols.forEach((s) => {
+      const conv = this.convertBloombergToTwelveData(s);
+      originalToConverted[s] = conv;
+      convertedList.push(conv);
+    });
+
+    // Chunk to respect URL length and rate limits
+    const chunkSize = 30; // safe chunk size
+    for (let i = 0; i < convertedList.length; i += chunkSize) {
+      const chunk = convertedList.slice(i, i + chunkSize);
       try {
-        const quote = await this.getQuote(symbol);
-        // Use the converted symbol as the key but store original for reference
-        const keySymbol = quote.originalSymbol || symbol;
-        quotes[keySymbol] = quote;
-      } catch (error) {
-        errors[symbol] = error.message;
+        const url = `${TWELVE_DATA_BASE_URL}/quote?symbol=${encodeURIComponent(chunk.join(','))}&apikey=${TWELVE_DATA_API_KEY}`;
+        console.log('Fetching batch quotes from:', url);
+        const resp = await fetch(url);
+        const data = await resp.json();
+        console.log('Batch quote payload:', data);
+
+        // Handle error envelope
+        if (data && (data.error || data.code || data.status === 'error')) {
+          const msg = data.message || data.error || 'Unknown error';
+          // Mark each symbol in this chunk as failed
+          chunk.forEach((conv) => {
+            const original = Object.keys(originalToConverted).find((k) => originalToConverted[k] === conv) || conv;
+            errors[original] = String(msg);
+          });
+          continue;
+        }
+
+        // Normalize into array of entries
+        let entries = [];
+        if (Array.isArray(data?.data)) {
+          entries = data.data;
+        } else if (Array.isArray(data)) {
+          entries = data;
+        } else if (data && data.symbol && (data.close || data.price)) {
+          entries = [data];
+        } else if (data && typeof data === 'object') {
+          // Some APIs return an object keyed by symbol
+          entries = Object.values(data);
+        }
+
+        // Map each entry back to original symbol and store
+        for (const item of entries) {
+          const convSym = item.symbol || item.ticker || null;
+          if (!convSym) continue;
+          // Find original
+          const original = Object.keys(originalToConverted).find((k) => originalToConverted[k] === convSym) || convSym;
+          // Determine price fields
+          const priceVal = item.close ?? item.price ?? item.last ?? null;
+          if (priceVal == null) {
+            errors[original] = 'No price in batch item';
+            continue;
+          }
+          quotes[original] = {
+            symbol: convSym,
+            originalSymbol: original,
+            price: parseFloat(priceVal),
+            change: item.change != null ? parseFloat(item.change) : null,
+            changePercent: item.percent_change != null ? parseFloat(item.percent_change) : null,
+            volume: item.volume != null ? parseInt(item.volume) : null,
+            previousClose: item.previous_close != null ? parseFloat(item.previous_close) : null,
+            high: item.high != null ? parseFloat(item.high) : null,
+            low: item.low != null ? parseFloat(item.low) : null,
+            open: item.open != null ? parseFloat(item.open) : null,
+            lastUpdated: item.datetime || new Date().toISOString(),
+            source: 'batch-quote',
+            isIntraday: true
+          };
+        }
+
+        // For any symbols in the chunk not returned, fall back to price-only
+        const returnedOriginals = new Set(Object.keys(quotes));
+        for (const conv of chunk) {
+          const original = Object.keys(originalToConverted).find((k) => originalToConverted[k] === conv) || conv;
+          if (!returnedOriginals.has(original)) {
+            try {
+              const q = await this.getPriceOnly(original);
+              const keySymbol = q.originalSymbol || original;
+              quotes[keySymbol] = q;
+            } catch (e) {
+              errors[original] = e.message;
+            }
+          }
+        }
+      } catch (e) {
+        // On batch error, fall back sequential for this chunk
+        console.warn('Batch quote fetch failed, falling back sequentially:', e);
+        for (const conv of chunk) {
+          const original = Object.keys(originalToConverted).find((k) => originalToConverted[k] === conv) || conv;
+          try {
+            const q = await this.getQuote(original);
+            const keySymbol = q.originalSymbol || original;
+            quotes[keySymbol] = q;
+          } catch (err) {
+            errors[original] = err.message;
+          }
+        }
       }
     }
-    
+
     return { quotes, errors };
   },
 
@@ -1437,6 +1541,16 @@ const ClearlineFlow = () => {
       // Update quotes state - using original symbols as keys
       setQuotes(prev => ({ ...prev, ...newQuotes }));
       
+      // Update currentPrice on tickers from batch results
+      setTickers(prev => prev.map(t => {
+        const original = t.ticker.replace(' US', '');
+        const q = newQuotes[original];
+        if (q && q.price != null) {
+          return { ...t, currentPrice: q.price, lastQuoteUpdate: new Date().toISOString() };
+        }
+        return t;
+      }));
+
       // Update errors state
       setQuoteErrors(prev => ({ ...prev, ...errors }));
       
