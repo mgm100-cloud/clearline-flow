@@ -292,6 +292,9 @@ export default async function handler(req, res) {
       (req.body && (req.body.force === '1' || req.body.force === 'true'))
     );
 
+    // Env override (useful for Vercel "Run" button): FORCE_CRON=1/true/yes/on
+    const envForce = ['1','true','yes','on'].includes(String(process.env.FORCE_CRON || '').toLowerCase());
+
     // Optional test recipient override for analyst emails
     const testTo = (
       (req.query && typeof req.query.testTo === 'string' && req.query.testTo) ||
@@ -305,7 +308,7 @@ export default async function handler(req, res) {
       (req.body && (req.body.debug === '1' || req.body.debug === 'true'))
     );
 
-    if (!forceRun && hourNY !== 17) {
+    if (!forceRun && !envForce && hourNY !== 17) {
       return res.status(200).json({ success: true, skipped: true, reason: `Current NY hour ${hourNY} != 17` });
     }
 
@@ -416,6 +419,7 @@ export default async function handler(req, res) {
     const response = {
       success: true,
       forced: !!forceRun,
+      envForced: !!envForce,
       adminMessageId: adminSend?.id || null,
       sentToAnalysts: sentCount,
       lateCount: lateItems.length,
