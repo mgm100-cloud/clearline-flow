@@ -2110,7 +2110,7 @@ const ClearlineFlow = () => {
       const warnings = {};
       
       // Process tickers in batches to avoid overwhelming the API
-      const batchSize = 10;
+      const batchSize = 200;
       for (let i = 0; i < tickers.length; i += batchSize) {
         const batch = tickers.slice(i, i + batchSize);
 
@@ -2208,7 +2208,7 @@ const ClearlineFlow = () => {
     console.log('🔄 Starting company names refresh...');
     
     try {
-      const batchSize = 3; // Small batch size to be respectful to the API
+      const batchSize = 100; // Small batch size to be respectful to the API
       let successCount = 0;
       const errors = {};
       
