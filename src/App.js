@@ -2022,15 +2022,21 @@ const ClearlineFlow = () => {
       for (let i = 0; i < tickers.length; i += batchSize) {
         const batch = tickers.slice(i, i + batchSize);
 
-        // Prepare symbols for batch quote fetch
+        // Prepare symbols for batch quote/volume fetch
         const symbols = batch.map(t => t.ticker.replace(' US', ''));
         let batchQuotes = {};
+        let batchVolumes = {};
         try {
-          const { quotes: qmap } = await QuoteService.getBatchQuotes(symbols);
+          const [{ quotes: qmap }, { volumes: vmap }] = await Promise.all([
+            QuoteService.getBatchQuotes(symbols),
+            QuoteService.getBatchDailyVolumeData(symbols)
+          ]);
           batchQuotes = qmap || {};
+          batchVolumes = vmap || {};
         } catch (e) {
-          console.warn('Batch quote fetch failed inside refreshMarketData, continuing per-ticker:', e?.message || e);
+          console.warn('Batch fetch failed inside refreshMarketData:', e?.message || e);
           batchQuotes = {};
+          batchVolumes = {};
         }
         
         await Promise.all(batch.map(async (ticker) => {
@@ -2039,18 +2045,13 @@ const ClearlineFlow = () => {
           try {
             console.log(`🔄 Fetching market data for ${cleanSymbol}...`);
             
-            const [marketCapData, volumeData] = await Promise.all([
-              QuoteService.getCompanyMarketcap(cleanSymbol).catch(error => {
-                console.warn(`Could not fetch market cap for ${cleanSymbol}:`, error.message);
-                return null;
-              }),
-              QuoteService.getDailyVolumeData(cleanSymbol).catch(error => {
-                console.warn(`Could not fetch volume data for ${cleanSymbol}:`, error.message);
-                return null;
-              })
-            ]);
+            const marketCapData = await QuoteService.getCompanyMarketcap(cleanSymbol).catch(error => {
+              console.warn(`Could not fetch market cap for ${cleanSymbol}:`, error.message);
+              return null;
+            });
             
             const quoteData = batchQuotes[cleanSymbol] || null;
+            const volumeData = batchVolumes[cleanSymbol] || null;
             
             const updates = {};
             
