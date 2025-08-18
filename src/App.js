@@ -2018,9 +2018,20 @@ const ClearlineFlow = () => {
       const warnings = {};
       
       // Process tickers in batches to avoid overwhelming the API
-      const batchSize = 5;
+      const batchSize = 10;
       for (let i = 0; i < tickers.length; i += batchSize) {
         const batch = tickers.slice(i, i + batchSize);
+
+        // Prepare symbols for batch quote fetch
+        const symbols = batch.map(t => t.ticker.replace(' US', ''));
+        let batchQuotes = {};
+        try {
+          const { quotes: qmap } = await QuoteService.getBatchQuotes(symbols);
+          batchQuotes = qmap || {};
+        } catch (e) {
+          console.warn('Batch quote fetch failed inside refreshMarketData, continuing per-ticker:', e?.message || e);
+          batchQuotes = {};
+        }
         
         await Promise.all(batch.map(async (ticker) => {
           const cleanSymbol = ticker.ticker.replace(' US', '');
@@ -2028,7 +2039,7 @@ const ClearlineFlow = () => {
           try {
             console.log(`🔄 Fetching market data for ${cleanSymbol}...`);
             
-            const [marketCapData, volumeData, quoteData] = await Promise.all([
+            const [marketCapData, volumeData] = await Promise.all([
               QuoteService.getCompanyMarketcap(cleanSymbol).catch(error => {
                 console.warn(`Could not fetch market cap for ${cleanSymbol}:`, error.message);
                 return null;
@@ -2036,12 +2047,10 @@ const ClearlineFlow = () => {
               QuoteService.getDailyVolumeData(cleanSymbol).catch(error => {
                 console.warn(`Could not fetch volume data for ${cleanSymbol}:`, error.message);
                 return null;
-              }),
-              QuoteService.getQuote(cleanSymbol).catch(error => {
-                console.warn(`Could not fetch quote data for ${cleanSymbol}:`, error.message);
-                return null;
               })
             ]);
+            
+            const quoteData = batchQuotes[cleanSymbol] || null;
             
             const updates = {};
             
@@ -2083,7 +2092,7 @@ const ClearlineFlow = () => {
         
         // Small delay between batches to be respectful to the API
         if (i + batchSize < tickers.length) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          await new Promise(resolve => setTimeout(resolve, 1200));
         }
       }
       
