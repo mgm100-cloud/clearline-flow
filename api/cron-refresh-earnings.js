@@ -25,13 +25,29 @@ function getAllCYQsWindow() {
 
 async function fetchFmpEarnings(symbol) {
   const apiKey = process.env.FMP_API_KEY;
-  if (!apiKey) return null;
+  if (!apiKey) {
+    console.log(`FMP: No API key available`);
+    return null;
+  }
+  
   const cleanSymbol = String(symbol || '').replace(/ US$/, '').trim().toUpperCase();
   const url = `https://financialmodelingprep.com/stable/earnings?symbol=${encodeURIComponent(cleanSymbol)}&apikey=${apiKey}`;
+  
+  console.log(`FMP API call for ${symbol} (clean: ${cleanSymbol}): ${url.replace(apiKey, 'API_KEY_HIDDEN')}`);
+  
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`FMP ${res.status}`);
+  if (!res.ok) {
+    console.log(`FMP API error for ${symbol}: ${res.status} ${res.statusText}`);
+    throw new Error(`FMP ${res.status}`);
+  }
+  
   const data = await res.json();
-  if (!Array.isArray(data) || data.length === 0) return null;
+  console.log(`FMP raw response for ${symbol}:`, JSON.stringify(data).substring(0, 500));
+  
+  if (!Array.isArray(data) || data.length === 0) {
+    console.log(`FMP: No earnings data found for ${symbol}`);
+    return null;
+  }
 
   // Keep last 12 months + future
   const today = new Date();
@@ -48,26 +64,49 @@ async function fetchFmpEarnings(symbol) {
     return dt >= twelveMonthsAgo;
   });
 
-  if (!relevant.length) return null;
+  if (!relevant.length) {
+    console.log(`FMP: No relevant earnings found for ${symbol} (filtered out old dates)`);
+    return null;
+  }
+  
   relevant.sort((a, b) => new Date(a.date) - new Date(b.date));
-  return relevant.map((e) => ({ date: e.date }));
+  const result = relevant.map((e) => ({ date: e.date }));
+  console.log(`FMP: Returning ${result.length} earnings dates for ${symbol}:`, result);
+  return result;
 }
 
 async function fetchTwelveDataEarnings(symbol) {
   const key = process.env.TWELVE_DATA_API_KEY;
-  if (!key) return null;
+  if (!key) {
+    console.log(`TwelveData: No API key available`);
+    return null;
+  }
+  
   // Convert Bloomberg suffix to Twelve Data style when present (basic pass)
   const converted = String(symbol || '').replace(/ US$/, '').trim().toUpperCase();
   const url = `https://api.twelvedata.com/earnings?symbol=${encodeURIComponent(converted)}&apikey=${key}`;
+  
+  console.log(`TwelveData API call for ${symbol} (converted: ${converted}): ${url.replace(key, 'API_KEY_HIDDEN')}`);
+  
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`TwelveData ${res.status}`);
+  if (!res.ok) {
+    console.log(`TwelveData API error for ${symbol}: ${res.status} ${res.statusText}`);
+    throw new Error(`TwelveData ${res.status}`);
+  }
+  
   const data = await res.json();
+  console.log(`TwelveData raw response for ${symbol}:`, JSON.stringify(data).substring(0, 500));
+  
   if (data && data.data && Array.isArray(data.data)) {
     // Normalize shape: [{date: 'YYYY-MM-DD'}, ...]
-    return data.data
+    const result = data.data
       .filter((row) => row && row.date)
       .map((row) => ({ date: row.date }));
+    console.log(`TwelveData: Returning ${result.length} earnings dates for ${symbol}:`, result);
+    return result;
   }
+  
+  console.log(`TwelveData: No valid earnings data found for ${symbol}`);
   return null;
 }
 
@@ -83,6 +122,11 @@ export default async function handler(req, res) {
       throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
     }
     const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+    // Debug API key availability
+    console.log('API Key Status:');
+    console.log('- FMP_API_KEY:', process.env.FMP_API_KEY ? `Available (${process.env.FMP_API_KEY.length} chars)` : 'Missing');
+    console.log('- TWELVE_DATA_API_KEY:', process.env.TWELVE_DATA_API_KEY ? `Available (${process.env.TWELVE_DATA_API_KEY.length} chars)` : 'Missing');
 
     // Determine if we should run now: every midnight America/New_York
     const hourNY = parseInt(new Intl.DateTimeFormat('en-US', {
@@ -115,20 +159,28 @@ export default async function handler(req, res) {
       results.processed += 1;
       try {
         // Fetch earnings dates (prefer FMP, fallback to Twelve Data)
+        console.log(`Fetching earnings for ${symbol}...`);
         let earnings = await fetchFmpEarnings(symbol);
-        if (!earnings) earnings = await fetchTwelveDataEarnings(symbol);
+        console.log(`FMP result for ${symbol}:`, earnings ? `${earnings.length} dates` : 'null');
+        
+        if (!earnings) {
+          earnings = await fetchTwelveDataEarnings(symbol);
+          console.log(`TwelveData result for ${symbol}:`, earnings ? `${earnings.length} dates` : 'null');
+        }
+
+        // CRITICAL: Only clear existing data if we have new data to replace it
+        if (!earnings || !earnings.length) {
+          console.log(`No earnings data found for ${symbol}, skipping (preserving existing data)`);
+          continue;
+        }
 
         // Clear existing earnings_date in the target CYQ window for this ticker (preserve other columns)
+        console.log(`Clearing existing earnings for ${symbol} and updating with ${earnings.length} new dates`);
         await supabase
           .from('earnings_tracking')
           .update({ earnings_date: null, updated_at: new Date().toISOString() })
           .eq('ticker_id', t.id)
           .in('cyq', allCYQs);
-
-        // Nothing to insert
-        if (!earnings || !earnings.length) {
-          continue;
-        }
 
         // Build upserts
         const rows = [];
