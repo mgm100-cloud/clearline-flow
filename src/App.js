@@ -6130,16 +6130,15 @@ const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarnin
 
   // Handle refresh earnings dates
   const handleRefreshEarnings = async () => {
-    // Refresh ALL portfolio tickers (respecting analyst filter), not just those already visible
-    // This ensures tickers with no existing earnings (e.g., newly added) also get fetched
-    const tickersToRefresh = portfolioTickers || [];
-    if (!onRefreshEarnings || tickersToRefresh.length === 0) return;
+    // Refresh ALL portfolio tickers regardless of analyst filter or screen display
+    const allPortfolioTickers = tickers.filter(ticker => ticker.status === 'Portfolio');
+    if (!onRefreshEarnings || allPortfolioTickers.length === 0) return;
 
     setIsRefreshing(true);
     setRefreshMessage('Fetching earnings dates from TwelveData...');
 
     try {
-      const result = await onRefreshEarnings(tickersToRefresh);
+      const result = await onRefreshEarnings(allPortfolioTickers);
       
       if (result.success > 0) {
         // Create a summary of CYQ updates
@@ -6338,9 +6337,9 @@ const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarnin
             </button>
             <button
               onClick={handleRefreshEarnings}
-              disabled={isRefreshing || sortedTickers.length === 0}
+              disabled={isRefreshing}
               className={`flex items-center space-x-1 px-3 py-1 rounded text-sm font-medium ${
-                isRefreshing || sortedTickers.length === 0
+                isRefreshing
                   ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
                   : 'bg-green-100 text-green-700 hover:bg-green-200'
               }`}
