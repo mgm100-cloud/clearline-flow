@@ -182,13 +182,25 @@ export default async function handler(req, res) {
           .eq('ticker_id', t.id)
           .in('cyq', allCYQs);
 
-        // Build upserts
-        const rows = [];
-        for (const e of earnings) {
-          const cyq = toCYQFromDate(e.date);
-          if (!cyq) continue;
-          rows.push({ ticker_id: t.id, cyq, earnings_date: e.date, updated_at: new Date().toISOString() });
+        // Build upserts - handle multiple earnings dates in same quarter by appending 'L'
+        const cyqMap = new Map();
+        const sortedEarnings = earnings.sort((a, b) => new Date(a.date) - new Date(b.date));
+        
+        for (const e of sortedEarnings) {
+          const baseCyq = toCYQFromDate(e.date);
+          if (!baseCyq) continue;
+          
+          let cyq = baseCyq;
+          // If we already have an entry for this CYQ, append 'L' for the later earnings
+          if (cyqMap.has(cyq)) {
+            cyq = baseCyq + 'L';
+            console.log(`Multiple earnings in ${baseCyq} for ${symbol}, using ${cyq} for ${e.date}`);
+          }
+          
+          cyqMap.set(cyq, { ticker_id: t.id, cyq, earnings_date: e.date, updated_at: new Date().toISOString() });
         }
+        
+        const rows = Array.from(cyqMap.values());
 
         if (rows.length) {
           const { error: upsertErr } = await supabase
