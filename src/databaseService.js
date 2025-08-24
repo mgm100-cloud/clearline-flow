@@ -543,5 +543,26 @@ export const DatabaseService = {
       console.warn('⚠️ Using fallback analysts list:', fallbackAnalysts);
       return fallbackAnalysts;
     }
+  },
+
+  // Get all user profiles for email recipients
+  async getUserProfiles() {
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('full_name, email, analyst_code')
+        .order('full_name');
+      
+      if (error) throw error;
+      
+      console.log('✅ Fetched user profiles:', data);
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching user profiles:', error);
+      
+      // Fallback to empty array
+      console.warn('⚠️ Using empty user profiles list due to error');
+      return [];
+    }
   }
 } 

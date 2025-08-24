@@ -8091,36 +8091,43 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdateSelec
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [selectedRecipients, setSelectedRecipients] = useState([]);
   const [isEmailSending, setIsEmailSending] = useState(false);
+  const [userProfiles, setUserProfiles] = useState([]);
 
-  // User list for email recipients (analyst code to email mapping)
-  const userList = [
-    { name: 'Marc Majzner', email: 'mmajzner@clearlinecap.com', analystCode: 'MM' },
-    { name: 'Luis Torres', email: 'ltorres@clearlinecap.com', analystCode: 'LT' },
-    { name: 'Greg Anderson', email: 'ganderson@clearlinecap.com', analystCode: 'GA' },
-    { name: 'Dave Peckham', email: 'dpeckham@clearlinecap.com', analystCode: 'DP' },
-    { name: 'Matt Sweeney', email: 'msweeney@clearlinecap.com', analystCode: 'MS' },
-    { name: 'Dan Oliver', email: 'doliver@clearlinecap.com', analystCode: 'DO' }
-  ];
-
-  // Initialize selected recipients with current user when modal opens
+  // Fetch user profiles on component mount
   useEffect(() => {
-    if (showEmailModal && currentUser) {
-      const currentUserEmail = currentUser.email;
-      const currentUserInList = userList.find(user => user.email === currentUserEmail);
-      if (currentUserInList && !selectedRecipients.includes(currentUserInList.email)) {
-        setSelectedRecipients([currentUserInList.email]);
+    const loadUserProfiles = async () => {
+      try {
+        const profiles = await DatabaseService.getUserProfiles();
+        setUserProfiles(profiles);
+      } catch (error) {
+        console.error('Error loading user profiles:', error);
       }
-    }
-  }, [showEmailModal, currentUser, userList, selectedRecipients]);
+    };
+    
+    loadUserProfiles();
+  }, []);
 
   // Handle email modal
   const handleOpenEmailModal = () => {
     setShowEmailModal(true);
-    // Pre-select current user and Marc Majzner
-    const defaultRecipients = ['mmajzner@clearlinecap.com'];
-    if (currentUser?.email && currentUser.email !== 'mmajzner@clearlinecap.com') {
+    // Pre-select current user and Marc Majzner based on actual user profiles
+    const defaultRecipients = [];
+    
+    // Find Marc Majzner in user profiles (assuming MM analyst code or mmajzner email)
+    const marcProfile = userProfiles.find(user => 
+      user.email === 'mmajzner@clearlinecap.com' || 
+      user.analyst_code === 'MM' ||
+      user.full_name?.toLowerCase().includes('marc majzner')
+    );
+    if (marcProfile) {
+      defaultRecipients.push(marcProfile.email);
+    }
+    
+    // Add current user if different
+    if (currentUser?.email && !defaultRecipients.includes(currentUser.email)) {
       defaultRecipients.push(currentUser.email);
     }
+    
     setSelectedRecipients(defaultRecipients);
   };
 
@@ -8871,7 +8878,7 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdateSelec
               
               <div className="px-6 py-4">
                 <div className="space-y-3">
-                  {userList.map((user) => (
+                  {userProfiles.map((user) => (
                     <label key={user.email} className="flex items-center">
                       <input
                         type="checkbox"
@@ -8880,11 +8887,16 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdateSelec
                         className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                       />
                       <span className="ml-3 text-sm text-gray-700">
-                        {user.name} ({user.analystCode}) - {user.email}
+                        {user.full_name} {user.analyst_code ? `(${user.analyst_code})` : ''} - {user.email}
                       </span>
                     </label>
                   ))}
                 </div>
+                {userProfiles.length === 0 && (
+                  <div className="text-center py-4">
+                    <p className="text-sm text-gray-500">Loading user profiles...</p>
+                  </div>
+                )}
               </div>
               
               <div className="px-6 py-4 border-t border-gray-200 flex justify-between">
