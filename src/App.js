@@ -2824,6 +2824,11 @@ const ClearlineFlow = () => {
             userRole={userRole}
             onRefreshTodos={refreshTodos}
             currentUser={currentUser}
+            tickers={tickers}
+            onNavigateToIdeaDetail={(ticker) => {
+              setSelectedTickerForDetail(ticker);
+              setActiveTab('idea-detail');
+            }}
           />
         )}
         {activeTab === 'idea-detail' && (
@@ -6696,7 +6701,7 @@ This email and any files transmitted with it may contain privileged or confident
 };
 
 // Todo List Page Component
-const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTodo, onUpdateTodo, onDeleteTodo, analysts, userRole, onRefreshTodos, currentUser }) => {
+const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTodo, onUpdateTodo, onDeleteTodo, analysts, userRole, onRefreshTodos, currentUser, tickers, onNavigateToIdeaDetail }) => {
   const [sortField, setSortField] = useState('dateEntered');
   const [sortDirection, setSortDirection] = useState('desc');
   const [showAddForm, setShowAddForm] = useState(false);
@@ -7456,6 +7461,8 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
                     userRole={userRole}
                     hasWriteAccess={userRole === 'readwrite' || userRole === 'admin'}
                     isClosed={false}
+                    tickers={tickers}
+                    onNavigateToIdeaDetail={onNavigateToIdeaDetail}
                   />
                 ))}
               </tbody>
@@ -7499,6 +7506,8 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
                     userRole={userRole}
                     hasWriteAccess={userRole === 'readwrite' || userRole === 'admin'}
                     isClosed={true}
+                    tickers={tickers}
+                    onNavigateToIdeaDetail={onNavigateToIdeaDetail}
                   />
                 ))}
               </tbody>
@@ -7513,7 +7522,7 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
 };
 
 // Todo Row Component with double-click editing
-const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, formatDate, userRole, hasWriteAccess, isClosed = false }) => {
+const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, formatDate, userRole, hasWriteAccess, isClosed = false, tickers, onNavigateToIdeaDetail }) => {
   const [editingField, setEditingField] = useState(null); // 'priority' or 'item'
   const [editValue, setEditValue] = useState('');
 
@@ -7557,10 +7566,30 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, 
     }
   };
 
+  // Check if ticker exists in the idea database
+  const tickerInDatabase = tickers ? tickers.find(t => t.ticker.toUpperCase() === todo.ticker.toUpperCase()) : null;
+
+  // Handle ticker click
+  const handleTickerClick = () => {
+    if (tickerInDatabase && onNavigateToIdeaDetail) {
+      onNavigateToIdeaDetail(tickerInDatabase);
+    }
+  };
+
   return (
     <tr className={isClosed ? 'bg-white' : ''}>
       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-        {todo.ticker}
+        {tickerInDatabase ? (
+          <button
+            onClick={handleTickerClick}
+            className="text-blue-600 hover:text-blue-800 underline hover:no-underline font-medium"
+            title="Click to view in Idea Detail"
+          >
+            {todo.ticker}
+          </button>
+        ) : (
+          <span className="text-gray-900">{todo.ticker}</span>
+        )}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
         {todo.analyst}
