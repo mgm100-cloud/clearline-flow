@@ -5805,42 +5805,42 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
                    {analyst}
                  </td>
                  <td className="px-6 py-4 text-center">
-                   <div className="space-y-1">
+                   <div className="flex flex-wrap gap-2 justify-center">
                      {getTickersForCell(analyst, 'Current', 'Long').map(ticker => 
                        renderTickerButton(ticker, 'bg-green-100', 'text-green-800')
                      )}
                    </div>
                  </td>
                  <td className="px-6 py-4 text-center">
-                   <div className="space-y-1">
+                   <div className="flex flex-wrap gap-2 justify-center">
                      {getTickersForCell(analyst, 'Current', 'Short').map(ticker => 
                        renderTickerButton(ticker, 'bg-red-100', 'text-red-800')
                      )}
                    </div>
                  </td>
                  <td className="px-6 py-4 text-center">
-                   <div className="space-y-1">
+                   <div className="flex flex-wrap gap-2 justify-center">
                      {getTickersForCell(analyst, 'On-Deck', 'Long').map(ticker => 
                        renderTickerButton(ticker, 'bg-green-100', 'text-green-800')
                      )}
                    </div>
                  </td>
                  <td className="px-6 py-4 text-center">
-                   <div className="space-y-1">
+                   <div className="flex flex-wrap gap-2 justify-center">
                      {getTickersForCell(analyst, 'On-Deck', 'Short').map(ticker => 
                        renderTickerButton(ticker, 'bg-red-100', 'text-red-800')
                      )}
                    </div>
                  </td>
                  <td className="px-6 py-4 text-center">
-                   <div className="space-y-1">
+                   <div className="flex flex-wrap gap-2 justify-center">
                      {getTickersForCell(analyst, 'Portfolio', 'Long').map(ticker => 
                        renderTickerButton(ticker, 'bg-green-100', 'text-green-800')
                      )}
                    </div>
                  </td>
                  <td className="px-6 py-4 text-center">
-                   <div className="space-y-1">
+                   <div className="flex flex-wrap gap-2 justify-center">
                      {getTickersForCell(analyst, 'Portfolio', 'Short').map(ticker => 
                        renderTickerButton(ticker, 'bg-red-100', 'text-red-800')
                      )}
@@ -5856,38 +5856,30 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
                </td>
                <td className="px-6 py-4 text-center">
                  <div className="space-y-1">
-                   {getUnassignedTickersForCell('Current', 'Long').map(ticker => (
-                     <div key={ticker.id} className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">
-                       {ticker.ticker}
-                     </div>
-                   ))}
+                   {getUnassignedTickersForCell('Current', 'Long').map(ticker => 
+                     renderTickerButton(ticker, 'bg-orange-100', 'text-orange-800')
+                   )}
                  </div>
                </td>
                <td className="px-6 py-4 text-center">
                  <div className="space-y-1">
-                   {getUnassignedTickersForCell('Current', 'Short').map(ticker => (
-                     <div key={ticker.id} className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">
-                       {ticker.ticker}
-                     </div>
-                   ))}
+                   {getUnassignedTickersForCell('Current', 'Short').map(ticker => 
+                     renderTickerButton(ticker, 'bg-orange-100', 'text-orange-800')
+                   )}
                  </div>
                </td>
                <td className="px-6 py-4 text-center">
                  <div className="space-y-1">
-                   {getUnassignedTickersForCell('On-Deck', 'Long').map(ticker => (
-                     <div key={ticker.id} className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">
-                       {ticker.ticker}
-                     </div>
-                   ))}
+                   {getUnassignedTickersForCell('On-Deck', 'Long').map(ticker => 
+                     renderTickerButton(ticker, 'bg-orange-100', 'text-orange-800')
+                   )}
                  </div>
                </td>
                <td className="px-6 py-4 text-center">
                  <div className="space-y-1">
-                   {getUnassignedTickersForCell('On-Deck', 'Short').map(ticker => (
-                     <div key={ticker.id} className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">
-                       {ticker.ticker}
-                     </div>
-                   ))}
+                   {getUnassignedTickersForCell('On-Deck', 'Short').map(ticker => 
+                     renderTickerButton(ticker, 'bg-orange-100', 'text-orange-800')
+                   )}
                  </div>
                </td>
                <td className="px-6 py-4 text-center">
