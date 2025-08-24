@@ -5948,6 +5948,7 @@ const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarnin
   const [sortDirection, setSortDirection] = useState('asc');
   const [daysRange, setDaysRange] = useState({ min: -10, max: 90 });
   const [hideOldEarnings, setHideOldEarnings] = useState(false);
+  const [hidePastEarnings, setHidePastEarnings] = useState(false);
 
   // Filter tickers to only show Portfolio status
   let portfolioTickers = tickers.filter(ticker => ticker.status === 'Portfolio');
@@ -6021,6 +6022,11 @@ const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarnin
     // If hideOldEarnings is enabled, apply the old filter first
     if (hideOldEarnings) {
       allEarningsData = allEarningsData.filter(data => data.days >= -7);
+    }
+    
+    // If hidePastEarnings is enabled, filter out past earnings (negative days)
+    if (hidePastEarnings) {
+      allEarningsData = allEarningsData.filter(data => data.days >= 0);
     }
     
     // Filter by days range
@@ -6290,6 +6296,17 @@ const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarnin
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
                 <span>Hide &gt;1 week old</span>
+              </label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={hidePastEarnings}
+                  onChange={(e) => setHidePastEarnings(e.target.checked)}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <span>Hide past earnings</span>
               </label>
             </div>
             <button
