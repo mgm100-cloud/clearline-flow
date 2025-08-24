@@ -1599,9 +1599,31 @@ const ClearlineFlow = () => {
     if (!isAuthenticated) return;
     
     try {
+      // Refresh earnings data from database
       const earningsDataFromDB = await DatabaseService.getEarningsData();
       setEarningsData(earningsDataFromDB);
-      return { success: true, message: 'Earnings data refreshed successfully' };
+      
+      // Validate Portfolio status filtering
+      const portfolioTickers = tickers.filter(ticker => ticker.status === 'Portfolio');
+      const portfolioTickerSymbols = new Set(portfolioTickers.map(t => t.ticker));
+      
+      // Check if any earnings data exists for non-Portfolio tickers
+      const nonPortfolioEarnings = earningsDataFromDB.filter(earning => 
+        earning.ticker && !portfolioTickerSymbols.has(earning.ticker)
+      );
+      
+      let message = `✅ Earnings data refreshed successfully (${earningsDataFromDB.length} records)`;
+      
+      if (nonPortfolioEarnings.length > 0) {
+        console.warn('Found earnings data for non-Portfolio tickers:', nonPortfolioEarnings.map(e => e.ticker));
+        message += `. ⚠️ Note: ${nonPortfolioEarnings.length} earnings records exist for non-Portfolio tickers`;
+      } else {
+        message += `. ✅ All earnings data is for Portfolio tickers only`;
+      }
+      
+      console.log(`Portfolio validation: ${portfolioTickers.length} Portfolio tickers, ${earningsDataFromDB.length} earnings records, ${nonPortfolioEarnings.length} non-Portfolio earnings`);
+      
+      return { success: true, message };
     } catch (error) {
       console.error('Error refreshing earnings data from database:', error);
       return { success: false, message: 'Failed to refresh earnings data' };
