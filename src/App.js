@@ -8095,6 +8095,22 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdate, ana
     }
   }, [tickers, selectedTicker, onSelectTicker]);
 
+  // Update quote when ticker is selected to ensure current price is fresh
+  useEffect(() => {
+    if (selectedTicker && onUpdateQuote) {
+      const cleanSymbol = selectedTicker.ticker.replace(' US', '');
+      // Check if we already have a recent quote (within 1 minute)
+      const quote = quotes[cleanSymbol];
+      const hasRecentQuote = quote && quote.timestamp && 
+        (Date.now() - new Date(quote.timestamp).getTime()) < 60000;
+      
+      if (!hasRecentQuote) {
+        console.log(`🔄 Updating quote for ${cleanSymbol} on ticker selection`);
+        onUpdateQuote(cleanSymbol);
+      }
+    }
+  }, [selectedTicker, onUpdateQuote, quotes]);
+
   // If no ticker is selected, show ticker selection
   if (!selectedTicker) {
     // Sort tickers alphabetically by ticker symbol
@@ -8452,6 +8468,40 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdate, ana
     );
   };
 
+  // Render current price field with refresh button
+  const renderCurrentPriceField = () => {
+    const cleanSymbol = selectedTicker.ticker.replace(' US', '');
+    const quote = quotes[cleanSymbol];
+    const currentPrice = quote?.price ? parseFloat(quote.price).toFixed(2) : 
+                        (selectedTicker.currentPrice ? parseFloat(selectedTicker.currentPrice).toFixed(2) : '-');
+    const hasQuoteError = quoteErrors[cleanSymbol];
+    const isRefreshing = isLoadingQuotes;
+
+    return (
+      <div className="py-3 border-b border-gray-200">
+        <div className="flex justify-between items-center">
+          <dt className="text-sm font-medium text-gray-500 w-1/3">Current Price</dt>
+          <dd className="text-sm text-gray-900 w-2/3 flex items-center justify-between">
+            <span className={hasQuoteError ? 'text-red-500' : ''}>
+              {currentPrice !== '-' ? `$${currentPrice}` : '-'}
+              {hasQuoteError && <span className="text-xs text-red-500 ml-1">(Error)</span>}
+            </span>
+            {onUpdateQuote && (
+              <button
+                onClick={() => onUpdateQuote(cleanSymbol)}
+                disabled={isRefreshing}
+                className="ml-2 text-xs text-blue-600 hover:text-blue-800 disabled:text-gray-400 flex items-center"
+                title="Refresh current price"
+              >
+                <RefreshCw className={`h-3 w-3 ${isRefreshing ? 'animate-spin' : ''}`} />
+              </button>
+            )}
+          </dd>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="bg-white shadow rounded-lg">
       <div className="px-6 py-5">
@@ -8507,7 +8557,7 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdate, ana
               Financial Data
             </h4>
             <dl className="space-y-1">
-              {renderField('Current Price', 'currentPrice', quote.price ? `$${parseFloat(quote.price).toFixed(2)}` : (ticker.currentPrice ? `$${parseFloat(ticker.currentPrice).toFixed(2)}` : ''), 'number')}
+              {renderCurrentPriceField()}
               {renderField('Input Price', 'inputPrice', ticker.inputPrice ? `$${parseFloat(ticker.inputPrice).toFixed(2)}` : '', 'number')}
               {renderField('Market Cap', 'marketCap', ticker.marketCap ? `$${formatMarketCap(ticker.marketCap)}mm` : '', 'number')}
               {renderField('ADV 3 Month', 'adv3Month', ticker.adv3Month ? `$${formatVolumeDollars(ticker.adv3Month)}mm` : '', 'number')}
