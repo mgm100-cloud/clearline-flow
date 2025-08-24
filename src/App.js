@@ -8086,6 +8086,215 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdateSelec
   const [editingField, setEditingField] = useState(null);
   const [editValue, setEditValue] = useState('');
   const lastUpdatedTickerRef = useRef(null);
+  
+  // Email modal state
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [selectedRecipients, setSelectedRecipients] = useState([]);
+  const [isEmailSending, setIsEmailSending] = useState(false);
+
+  // User list for email recipients (analyst code to email mapping)
+  const userList = [
+    { name: 'Marc Majzner', email: 'mmajzner@clearlinecap.com', analystCode: 'MM' },
+    { name: 'Luis Torres', email: 'ltorres@clearlinecap.com', analystCode: 'LT' },
+    { name: 'Greg Anderson', email: 'ganderson@clearlinecap.com', analystCode: 'GA' },
+    { name: 'Dave Peckham', email: 'dpeckham@clearlinecap.com', analystCode: 'DP' },
+    { name: 'Matt Sweeney', email: 'msweeney@clearlinecap.com', analystCode: 'MS' },
+    { name: 'Dan Oliver', email: 'doliver@clearlinecap.com', analystCode: 'DO' }
+  ];
+
+  // Initialize selected recipients with current user when modal opens
+  useEffect(() => {
+    if (showEmailModal && currentUser) {
+      const currentUserEmail = currentUser.email;
+      const currentUserInList = userList.find(user => user.email === currentUserEmail);
+      if (currentUserInList && !selectedRecipients.includes(currentUserInList.email)) {
+        setSelectedRecipients([currentUserInList.email]);
+      }
+    }
+  }, [showEmailModal, currentUser, userList, selectedRecipients]);
+
+  // Handle email modal
+  const handleOpenEmailModal = () => {
+    setShowEmailModal(true);
+    // Pre-select current user and Marc Majzner
+    const defaultRecipients = ['mmajzner@clearlinecap.com'];
+    if (currentUser?.email && currentUser.email !== 'mmajzner@clearlinecap.com') {
+      defaultRecipients.push(currentUser.email);
+    }
+    setSelectedRecipients(defaultRecipients);
+  };
+
+  const handleCloseEmailModal = () => {
+    setShowEmailModal(false);
+    setSelectedRecipients([]);
+  };
+
+  const handleRecipientToggle = (email) => {
+    setSelectedRecipients(prev => 
+      prev.includes(email) 
+        ? prev.filter(e => e !== email)
+        : [...prev, email]
+    );
+  };
+
+  const handleSendEmail = async () => {
+    if (selectedRecipients.length === 0) {
+      alert('Please select at least one recipient.');
+      return;
+    }
+
+    setIsEmailSending(true);
+    try {
+      // Create email content
+      const emailDate = new Date().toLocaleDateString();
+      const quote = quotes[selectedTicker.ticker.replace(' US', '')];
+      const currentPrice = quote?.price ? parseFloat(quote.price).toFixed(2) : 
+                          (selectedTicker.currentPrice ? parseFloat(selectedTicker.currentPrice).toFixed(2) : 'N/A');
+
+      // Calculate price target percentages
+      const calculatePercentage = (ptValue, currentPrice) => {
+        if (!ptValue || !currentPrice) return '';
+        const pt = parseFloat(ptValue);
+        const current = parseFloat(currentPrice);
+        if (isNaN(pt) || isNaN(current) || current === 0) return '';
+        
+        const percentage = selectedTicker.lsPosition === 'Short' ? 
+          ((current - pt) / current) * 100 : 
+          ((pt - current) / current) * 100;
+        
+        return percentage >= 0 ? `+${percentage.toFixed(1)}%` : `${percentage.toFixed(1)}%`;
+      };
+
+      const emailBody = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Investment Idea Detail - ${selectedTicker.ticker}</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px;">
+          
+          <div style="text-align: center; margin-bottom: 30px; padding: 20px; background-color: #f8f9fa; border-radius: 8px;">
+            <h1 style="color: #1f2937; margin: 0;">Investment Idea Detail</h1>
+            <h2 style="color: #3b82f6; margin: 10px 0;">${selectedTicker.ticker} - ${selectedTicker.name || 'N/A'}</h2>
+            <p style="margin: 5px 0; color: #6b7280;">Generated on ${emailDate}</p>
+          </div>
+
+          <div style="background-color: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+            <h3 style="color: #1f2937; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">Basic Information</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px; font-weight: bold; color: #6b7280; width: 30%;">Ticker:</td>
+                <td style="padding: 8px;">${selectedTicker.ticker}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px; font-weight: bold; color: #6b7280;">Company Name:</td>
+                <td style="padding: 8px;">${selectedTicker.name || 'N/A'}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px; font-weight: bold; color: #6b7280;">L/S Position:</td>
+                <td style="padding: 8px;"><span style="background-color: ${selectedTicker.lsPosition === 'Long' ? '#dcfce7' : '#fee2e2'}; color: ${selectedTicker.lsPosition === 'Long' ? '#166534' : '#dc2626'}; padding: 4px 8px; border-radius: 4px; font-size: 12px;">${selectedTicker.lsPosition}</span></td>
+              </tr>
+              <tr>
+                <td style="padding: 8px; font-weight: bold; color: #6b7280;">Priority:</td>
+                <td style="padding: 8px;"><span style="background-color: ${selectedTicker.priority === 'A' ? '#fee2e2' : selectedTicker.priority === 'B' ? '#fef3c7' : '#dbeafe'}; color: ${selectedTicker.priority === 'A' ? '#dc2626' : selectedTicker.priority === 'B' ? '#d97706' : '#2563eb'}; padding: 4px 8px; border-radius: 4px; font-size: 12px;">${selectedTicker.priority}</span></td>
+              </tr>
+              <tr>
+                <td style="padding: 8px; font-weight: bold; color: #6b7280;">Status:</td>
+                <td style="padding: 8px;"><span style="background-color: ${selectedTicker.status === 'Portfolio' ? '#dcfce7' : selectedTicker.status === 'Current' ? '#dbeafe' : selectedTicker.status === 'New' ? '#f3e8ff' : selectedTicker.status === 'On-Deck' ? '#fef3c7' : '#f3f4f6'}; color: ${selectedTicker.status === 'Portfolio' ? '#166534' : selectedTicker.status === 'Current' ? '#2563eb' : selectedTicker.status === 'New' ? '#7c3aed' : selectedTicker.status === 'On-Deck' ? '#d97706' : '#6b7280'}; padding: 4px 8px; border-radius: 4px; font-size: 12px;">${selectedTicker.status}</span></td>
+              </tr>
+              <tr>
+                <td style="padding: 8px; font-weight: bold; color: #6b7280;">Analyst:</td>
+                <td style="padding: 8px;">${selectedTicker.analyst || 'N/A'}</td>
+              </tr>
+            </table>
+          </div>
+
+          <div style="background-color: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+            <h3 style="color: #1f2937; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">Financial Data</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px; font-weight: bold; color: #6b7280; width: 30%;">Current Price:</td>
+                <td style="padding: 8px;">$${currentPrice}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px; font-weight: bold; color: #6b7280;">Input Price:</td>
+                <td style="padding: 8px;">${selectedTicker.inputPrice ? `$${parseFloat(selectedTicker.inputPrice).toFixed(2)}` : 'N/A'}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px; font-weight: bold; color: #6b7280;">PT Bear:</td>
+                <td style="padding: 8px;">${selectedTicker.ptBear ? `$${parseFloat(selectedTicker.ptBear).toFixed(2)} ${calculatePercentage(selectedTicker.ptBear, currentPrice)}` : 'N/A'}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px; font-weight: bold; color: #6b7280;">PT Base:</td>
+                <td style="padding: 8px;">${selectedTicker.ptBase ? `$${parseFloat(selectedTicker.ptBase).toFixed(2)} ${calculatePercentage(selectedTicker.ptBase, currentPrice)}` : 'N/A'}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px; font-weight: bold; color: #6b7280;">PT Bull:</td>
+                <td style="padding: 8px;">${selectedTicker.ptBull ? `$${parseFloat(selectedTicker.ptBull).toFixed(2)} ${calculatePercentage(selectedTicker.ptBull, currentPrice)}` : 'N/A'}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px; font-weight: bold; color: #6b7280;">Market Cap:</td>
+                <td style="padding: 8px;">${selectedTicker.marketCap ? `$${formatMarketCap(selectedTicker.marketCap)}mm` : 'N/A'}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px; font-weight: bold; color: #6b7280;">ADV 3 Month:</td>
+                <td style="padding: 8px;">${selectedTicker.adv3Month ? `$${formatVolumeDollars(selectedTicker.adv3Month)}mm` : 'N/A'}</td>
+              </tr>
+            </table>
+          </div>
+
+          ${selectedTicker.thesis ? `
+          <div style="background-color: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+            <h3 style="color: #1f2937; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">Investment Thesis</h3>
+            <p style="white-space: pre-wrap; margin: 0;">${selectedTicker.thesis}</p>
+          </div>
+          ` : ''}
+
+          <div style="background-color: #f8f9fa; border-radius: 8px; padding: 15px; text-align: center; margin-top: 30px;">
+            <p style="margin: 0; color: #6b7280; font-size: 12px;">
+              Generated by <strong>Clearline Flow</strong><br>
+              ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}
+            </p>
+          </div>
+          
+        </body>
+        </html>
+      `;
+
+      const subject = `Investment Idea Detail - ${selectedTicker.ticker} - ${emailDate}`;
+      const fromName = currentUser ? AuthService.getUserFullName(currentUser) : 'Clearline Flow App';
+      const fromEmail = currentUser?.email || null;
+
+      const response = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          to: selectedRecipients,
+          subject: subject,
+          content: emailBody,
+          fromName: fromName,
+          fromEmail: fromEmail
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        alert(`✅ Email sent successfully to ${selectedRecipients.length} recipient(s)!`);
+        handleCloseEmailModal();
+      } else {
+        throw new Error(result.error || 'Failed to send email');
+      }
+    } catch (error) {
+      console.error('Error sending email:', error);
+      alert(`❌ Failed to send email: ${error.message}`);
+    } finally {
+      setIsEmailSending(false);
+    }
+  };
 
   // Keep selectedTicker in sync with tickers array updates (without affecting navigation)
   useEffect(() => {
@@ -8505,12 +8714,21 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdateSelec
           <h3 className="text-lg leading-6 font-medium text-gray-900">
             Idea Detail: {ticker.ticker}
           </h3>
-          <button
-            onClick={onNavigateBack || (() => onSelectTicker(null))}
-            className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          >
-            Back
-          </button>
+          <div className="flex items-center space-x-3">
+            <button
+              onClick={handleOpenEmailModal}
+              className="inline-flex items-center px-3 py-2 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <Mail className="h-4 w-4 mr-2" />
+              Email
+            </button>
+            <button
+              onClick={onNavigateBack || (() => onSelectTicker(null))}
+              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              Back
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -8641,6 +8859,66 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdateSelec
             </div>
           </div>
         </div>
+
+        {/* Email Modal */}
+        {showEmailModal && (
+          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h3 className="text-lg font-medium text-gray-900">Email Investment Idea</h3>
+                <p className="text-sm text-gray-500 mt-1">Select recipients for {ticker.ticker}</p>
+              </div>
+              
+              <div className="px-6 py-4">
+                <div className="space-y-3">
+                  {userList.map((user) => (
+                    <label key={user.email} className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedRecipients.includes(user.email)}
+                        onChange={() => handleRecipientToggle(user.email)}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <span className="ml-3 text-sm text-gray-700">
+                        {user.name} ({user.analystCode}) - {user.email}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="px-6 py-4 border-t border-gray-200 flex justify-between">
+                <button
+                  onClick={handleCloseEmailModal}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSendEmail}
+                  disabled={isEmailSending || selectedRecipients.length === 0}
+                  className={`px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                    isEmailSending || selectedRecipients.length === 0
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      : 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500'
+                  }`}
+                >
+                  {isEmailSending ? (
+                    <div className="flex items-center">
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 0 1 4 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Sending...
+                    </div>
+                  ) : (
+                    `Send Email${selectedRecipients.length > 0 ? ` (${selectedRecipients.length})` : ''}`
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
