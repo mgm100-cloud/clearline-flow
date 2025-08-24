@@ -6236,9 +6236,10 @@ const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarnin
     <div className="bg-white shadow rounded-lg">
       <div className="px-4 py-5 sm:p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg leading-6 font-medium text-gray-900">
-            Earnings Tracking - {earningsIn7Days} Earnings in next 7 days, {earningsIn14Days} Earnings in next 14 days
-          </h3>
+          <div className="text-lg leading-6 font-medium text-gray-900">
+            <div>{earningsIn7Days} Earnings in next 7 days</div>
+            <div>{earningsIn14Days} Earnings in next 14 days</div>
+          </div>
           <div className="flex items-center space-x-4">
             <button
               onClick={exportToPDF}
