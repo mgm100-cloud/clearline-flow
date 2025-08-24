@@ -6303,7 +6303,7 @@ const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarnin
             <button
               onClick={handleRefreshEarningsData}
               disabled={isRefreshingData}
-              className={`flex items-center space-x-1 px-3 py-1 rounded text-sm font-medium ${
+              className={`flex items-center space-x-2 px-4 py-2 rounded-md text-sm font-medium ${
                 isRefreshingData
                   ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
                   : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
