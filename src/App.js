@@ -8095,21 +8095,14 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdate, ana
     }
   }, [tickers, selectedTicker, onSelectTicker]);
 
-  // Update quote when ticker is selected to ensure current price is fresh
+  // Update quote when ticker is first selected to ensure current price is fresh
   useEffect(() => {
     if (selectedTicker && onUpdateQuote) {
       const cleanSymbol = selectedTicker.ticker.replace(' US', '');
-      // Check if we already have a recent quote (within 1 minute)
-      const quote = quotes[cleanSymbol];
-      const hasRecentQuote = quote && quote.timestamp && 
-        (Date.now() - new Date(quote.timestamp).getTime()) < 60000;
-      
-      if (!hasRecentQuote) {
-        console.log(`🔄 Updating quote for ${cleanSymbol} on ticker selection`);
-        onUpdateQuote(cleanSymbol);
-      }
+      console.log(`🔄 Updating quote for ${cleanSymbol} on ticker selection`);
+      onUpdateQuote(cleanSymbol);
     }
-  }, [selectedTicker, onUpdateQuote, quotes]);
+  }, [selectedTicker?.id, onUpdateQuote]); // Only depend on ticker ID, not quotes state
 
   // If no ticker is selected, show ticker selection
   if (!selectedTicker) {
