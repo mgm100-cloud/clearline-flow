@@ -550,19 +550,35 @@ export const DatabaseService = {
     try {
       const { data, error } = await supabase
         .from('analysts')
-        .select('name, email, analyst_code')
-        .order('name');
+        .select('full_name, email, analyst_code')
+        .eq('active', true)
+        .order('full_name');
       
       if (error) throw error;
       
-      console.log('✅ Fetched analyst emails:', data);
-      return data || [];
+      // Transform to match expected format (name instead of full_name)
+      const transformedData = data.map(analyst => ({
+        name: analyst.full_name,
+        email: analyst.email,
+        analyst_code: analyst.analyst_code
+      }));
+      
+      console.log('✅ Fetched analyst emails from analysts table:', transformedData);
+      return transformedData || [];
     } catch (error) {
       console.error('Error fetching analyst emails:', error);
       
-      // Fallback to empty array
-      console.warn('⚠️ Using empty analyst emails list due to error');
-      return [];
+      // Fallback to hardcoded list based on existing analyst codes
+      const fallbackEmails = [
+        { name: 'Marc Majzner', email: 'mmajzner@clearlinecap.com', analyst_code: 'MM' },
+        { name: 'Luis Torres', email: 'ltorres@clearlinecap.com', analyst_code: 'LT' },
+        { name: 'Greg Anderson', email: 'ganderson@clearlinecap.com', analyst_code: 'GA' },
+        { name: 'David Paul', email: 'dpaul@clearlinecap.com', analyst_code: 'DP' },
+        { name: 'Michael Siegel', email: 'msiegel@clearlinecap.com', analyst_code: 'MS' },
+        { name: 'Dan O\'Brien', email: 'dobrien@clearlinecap.com', analyst_code: 'DO' }
+      ];
+      console.warn('⚠️ Using fallback analyst emails list:', fallbackEmails);
+      return fallbackEmails;
     }
   }
 } 
