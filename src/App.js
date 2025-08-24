@@ -6241,19 +6241,12 @@ const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarnin
   return (
     <div className="bg-white shadow rounded-lg">
       <div className="px-4 py-5 sm:p-6">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-start justify-between mb-4">
           <div className="text-lg leading-6 font-medium text-gray-900">
             <div>{earningsIn7Days} Earnings in next 7 days</div>
             <div>{earningsIn14Days} Earnings in next 14 days</div>
           </div>
           <div className="flex items-center space-x-4">
-            <button
-              onClick={exportToPDF}
-              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-            >
-              <Download className="h-4 w-4" />
-              <span>Export to PDF</span>
-            </button>
             <div className="flex items-center space-x-2">
               <label className="text-sm font-medium text-gray-700">Analyst:</label>
               <select
@@ -6287,7 +6280,7 @@ const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarnin
                 />
               </div>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex flex-col space-y-1">
               <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
                 <input
                   type="checkbox"
@@ -6297,8 +6290,6 @@ const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarnin
                 />
                 <span>Hide &gt;1 week old</span>
               </label>
-            </div>
-            <div className="flex items-center space-x-2">
               <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
                 <input
                   type="checkbox"
@@ -6321,7 +6312,13 @@ const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarnin
               <RefreshCw className={`h-4 w-4 ${isRefreshingData ? 'animate-spin' : ''}`} />
               <span>Refresh Data</span>
             </button>
-
+            <button
+              onClick={exportToPDF}
+              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            >
+              <Download className="h-4 w-4" />
+              <span>Export to PDF</span>
+            </button>
           </div>
         </div>
         
