@@ -7934,8 +7934,21 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdate, ana
   const [editingField, setEditingField] = useState(null);
   const [editValue, setEditValue] = useState('');
 
+  // Keep selectedTicker in sync with tickers array updates
+  useEffect(() => {
+    if (selectedTicker && tickers.length > 0) {
+      const updatedTicker = tickers.find(t => t.id === selectedTicker.id);
+      if (updatedTicker && JSON.stringify(updatedTicker) !== JSON.stringify(selectedTicker)) {
+        onSelectTicker(updatedTicker);
+      }
+    }
+  }, [tickers, selectedTicker, onSelectTicker]);
+
   // If no ticker is selected, show ticker selection
   if (!selectedTicker) {
+    // Sort tickers alphabetically by ticker symbol
+    const sortedTickers = [...tickers].sort((a, b) => a.ticker.localeCompare(b.ticker));
+    
     return (
       <div className="bg-white shadow rounded-lg">
         <div className="px-6 py-5">
@@ -7943,25 +7956,36 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdate, ana
             Select a Ticker for Detailed View
           </h3>
           
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {tickers.map((ticker) => (
-              <button
-                key={ticker.id}
-                onClick={() => onSelectTicker(ticker)}
-                className="p-4 border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-left"
-              >
-                <div className="font-medium text-gray-900">{ticker.ticker}</div>
-                <div className="text-sm text-gray-500">{ticker.name}</div>
-                <div className="text-xs text-gray-400 mt-1">
-                  {ticker.analyst} • {ticker.status} • {ticker.priority}
-                </div>
-              </button>
-            ))}
-          </div>
-          
-          {tickers.length === 0 && (
+          {tickers.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-gray-500">No tickers available.</p>
+            </div>
+          ) : (
+            <div className="max-w-md">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Choose a ticker:
+              </label>
+              <select
+                onChange={(e) => {
+                  const selectedTickerId = e.target.value;
+                  if (selectedTickerId) {
+                    const ticker = tickers.find(t => t.id.toString() === selectedTickerId);
+                    onSelectTicker(ticker);
+                  }
+                }}
+                className="block w-full border border-gray-300 rounded-md px-3 py-2 shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                defaultValue=""
+              >
+                <option value="">Select a ticker...</option>
+                {sortedTickers.map((ticker) => (
+                  <option key={ticker.id} value={ticker.id}>
+                    {ticker.ticker} - {ticker.name} ({ticker.analyst})
+                  </option>
+                ))}
+              </select>
+              <p className="mt-2 text-sm text-gray-500">
+                {tickers.length} ideas available
+              </p>
             </div>
           )}
         </div>
@@ -8121,6 +8145,162 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdate, ana
     );
   };
 
+  // Render field component for styled sections (catalysts, characteristics, themes)
+  const renderBooleanFieldInSection = (label, field, value) => {
+    const handleCheckboxChange = () => {
+      if (onUpdate) {
+        handleToggleBoolean(field, value);
+      }
+    };
+
+    return (
+      <div key={field} className="flex items-center">
+        <input
+          type="checkbox"
+          checked={Boolean(value)}
+          onChange={handleCheckboxChange}
+          disabled={!onUpdate}
+          className={`h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded ${
+            onUpdate ? 'cursor-pointer' : 'cursor-not-allowed'
+          }`}
+        />
+        <label 
+          className={`ml-2 text-sm text-gray-700 ${
+            onUpdate ? 'cursor-pointer' : 'cursor-not-allowed'
+          }`}
+          onClick={handleCheckboxChange}
+        >
+          {label}
+        </label>
+      </div>
+    );
+  };
+
+  // Render badge field component (for L/S, Priority, Status)
+  const renderBadgeField = (label, field, value, type = 'select', colorMap = {}) => {
+    const isEditing = editingField === field;
+    const displayValue = value || '-';
+    const colorClass = colorMap[value] || 'bg-gray-100 text-gray-800';
+
+    return (
+      <div className="py-3 border-b border-gray-200">
+        <div className="flex justify-between items-center">
+          <dt className="text-sm font-medium text-gray-500 w-1/3">{label}</dt>
+          <dd className="text-sm text-gray-900 w-2/3">
+            {isEditing ? (
+              <select
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                onBlur={handleSaveEdit}
+                onKeyDown={handleKeyPress}
+                autoFocus
+                className="w-full border border-blue-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {field === 'lsPosition' && (
+                  <>
+                    <option value="Long">Long</option>
+                    <option value="Short">Short</option>
+                  </>
+                )}
+                {field === 'priority' && (
+                  <>
+                    <option value="A">A</option>
+                    <option value="B">B</option>
+                    <option value="C">C</option>
+                  </>
+                )}
+                {field === 'status' && (
+                  <>
+                    <option value="New">New</option>
+                    <option value="Portfolio">Portfolio</option>
+                    <option value="Current">Current</option>
+                    <option value="On-Deck">On-Deck</option>
+                    <option value="Old">Old</option>
+                  </>
+                )}
+              </select>
+            ) : (
+              <span
+                onClick={() => handleDoubleClick(field, value)}
+                className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${colorClass} ${
+                  onUpdate ? 'cursor-pointer hover:ring-2 hover:ring-blue-300' : ''
+                }`}
+                title={onUpdate ? 'Double-click to edit' : ''}
+              >
+                {displayValue}
+              </span>
+            )}
+          </dd>
+        </div>
+      </div>
+    );
+  };
+
+  // Render price target field with percentage calculation
+  const renderPriceTargetField = (label, field, value, currentPrice) => {
+    const isEditing = editingField === field;
+    const displayValue = value || '-';
+    
+    // Calculate percentage difference from current price
+    const calculatePercentage = () => {
+      if (!value || !currentPrice) return '';
+      const ptValue = parseFloat(value);
+      const current = parseFloat(currentPrice);
+      if (isNaN(ptValue) || isNaN(current) || current === 0) return '';
+      
+      let percentage = ((ptValue - current) / current) * 100;
+      
+      // For short positions, invert the percentage since you're betting price goes down
+      if (ticker.lsPosition === 'Short') {
+        percentage = -percentage;
+      }
+      
+      const sign = percentage >= 0 ? '+' : '';
+      return `${sign}${percentage.toFixed(1)}%`;
+    };
+
+    const percentage = calculatePercentage();
+    const percentageColor = percentage.startsWith('+') ? 'text-green-600' : 
+                           percentage.startsWith('-') ? 'text-red-600' : 'text-gray-500';
+
+    return (
+      <div className="py-3 border-b border-gray-200">
+        <div className="flex justify-between items-center">
+          <dt className="text-sm font-medium text-gray-500 w-1/3">{label}</dt>
+          <dd className="text-sm text-gray-900 w-2/3">
+            {isEditing ? (
+              <input
+                type="number"
+                step="0.01"
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                onBlur={handleSaveEdit}
+                onKeyDown={handleKeyPress}
+                autoFocus
+                className="w-full border border-blue-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            ) : (
+              <div className="flex items-center">
+                <span
+                  onClick={() => handleDoubleClick(field, value)}
+                  className={`${onUpdate ? 'cursor-pointer hover:bg-gray-50 rounded px-1' : ''}`}
+                  title={onUpdate ? 'Double-click to edit' : ''}
+                >
+                  {value ? `$${parseFloat(value).toFixed(2)}` : '-'}
+                </span>
+                {percentage && (
+                  <span className={`text-xs ${percentageColor} ml-6`}>
+                    {percentage}
+                  </span>
+                )}
+              </div>
+            )}
+          </dd>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="bg-white shadow rounded-lg">
       <div className="px-6 py-5">
@@ -8147,9 +8327,22 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdate, ana
               {renderField('Company Name', 'name', ticker.name)}
               {renderField('Date In', 'dateIn', ticker.dateIn, 'date')}
               {renderField('Poke Date', 'pokeDate', ticker.pokeDate, 'date')}
-              {renderField('L/S Position', 'lsPosition', ticker.lsPosition, 'select')}
-              {renderField('Priority', 'priority', ticker.priority, 'select')}
-              {renderField('Status', 'status', ticker.status, 'select')}
+              {renderBadgeField('L/S Position', 'lsPosition', ticker.lsPosition, 'select', {
+                'Long': 'bg-green-100 text-green-800',
+                'Short': 'bg-red-100 text-red-800'
+              })}
+              {renderBadgeField('Priority', 'priority', ticker.priority, 'select', {
+                'A': 'bg-red-100 text-red-800',
+                'B': 'bg-yellow-100 text-yellow-800', 
+                'C': 'bg-blue-100 text-blue-800'
+              })}
+              {renderBadgeField('Status', 'status', ticker.status, 'select', {
+                'Portfolio': 'bg-green-100 text-green-800',
+                'Current': 'bg-blue-100 text-blue-800',
+                'New': 'bg-purple-100 text-purple-800',
+                'On-Deck': 'bg-yellow-100 text-yellow-800',
+                'Old': 'bg-gray-100 text-gray-800'
+              })}
               {renderField('Analyst', 'analyst', ticker.analyst, 'select')}
               {renderField('Source', 'source', ticker.source)}
               {renderField('Value/Growth', 'valueOrGrowth', ticker.valueOrGrowth, 'select')}
@@ -8163,13 +8356,13 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdate, ana
               Financial Data
             </h4>
             <dl className="space-y-1">
-              {renderField('Input Price', 'inputPrice', ticker.inputPrice ? `$${parseFloat(ticker.inputPrice).toFixed(2)}` : '', 'number')}
               {renderField('Current Price', 'currentPrice', quote.price ? `$${parseFloat(quote.price).toFixed(2)}` : (ticker.currentPrice ? `$${parseFloat(ticker.currentPrice).toFixed(2)}` : ''), 'number')}
-              {renderField('Market Cap', 'marketCap', ticker.marketCap ? formatMarketCap(ticker.marketCap) : '', 'number')}
-              {renderField('ADV 3 Month', 'adv3Month', ticker.adv3Month ? formatVolumeDollars(ticker.adv3Month) : '', 'number')}
-              {renderField('PT Bear', 'ptBear', ticker.ptBear ? `$${parseFloat(ticker.ptBear).toFixed(2)}` : '', 'number')}
-              {renderField('PT Base', 'ptBase', ticker.ptBase ? `$${parseFloat(ticker.ptBase).toFixed(2)}` : '', 'number')}
-              {renderField('PT Bull', 'ptBull', ticker.ptBull ? `$${parseFloat(ticker.ptBull).toFixed(2)}` : '', 'number')}
+              {renderField('Input Price', 'inputPrice', ticker.inputPrice ? `$${parseFloat(ticker.inputPrice).toFixed(2)}` : '', 'number')}
+              {renderField('Market Cap', 'marketCap', ticker.marketCap ? `$${formatMarketCap(ticker.marketCap)}mm` : '', 'number')}
+              {renderField('ADV 3 Month', 'adv3Month', ticker.adv3Month ? `$${formatVolumeDollars(ticker.adv3Month)}mm` : '', 'number')}
+              {renderPriceTargetField('PT Bear', 'ptBear', ticker.ptBear, quote.price || ticker.currentPrice)}
+              {renderPriceTargetField('PT Base', 'ptBase', ticker.ptBase, quote.price || ticker.currentPrice)}
+              {renderPriceTargetField('PT Bull', 'ptBull', ticker.ptBull, quote.price || ticker.currentPrice)}
             </dl>
           </div>
         </div>
@@ -8184,59 +8377,71 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdate, ana
           </dl>
         </div>
 
-        {/* Catalysts */}
+        {/* Investment Characteristics - styled like input page */}
         <div className="mt-8">
-          <h4 className="text-base font-medium text-gray-900 mb-4 border-b border-gray-200 pb-2">
-            Catalysts
-          </h4>
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-            {renderField('M&A Target Buyer', 'maTargetBuyer', ticker.maTargetBuyer)}
-            {renderField('M&A Target Valuation', 'maTargetValuation', ticker.maTargetValuation)}
-            {renderField('M&A Target Seller', 'maTargetSeller', ticker.maTargetSeller)}
-            {renderField('Big Move Revert', 'bigMoveRevert', ticker.bigMoveRevert)}
-            {renderField('Activist', 'activist', ticker.activist)}
-            {renderField('Activist Potential', 'activistPotential', ticker.activistPotential)}
-            {renderField('Insider Trade Signal', 'insiderTradeSignal', ticker.insiderTradeSignal)}
-            {renderField('New Management', 'newMgmt', ticker.newMgmt)}
-            {renderField('Spin-off', 'spin', ticker.spin)}
-            {renderField('Big Acquisition', 'bigAcq', ticker.bigAcq)}
-            {renderField('Self Help', 'selfHelp', ticker.selfHelp)}
-            {renderField('Product Cycle', 'productCycle', ticker.productCycle)}
-            {renderField('Regulation', 'regulation', ticker.regulation)}
-          </div>
-        </div>
+          <h4 className="text-lg font-semibold text-gray-800 mb-4">Investment Characteristics</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Catalysts */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h6 className="text-base font-semibold text-blue-800 mb-3 border-b border-blue-300 pb-2">Catalysts</h6>
+              <div className="grid grid-cols-1 gap-3">
+                {[
+                  { key: 'maTargetBuyer', label: 'M&A Target - Buyer' },
+                  { key: 'maTargetValuation', label: 'M&A Target - Valuation' },
+                  { key: 'maTargetSeller', label: 'M&A Target - Seller' },
+                  { key: 'bigMoveRevert', label: 'Big Move Revert' },
+                  { key: 'activist', label: 'Activist' },
+                  { key: 'activistPotential', label: 'Activist Potential' },
+                  { key: 'insiderTradeSignal', label: 'Insider Trade Signal' },
+                  { key: 'newMgmt', label: 'New Management' },
+                  { key: 'spin', label: 'Spin' },
+                  { key: 'bigAcq', label: 'Big Acquisition' },
+                  { key: 'selfHelp', label: 'Self-Help' },
+                  { key: 'productCycle', label: 'Product Cycle' },
+                  { key: 'regulation', label: 'Regulation' }
+                ].map(({ key, label }) => 
+                  renderBooleanFieldInSection(label, key, ticker[key])
+                )}
+              </div>
+            </div>
 
-        {/* Characteristics */}
-        <div className="mt-8">
-          <h4 className="text-base font-medium text-gray-900 mb-4 border-b border-gray-200 pb-2">
-            Characteristics
-          </h4>
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-            {renderField('Fraud Risk', 'fraudRisk', ticker.fraudRisk)}
-            {renderField('Regulatory Risk', 'regulatoryRisk', ticker.regulatoryRisk)}
-            {renderField('Cyclical', 'cyclical', ticker.cyclical)}
-            {renderField('Non-Cyclical', 'nonCyclical', ticker.nonCyclical)}
-            {renderField('High Beta', 'highBeta', ticker.highBeta)}
-            {renderField('Momentum', 'momo', ticker.momo)}
-            {renderField('Rate Exposure', 'rateExposure', ticker.rateExposure)}
-            {renderField('Strong Dollar', 'strongDollar', ticker.strongDollar)}
-            {renderField('Extreme Valuation', 'extremeValuation', ticker.extremeValuation)}
-            {renderField('Crapco', 'crapco', ticker.crapco)}
-          </div>
-        </div>
+            {/* Characteristics */}
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <h6 className="text-base font-semibold text-green-800 mb-3 border-b border-green-300 pb-2">Characteristics</h6>
+              <div className="grid grid-cols-1 gap-3">
+                {[
+                  { key: 'fraudRisk', label: 'Fraud Risk' },
+                  { key: 'regulatoryRisk', label: 'Regulatory Risk' },
+                  { key: 'cyclical', label: 'Cyclical' },
+                  { key: 'nonCyclical', label: 'Non-Cyclical' },
+                  { key: 'highBeta', label: 'High Beta' },
+                  { key: 'momo', label: 'Momentum' },
+                  { key: 'rateExposure', label: 'Rate Exposure' },
+                  { key: 'strongDollar', label: 'Strong Dollar' },
+                  { key: 'extremeValuation', label: 'Extreme Valuation' },
+                  { key: 'crapco', label: 'Crapco' }
+                ].map(({ key, label }) => 
+                  renderBooleanFieldInSection(label, key, ticker[key])
+                )}
+              </div>
+            </div>
 
-        {/* Themes */}
-        <div className="mt-8">
-          <h4 className="text-base font-medium text-gray-900 mb-4 border-b border-gray-200 pb-2">
-            Themes
-          </h4>
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-            {renderField('AI Winner', 'aiWinner', ticker.aiWinner)}
-            {renderField('AI Loser', 'aiLoser', ticker.aiLoser)}
-            {renderField('Tariff Winner', 'tariffWinner', ticker.tariffWinner)}
-            {renderField('Tariff Loser', 'tariffLoser', ticker.tariffLoser)}
-            {renderField('Trump Winner', 'trumpWinner', ticker.trumpWinner)}
-            {renderField('Trump Loser', 'trumpLoser', ticker.trumpLoser)}
+            {/* Theme */}
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+              <h6 className="text-base font-semibold text-purple-800 mb-3 border-b border-purple-300 pb-2">Theme</h6>
+              <div className="grid grid-cols-1 gap-3">
+                {[
+                  { key: 'aiWinner', label: 'AI Winner' },
+                  { key: 'aiLoser', label: 'AI Loser' },
+                  { key: 'tariffWinner', label: 'Tariff Winner' },
+                  { key: 'tariffLoser', label: 'Tariff Loser' },
+                  { key: 'trumpWinner', label: 'Trump Winner' },
+                  { key: 'trumpLoser', label: 'Trump Loser' }
+                ].map(({ key, label }) => 
+                  renderBooleanFieldInSection(label, key, ticker[key])
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
