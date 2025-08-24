@@ -2879,6 +2879,7 @@ const ClearlineFlow = () => {
             tickers={tickers}
             selectedTicker={selectedTickerForDetail}
             onSelectTicker={navigateToIdeaDetailFromDropdown}
+            onUpdateSelectedTicker={setSelectedTickerForDetail}
             onUpdate={(userRole === 'readwrite' || userRole === 'admin') ? updateTicker : null}
             analysts={analysts}
             quotes={quotes}
@@ -8081,20 +8082,20 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
 };
 
 // Idea Detail Page Component - Shows detailed view of a single ticker
-const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdate, analysts, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors, formatMarketCap, formatVolumeDollars, currentUser, onNavigateBack }) => {
+const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdateSelectedTicker, onUpdate, analysts, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors, formatMarketCap, formatVolumeDollars, currentUser, onNavigateBack }) => {
   const [editingField, setEditingField] = useState(null);
   const [editValue, setEditValue] = useState('');
   const lastUpdatedTickerRef = useRef(null);
 
-  // Keep selectedTicker in sync with tickers array updates
+  // Keep selectedTicker in sync with tickers array updates (without affecting navigation)
   useEffect(() => {
-    if (selectedTicker && tickers.length > 0) {
+    if (selectedTicker && tickers.length > 0 && onUpdateSelectedTicker) {
       const updatedTicker = tickers.find(t => t.id === selectedTicker.id);
       if (updatedTicker && JSON.stringify(updatedTicker) !== JSON.stringify(selectedTicker)) {
-        onSelectTicker(updatedTicker);
+        onUpdateSelectedTicker(updatedTicker);
       }
     }
-  }, [tickers, selectedTicker, onSelectTicker]);
+  }, [tickers, selectedTicker, onUpdateSelectedTicker]);
 
   // Update quote when ticker is first selected to ensure current price is fresh
   useEffect(() => {
