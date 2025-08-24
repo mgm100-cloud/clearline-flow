@@ -51,35 +51,57 @@ async function fetchLateTickers() {
     global: { headers: { 'Cache-Control': 'no-cache' } }
   });
 
-  // Force fresh query with explicit ordering to bypass any caching
-  // Only include tickers where status = 'Portfolio'
-  const { data, error } = await supabase
+  // Get all earnings data first, then join with tickers and filter by Portfolio status
+  const { data: earningsData, error: earningsError } = await supabase
     .from('earnings_tracking')
     .select(`
       id,
+      ticker,
       earnings_date,
       preview_date,
       callback_date,
       cyq,
-      updated_at,
-      tickers!ticker_id (
-        ticker,
-        analyst,
-        status
-      )
+      updated_at
     `)
-    .eq('tickers.status', 'Portfolio')
     .order('updated_at', { ascending: false });
 
-  if (error) throw error;
+  if (earningsError) throw earningsError;
+
+  // Get all tickers with Portfolio status
+  const { data: tickersData, error: tickersError } = await supabase
+    .from('tickers')
+    .select('ticker, analyst, status')
+    .eq('status', 'Portfolio');
+
+  if (tickersError) throw tickersError;
+
+  // Create a map of Portfolio tickers for quick lookup
+  const portfolioTickersMap = new Map();
+  (tickersData || []).forEach(ticker => {
+    portfolioTickersMap.set(ticker.ticker, ticker);
+  });
 
   const results = [];
   for (const row of data || []) {
-    const ticker = row.tickers?.ticker;
-    const who = row.tickers?.analyst || '';
+    const tickerSymbol = row.ticker;
     const earningsDate = row.earnings_date || null;
     const previewDate = row.preview_date || null;
     const callbackDate = row.callback_date || null;
+
+    // Skip if no ticker symbol
+    if (!tickerSymbol) {
+      console.warn('Skipping earnings record with missing ticker:', row);
+      continue;
+    }
+
+    // Only process Portfolio tickers
+    const tickerInfo = portfolioTickersMap.get(tickerSymbol);
+    if (!tickerInfo) {
+      // Skip non-Portfolio tickers (this is expected behavior)
+      continue;
+    }
+
+    const who = tickerInfo.analyst || '';
 
     if (!earningsDate) continue;
     const days = daysUntilInNY(earningsDate);
@@ -88,7 +110,7 @@ async function fetchLateTickers() {
       const isLate = !previewDate || !callbackDate;
       if (isLate) {
         results.push({
-          ticker,
+          ticker: tickerSymbol,
           who,
           earningsDate,
           previewDate,
