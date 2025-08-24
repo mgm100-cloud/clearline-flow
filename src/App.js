@@ -1260,6 +1260,7 @@ const ClearlineFlow = () => {
   const [currentUser, setCurrentUser] = useState(null);
   const [userRole, setUserRole] = useState(''); // 'readwrite' or 'readonly'
   const [activeTab, setActiveTab] = useState('input');
+  const [selectedTickerForDetail, setSelectedTickerForDetail] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState('');
 
@@ -2695,6 +2696,18 @@ const ClearlineFlow = () => {
               <CheckSquare className="inline h-4 w-4 mr-1" />
               Todo List
             </button>
+            <button
+              onClick={() => handleTabSwitch('idea-detail')}
+              disabled={isTabSwitching}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'idea-detail'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              } ${isTabSwitching ? 'cursor-not-allowed opacity-50' : ''}`}
+            >
+              <FileText className="inline h-4 w-4 mr-1" />
+              Idea Detail
+            </button>
           </div>
         </div>
       </nav>
@@ -2810,6 +2823,22 @@ const ClearlineFlow = () => {
             analysts={analysts}
             userRole={userRole}
             onRefreshTodos={refreshTodos}
+            currentUser={currentUser}
+          />
+        )}
+        {activeTab === 'idea-detail' && (
+          <IdeaDetailPage 
+            tickers={tickers}
+            selectedTicker={selectedTickerForDetail}
+            onSelectTicker={setSelectedTickerForDetail}
+            onUpdate={(userRole === 'readwrite' || userRole === 'admin') ? updateTicker : null}
+            analysts={analysts}
+            quotes={quotes}
+            onUpdateQuote={updateSingleQuote}
+            isLoadingQuotes={isLoadingQuotes}
+            quoteErrors={quoteErrors}
+            formatMarketCap={formatMarketCap}
+            formatVolumeDollars={formatVolumeDollars}
             currentUser={currentUser}
           />
         )}
@@ -7895,6 +7924,321 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
             <p className="text-gray-500">No investment ideas found.</p>
           </div>
         )}
+      </div>
+    </div>
+  );
+};
+
+// Idea Detail Page Component - Shows detailed view of a single ticker
+const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdate, analysts, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors, formatMarketCap, formatVolumeDollars, currentUser }) => {
+  const [editingField, setEditingField] = useState(null);
+  const [editValue, setEditValue] = useState('');
+
+  // If no ticker is selected, show ticker selection
+  if (!selectedTicker) {
+    return (
+      <div className="bg-white shadow rounded-lg">
+        <div className="px-6 py-5">
+          <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+            Select a Ticker for Detailed View
+          </h3>
+          
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {tickers.map((ticker) => (
+              <button
+                key={ticker.id}
+                onClick={() => onSelectTicker(ticker)}
+                className="p-4 border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-left"
+              >
+                <div className="font-medium text-gray-900">{ticker.ticker}</div>
+                <div className="text-sm text-gray-500">{ticker.name}</div>
+                <div className="text-xs text-gray-400 mt-1">
+                  {ticker.analyst} • {ticker.status} • {ticker.priority}
+                </div>
+              </button>
+            ))}
+          </div>
+          
+          {tickers.length === 0 && (
+            <div className="text-center py-8">
+              <p className="text-gray-500">No tickers available.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  const ticker = selectedTicker;
+  const quote = quotes[ticker.ticker] || {};
+
+  // Handle field editing
+  const handleDoubleClick = (field, currentValue) => {
+    if (!onUpdate) return;
+    
+    // Handle boolean fields - toggle directly
+    if (typeof currentValue === 'boolean') {
+      handleToggleBoolean(field, currentValue);
+      return;
+    }
+    
+    setEditingField(field);
+    setEditValue(currentValue || '');
+  };
+
+  const handleToggleBoolean = async (field, currentValue) => {
+    try {
+      await onUpdate(ticker.id, { [field]: !currentValue });
+    } catch (error) {
+      console.error('Error toggling boolean field:', error);
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (editingField && editValue !== ticker[editingField]) {
+      try {
+        await onUpdate(ticker.id, { [editingField]: editValue });
+      } catch (error) {
+        console.error('Error updating ticker:', error);
+      }
+    }
+    setEditingField(null);
+    setEditValue('');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingField(null);
+    setEditValue('');
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleSaveEdit();
+    } else if (e.key === 'Escape') {
+      handleCancelEdit();
+    }
+  };
+
+  // Render field component
+  const renderField = (label, field, value, type = 'text') => {
+    const isEditing = editingField === field;
+    const isBoolean = typeof value === 'boolean';
+    const displayValue = value || '-';
+
+    return (
+      <div className="py-3 border-b border-gray-200">
+        <div className="flex justify-between items-center">
+          <dt className="text-sm font-medium text-gray-500 w-1/3">{label}</dt>
+          <dd className="text-sm text-gray-900 w-2/3">
+            {isEditing ? (
+              type === 'textarea' ? (
+                <textarea
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onBlur={handleSaveEdit}
+                  onKeyDown={handleKeyPress}
+                  autoFocus
+                  rows={3}
+                  className="w-full border border-blue-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              ) : type === 'select' ? (
+                <select
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onBlur={handleSaveEdit}
+                  onKeyDown={handleKeyPress}
+                  autoFocus
+                  className="w-full border border-blue-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {field === 'lsPosition' && (
+                    <>
+                      <option value="Long">Long</option>
+                      <option value="Short">Short</option>
+                    </>
+                  )}
+                  {field === 'priority' && (
+                    <>
+                      <option value="A">A</option>
+                      <option value="B">B</option>
+                      <option value="C">C</option>
+                    </>
+                  )}
+                  {field === 'status' && (
+                    <>
+                      <option value="New">New</option>
+                      <option value="Portfolio">Portfolio</option>
+                      <option value="Current">Current</option>
+                      <option value="On-Deck">On-Deck</option>
+                      <option value="Old">Old</option>
+                    </>
+                  )}
+                  {field === 'analyst' && analysts.map(analyst => (
+                    <option key={analyst} value={analyst}>{analyst}</option>
+                  ))}
+                  {field === 'valueOrGrowth' && (
+                    <>
+                      <option value="">Select...</option>
+                      <option value="Value">Value</option>
+                      <option value="Growth">Growth</option>
+                    </>
+                  )}
+                </select>
+              ) : (
+                <input
+                  type={type}
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onBlur={handleSaveEdit}
+                  onKeyDown={handleKeyPress}
+                  autoFocus
+                  className="w-full border border-blue-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              )
+            ) : isBoolean ? (
+              <button
+                onClick={() => handleDoubleClick(field, value)}
+                disabled={!onUpdate}
+                className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                  value 
+                    ? 'bg-green-100 text-green-800' 
+                    : 'bg-gray-100 text-gray-800'
+                } ${onUpdate ? 'hover:bg-opacity-80 cursor-pointer' : ''}`}
+              >
+                {value ? 'Yes' : 'No'}
+              </button>
+            ) : (
+              <span
+                onClick={() => handleDoubleClick(field, value)}
+                className={`${onUpdate ? 'cursor-pointer hover:bg-gray-50 rounded px-1' : ''}`}
+                title={onUpdate ? 'Double-click to edit' : ''}
+              >
+                {displayValue}
+              </span>
+            )}
+          </dd>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="bg-white shadow rounded-lg">
+      <div className="px-6 py-5">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-lg leading-6 font-medium text-gray-900">
+            Idea Detail: {ticker.ticker}
+          </h3>
+          <button
+            onClick={() => onSelectTicker(null)}
+            className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            Back to Selection
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Basic Information */}
+          <div>
+            <h4 className="text-base font-medium text-gray-900 mb-4 border-b border-gray-200 pb-2">
+              Basic Information
+            </h4>
+            <dl className="space-y-1">
+              {renderField('Ticker', 'ticker', ticker.ticker)}
+              {renderField('Company Name', 'name', ticker.name)}
+              {renderField('Date In', 'dateIn', ticker.dateIn, 'date')}
+              {renderField('Poke Date', 'pokeDate', ticker.pokeDate, 'date')}
+              {renderField('L/S Position', 'lsPosition', ticker.lsPosition, 'select')}
+              {renderField('Priority', 'priority', ticker.priority, 'select')}
+              {renderField('Status', 'status', ticker.status, 'select')}
+              {renderField('Analyst', 'analyst', ticker.analyst, 'select')}
+              {renderField('Source', 'source', ticker.source)}
+              {renderField('Value/Growth', 'valueOrGrowth', ticker.valueOrGrowth, 'select')}
+              {renderField('Catalyst Date', 'catalystDate', ticker.catalystDate, 'date')}
+            </dl>
+          </div>
+
+          {/* Financial Data */}
+          <div>
+            <h4 className="text-base font-medium text-gray-900 mb-4 border-b border-gray-200 pb-2">
+              Financial Data
+            </h4>
+            <dl className="space-y-1">
+              {renderField('Input Price', 'inputPrice', ticker.inputPrice ? `$${parseFloat(ticker.inputPrice).toFixed(2)}` : '', 'number')}
+              {renderField('Current Price', 'currentPrice', quote.price ? `$${parseFloat(quote.price).toFixed(2)}` : (ticker.currentPrice ? `$${parseFloat(ticker.currentPrice).toFixed(2)}` : ''), 'number')}
+              {renderField('Market Cap', 'marketCap', ticker.marketCap ? formatMarketCap(ticker.marketCap) : '', 'number')}
+              {renderField('ADV 3 Month', 'adv3Month', ticker.adv3Month ? formatVolumeDollars(ticker.adv3Month) : '', 'number')}
+              {renderField('PT Bear', 'ptBear', ticker.ptBear ? `$${parseFloat(ticker.ptBear).toFixed(2)}` : '', 'number')}
+              {renderField('PT Base', 'ptBase', ticker.ptBase ? `$${parseFloat(ticker.ptBase).toFixed(2)}` : '', 'number')}
+              {renderField('PT Bull', 'ptBull', ticker.ptBull ? `$${parseFloat(ticker.ptBull).toFixed(2)}` : '', 'number')}
+            </dl>
+          </div>
+        </div>
+
+        {/* Thesis */}
+        <div className="mt-8">
+          <h4 className="text-base font-medium text-gray-900 mb-4 border-b border-gray-200 pb-2">
+            Investment Thesis
+          </h4>
+          <dl>
+            {renderField('Thesis', 'thesis', ticker.thesis, 'textarea')}
+          </dl>
+        </div>
+
+        {/* Catalysts */}
+        <div className="mt-8">
+          <h4 className="text-base font-medium text-gray-900 mb-4 border-b border-gray-200 pb-2">
+            Catalysts
+          </h4>
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+            {renderField('M&A Target Buyer', 'maTargetBuyer', ticker.maTargetBuyer)}
+            {renderField('M&A Target Valuation', 'maTargetValuation', ticker.maTargetValuation)}
+            {renderField('M&A Target Seller', 'maTargetSeller', ticker.maTargetSeller)}
+            {renderField('Big Move Revert', 'bigMoveRevert', ticker.bigMoveRevert)}
+            {renderField('Activist', 'activist', ticker.activist)}
+            {renderField('Activist Potential', 'activistPotential', ticker.activistPotential)}
+            {renderField('Insider Trade Signal', 'insiderTradeSignal', ticker.insiderTradeSignal)}
+            {renderField('New Management', 'newMgmt', ticker.newMgmt)}
+            {renderField('Spin-off', 'spin', ticker.spin)}
+            {renderField('Big Acquisition', 'bigAcq', ticker.bigAcq)}
+            {renderField('Self Help', 'selfHelp', ticker.selfHelp)}
+            {renderField('Product Cycle', 'productCycle', ticker.productCycle)}
+            {renderField('Regulation', 'regulation', ticker.regulation)}
+          </div>
+        </div>
+
+        {/* Characteristics */}
+        <div className="mt-8">
+          <h4 className="text-base font-medium text-gray-900 mb-4 border-b border-gray-200 pb-2">
+            Characteristics
+          </h4>
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+            {renderField('Fraud Risk', 'fraudRisk', ticker.fraudRisk)}
+            {renderField('Regulatory Risk', 'regulatoryRisk', ticker.regulatoryRisk)}
+            {renderField('Cyclical', 'cyclical', ticker.cyclical)}
+            {renderField('Non-Cyclical', 'nonCyclical', ticker.nonCyclical)}
+            {renderField('High Beta', 'highBeta', ticker.highBeta)}
+            {renderField('Momentum', 'momo', ticker.momo)}
+            {renderField('Rate Exposure', 'rateExposure', ticker.rateExposure)}
+            {renderField('Strong Dollar', 'strongDollar', ticker.strongDollar)}
+            {renderField('Extreme Valuation', 'extremeValuation', ticker.extremeValuation)}
+            {renderField('Crapco', 'crapco', ticker.crapco)}
+          </div>
+        </div>
+
+        {/* Themes */}
+        <div className="mt-8">
+          <h4 className="text-base font-medium text-gray-900 mb-4 border-b border-gray-200 pb-2">
+            Themes
+          </h4>
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+            {renderField('AI Winner', 'aiWinner', ticker.aiWinner)}
+            {renderField('AI Loser', 'aiLoser', ticker.aiLoser)}
+            {renderField('Tariff Winner', 'tariffWinner', ticker.tariffWinner)}
+            {renderField('Tariff Loser', 'tariffLoser', ticker.tariffLoser)}
+            {renderField('Trump Winner', 'trumpWinner', ticker.trumpWinner)}
+            {renderField('Trump Loser', 'trumpLoser', ticker.trumpLoser)}
+          </div>
+        </div>
       </div>
     </div>
   );
