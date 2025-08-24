@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Plus, Database, Users, TrendingUp, BarChart3, LogOut, ChevronUp, ChevronDown, RefreshCw, Download, CheckSquare, User, Mail } from 'lucide-react';
+import { Plus, Database, Users, TrendingUp, BarChart3, LogOut, ChevronUp, ChevronDown, RefreshCw, Download, CheckSquare, User, Mail, FileText } from 'lucide-react';
 import { DatabaseService } from './databaseService';
 import { AuthService } from './services/authService';
 import LoginScreen from './components/LoginScreen';
