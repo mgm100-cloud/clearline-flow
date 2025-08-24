@@ -1261,6 +1261,7 @@ const ClearlineFlow = () => {
   const [userRole, setUserRole] = useState(''); // 'readwrite' or 'readonly'
   const [activeTab, setActiveTab] = useState('input');
   const [selectedTickerForDetail, setSelectedTickerForDetail] = useState(null);
+  const [previousTab, setPreviousTab] = useState('input');
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState('');
 
@@ -2445,6 +2446,7 @@ const ClearlineFlow = () => {
   }, [backfillTickersExtraInfo]);
 
   const handleTabSwitch = async (tab) => {
+    setPreviousTab(activeTab);
     setActiveTab(tab);
     
     // Set default analyst filter based on the tab and current user
@@ -2494,6 +2496,19 @@ const ClearlineFlow = () => {
     } catch (error) {
       console.error('Error refreshing data:', error);
     }
+  };
+
+  // Navigate to idea detail while remembering previous tab
+  const navigateToIdeaDetail = (ticker) => {
+    setPreviousTab(activeTab);
+    setSelectedTickerForDetail(ticker);
+    setActiveTab('idea-detail');
+  };
+
+  // Navigate back to previous tab
+  const navigateBack = () => {
+    setSelectedTickerForDetail(null);
+    setActiveTab(previousTab);
   };
 
   // Show loading while checking auth state
@@ -2747,10 +2762,7 @@ const ClearlineFlow = () => {
             isRefreshingCompanyNames={isRefreshingCompanyNames}
             formatMarketCap={formatMarketCap}
             formatVolumeDollars={formatVolumeDollars}
-            onNavigateToIdeaDetail={(ticker) => {
-              setSelectedTickerForDetail(ticker);
-              setActiveTab('idea-detail');
-            }}
+            onNavigateToIdeaDetail={navigateToIdeaDetail}
           />
         )}
         {activeTab === 'database-detailed' && (
@@ -2771,10 +2783,7 @@ const ClearlineFlow = () => {
             isRefreshingData={isRefreshingData}
             formatMarketCap={formatMarketCap}
             formatVolumeDollars={formatVolumeDollars}
-            onNavigateToIdeaDetail={(ticker) => {
-              setSelectedTickerForDetail(ticker);
-              setActiveTab('idea-detail');
-            }}
+            onNavigateToIdeaDetail={navigateToIdeaDetail}
           />
         )}
                 {activeTab === 'pm-detail' && (
@@ -2784,10 +2793,7 @@ const ClearlineFlow = () => {
             onUpdateQuote={updateSingleQuote}
             isLoadingQuotes={isLoadingQuotes}
             quoteErrors={quoteErrors}
-            onNavigateToIdeaDetail={(ticker) => {
-              setSelectedTickerForDetail(ticker);
-              setActiveTab('idea-detail');
-            }}
+            onNavigateToIdeaDetail={navigateToIdeaDetail}
           />
         )}
         {activeTab === 'analyst-detail' && (
@@ -2800,20 +2806,14 @@ const ClearlineFlow = () => {
             onUpdateQuote={updateSingleQuote}
             isLoadingQuotes={isLoadingQuotes}
             quoteErrors={quoteErrors}
-            onNavigateToIdeaDetail={(ticker) => {
-              setSelectedTickerForDetail(ticker);
-              setActiveTab('idea-detail');
-            }}
+            onNavigateToIdeaDetail={navigateToIdeaDetail}
           />
         )}
         {activeTab === 'team' && (
           <TeamOutputPage 
             tickers={tickers} 
             analysts={analysts}
-            onNavigateToIdeaDetail={(ticker) => {
-              setSelectedTickerForDetail(ticker);
-              setActiveTab('idea-detail');
-            }}
+            onNavigateToIdeaDetail={navigateToIdeaDetail}
           />
         )}
         {activeTab === 'earnings' && (
@@ -2833,10 +2833,7 @@ const ClearlineFlow = () => {
             formatTradeLevel={formatTradeLevel}
             formatCompactDate={formatCompactDate}
             currentUser={currentUser}
-            onNavigateToIdeaDetail={(ticker) => {
-              setSelectedTickerForDetail(ticker);
-              setActiveTab('idea-detail');
-            }}
+            onNavigateToIdeaDetail={navigateToIdeaDetail}
           />
         )}
         {activeTab === 'todos' && (
@@ -2852,10 +2849,7 @@ const ClearlineFlow = () => {
             onRefreshTodos={refreshTodos}
             currentUser={currentUser}
             tickers={tickers}
-            onNavigateToIdeaDetail={(ticker) => {
-              setSelectedTickerForDetail(ticker);
-              setActiveTab('idea-detail');
-            }}
+            onNavigateToIdeaDetail={navigateToIdeaDetail}
           />
         )}
         {activeTab === 'idea-detail' && (
@@ -2872,6 +2866,7 @@ const ClearlineFlow = () => {
             formatMarketCap={formatMarketCap}
             formatVolumeDollars={formatVolumeDollars}
             currentUser={currentUser}
+            onNavigateBack={navigateBack}
           />
         )}
       </main>
@@ -8018,7 +8013,7 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
 };
 
 // Idea Detail Page Component - Shows detailed view of a single ticker
-const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdate, analysts, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors, formatMarketCap, formatVolumeDollars, currentUser }) => {
+const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdate, analysts, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors, formatMarketCap, formatVolumeDollars, currentUser, onNavigateBack }) => {
   const [editingField, setEditingField] = useState(null);
   const [editValue, setEditValue] = useState('');
 
@@ -8397,10 +8392,10 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdate, ana
             Idea Detail: {ticker.ticker}
           </h3>
           <button
-            onClick={() => onSelectTicker(null)}
+            onClick={onNavigateBack || (() => onSelectTicker(null))}
             className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           >
-            Back to Selection
+            Back
           </button>
         </div>
 
