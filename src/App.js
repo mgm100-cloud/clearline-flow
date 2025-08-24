@@ -2500,7 +2500,11 @@ const ClearlineFlow = () => {
 
   // Navigate to idea detail while remembering previous tab
   const navigateToIdeaDetail = (ticker) => {
-    setPreviousTab(activeTab);
+    // Only update previousTab if we're not already on idea-detail
+    // This prevents the back button issue when using dropdown navigation
+    if (activeTab !== 'idea-detail') {
+      setPreviousTab(activeTab);
+    }
     setSelectedTickerForDetail(ticker);
     setActiveTab('idea-detail');
   };
@@ -2508,7 +2512,9 @@ const ClearlineFlow = () => {
   // Navigate back to previous tab
   const navigateBack = () => {
     setSelectedTickerForDetail(null);
-    setActiveTab(previousTab);
+    // If previousTab is idea-detail (edge case), default to database
+    const targetTab = previousTab === 'idea-detail' ? 'database' : previousTab;
+    setActiveTab(targetTab);
   };
 
   // Show loading while checking auth state
