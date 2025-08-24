@@ -2747,6 +2747,10 @@ const ClearlineFlow = () => {
             isRefreshingCompanyNames={isRefreshingCompanyNames}
             formatMarketCap={formatMarketCap}
             formatVolumeDollars={formatVolumeDollars}
+            onNavigateToIdeaDetail={(ticker) => {
+              setSelectedTickerForDetail(ticker);
+              setActiveTab('idea-detail');
+            }}
           />
         )}
         {activeTab === 'database-detailed' && (
@@ -2767,15 +2771,23 @@ const ClearlineFlow = () => {
             isRefreshingData={isRefreshingData}
             formatMarketCap={formatMarketCap}
             formatVolumeDollars={formatVolumeDollars}
+            onNavigateToIdeaDetail={(ticker) => {
+              setSelectedTickerForDetail(ticker);
+              setActiveTab('idea-detail');
+            }}
           />
         )}
-        {activeTab === 'pm-detail' && (
+                {activeTab === 'pm-detail' && (
           <PMDetailPage 
-            tickers={tickers} 
+            tickers={tickers}
             quotes={quotes}
             onUpdateQuote={updateSingleQuote}
             isLoadingQuotes={isLoadingQuotes}
             quoteErrors={quoteErrors}
+            onNavigateToIdeaDetail={(ticker) => {
+              setSelectedTickerForDetail(ticker);
+              setActiveTab('idea-detail');
+            }}
           />
         )}
         {activeTab === 'analyst-detail' && (
@@ -2788,10 +2800,21 @@ const ClearlineFlow = () => {
             onUpdateQuote={updateSingleQuote}
             isLoadingQuotes={isLoadingQuotes}
             quoteErrors={quoteErrors}
+            onNavigateToIdeaDetail={(ticker) => {
+              setSelectedTickerForDetail(ticker);
+              setActiveTab('idea-detail');
+            }}
           />
         )}
         {activeTab === 'team' && (
-          <TeamOutputPage tickers={tickers} analysts={analysts} />
+          <TeamOutputPage 
+            tickers={tickers} 
+            analysts={analysts}
+            onNavigateToIdeaDetail={(ticker) => {
+              setSelectedTickerForDetail(ticker);
+              setActiveTab('idea-detail');
+            }}
+          />
         )}
         {activeTab === 'earnings' && (
           <EarningsTrackingPage 
@@ -2810,6 +2833,10 @@ const ClearlineFlow = () => {
             formatTradeLevel={formatTradeLevel}
             formatCompactDate={formatCompactDate}
             currentUser={currentUser}
+            onNavigateToIdeaDetail={(ticker) => {
+              setSelectedTickerForDetail(ticker);
+              setActiveTab('idea-detail');
+            }}
           />
         )}
         {activeTab === 'todos' && (
@@ -3422,7 +3449,7 @@ const InputPage = ({ onAddTicker, analysts, currentUser }) => {
 };
 
 // Enhanced Database Page Component with quotes
-const DatabasePage = ({ tickers, onSort, sortField, sortDirection, onUpdate, analysts, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors, onRefreshMarketData, isRefreshingMarketData, onRefreshData, isRefreshingData, onRefreshCompanyNames, isRefreshingCompanyNames, formatMarketCap, formatVolumeDollars }) => {
+const DatabasePage = ({ tickers, onSort, sortField, sortDirection, onUpdate, analysts, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors, onRefreshMarketData, isRefreshingMarketData, onRefreshData, isRefreshingData, onRefreshCompanyNames, isRefreshingCompanyNames, formatMarketCap, formatVolumeDollars, onNavigateToIdeaDetail }) => {
   const SortableHeader = ({ field, children }) => (
     <th
       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
@@ -3602,6 +3629,7 @@ const DatabasePage = ({ tickers, onSort, sortField, sortDirection, onUpdate, ana
                   quoteErrors={quoteErrors}
                   formatMarketCap={formatMarketCap}
                   formatVolumeDollars={formatVolumeDollars}
+                  onNavigateToIdeaDetail={onNavigateToIdeaDetail}
                 />
               ))}
             </tbody>
@@ -3619,7 +3647,7 @@ const DatabasePage = ({ tickers, onSort, sortField, sortDirection, onUpdate, ana
 };
 
 // Enhanced Ticker Row Component with quote integration
-const EnhancedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors, formatMarketCap, formatVolumeDollars }) => {
+const EnhancedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors, formatMarketCap, formatVolumeDollars, onNavigateToIdeaDetail }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState(ticker);
 
@@ -3847,7 +3875,7 @@ const EnhancedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
   );
 };
 // Database Detailed Page Component - Shows all fields with quotes integration
-const DatabaseDetailedPage = ({ tickers, onSort, sortField, sortDirection, onUpdate, analysts, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors, onRefreshMarketData, isRefreshingMarketData, onRefreshData, isRefreshingData, formatMarketCap, formatVolumeDollars }) => {
+const DatabaseDetailedPage = ({ tickers, onSort, sortField, sortDirection, onUpdate, analysts, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors, onRefreshMarketData, isRefreshingMarketData, onRefreshData, isRefreshingData, formatMarketCap, formatVolumeDollars, onNavigateToIdeaDetail }) => {
   const SortableHeader = ({ field, children }) => (
     <th
       className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
@@ -4071,6 +4099,7 @@ const DatabaseDetailedPage = ({ tickers, onSort, sortField, sortDirection, onUpd
                   quoteErrors={quoteErrors}
                   formatMarketCap={formatMarketCap}
                   formatVolumeDollars={formatVolumeDollars}
+                  onNavigateToIdeaDetail={onNavigateToIdeaDetail}
                 />
               ))}
             </tbody>
@@ -4088,7 +4117,7 @@ const DatabaseDetailedPage = ({ tickers, onSort, sortField, sortDirection, onUpd
 };
 
 // Detailed Ticker Row Component for Database Detailed Page
-const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors, formatMarketCap, formatVolumeDollars }) => {
+const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors, formatMarketCap, formatVolumeDollars, onNavigateToIdeaDetail }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState(ticker);
   const [editingField, setEditingField] = useState(null);
@@ -5204,7 +5233,7 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
   );
 };
 // Analyst Detail Page Component with quotes integration
-const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors }) => {
+const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors, onNavigateToIdeaDetail }) => {
   const [sortField, setSortField] = useState('');
   const [sortDirection, setSortDirection] = useState('asc');
   
@@ -5496,7 +5525,13 @@ const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst
                     <tr key={ticker.id} className={((ticker.lsPosition === 'Long' && basePercent && basePercent.startsWith('-')) || (ticker.lsPosition === 'Short' && basePercent && basePercent.startsWith('+'))) ? 'bg-red-50' : ''}>
                       <td className="px-2 py-2 whitespace-nowrap text-sm font-medium text-gray-900" style={{ width: '85px' }}>
                         <div className="truncate" title={ticker.ticker}>
-                          {ticker.ticker}
+                          <button
+                            onClick={() => onNavigateToIdeaDetail && onNavigateToIdeaDetail(ticker)}
+                            className="text-blue-600 hover:text-blue-800 underline hover:no-underline font-medium"
+                            title="Click to view in Idea Detail"
+                          >
+                            {ticker.ticker}
+                          </button>
                         </div>
                       </td>
                       <td className="px-1 py-2 whitespace-nowrap text-center" style={{ width: '40px' }}>
@@ -5575,7 +5610,7 @@ const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst
 };
 
 // Team Output Page Component
-const TeamOutputPage = ({ tickers, analysts }) => {
+const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
  const getTickersForCell = (analyst, status, lsPosition) => {
    return tickers.filter(ticker => 
      ticker.analyst === analyst && 
@@ -5590,6 +5625,26 @@ const TeamOutputPage = ({ tickers, analysts }) => {
      ticker.status === status && 
      ticker.lsPosition === lsPosition &&
      ['Current', 'On-Deck', 'Portfolio'].includes(ticker.status)
+   );
+ };
+
+ // Helper function to render clickable ticker
+ const renderTickerButton = (ticker, bgColorClass, textColorClass) => {
+   const handleTickerClick = () => {
+     if (onNavigateToIdeaDetail) {
+       onNavigateToIdeaDetail(ticker);
+     }
+   };
+
+   return (
+     <button
+       key={ticker.id}
+       onClick={handleTickerClick}
+       className={`text-xs ${bgColorClass} ${textColorClass} px-2 py-1 rounded hover:opacity-80 cursor-pointer transition-opacity`}
+       title="Click to view in Idea Detail"
+     >
+       {ticker.ticker}
+     </button>
    );
  };
 
@@ -5751,56 +5806,44 @@ const TeamOutputPage = ({ tickers, analysts }) => {
                  </td>
                  <td className="px-6 py-4 text-center">
                    <div className="space-y-1">
-                     {getTickersForCell(analyst, 'Current', 'Long').map(ticker => (
-                       <div key={ticker.id} className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
-                         {ticker.ticker}
-                       </div>
-                     ))}
+                     {getTickersForCell(analyst, 'Current', 'Long').map(ticker => 
+                       renderTickerButton(ticker, 'bg-green-100', 'text-green-800')
+                     )}
                    </div>
                  </td>
                  <td className="px-6 py-4 text-center">
                    <div className="space-y-1">
-                     {getTickersForCell(analyst, 'Current', 'Short').map(ticker => (
-                       <div key={ticker.id} className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
-                         {ticker.ticker}
-                       </div>
-                     ))}
+                     {getTickersForCell(analyst, 'Current', 'Short').map(ticker => 
+                       renderTickerButton(ticker, 'bg-red-100', 'text-red-800')
+                     )}
                    </div>
                  </td>
                  <td className="px-6 py-4 text-center">
                    <div className="space-y-1">
-                     {getTickersForCell(analyst, 'On-Deck', 'Long').map(ticker => (
-                       <div key={ticker.id} className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
-                         {ticker.ticker}
-                       </div>
-                     ))}
+                     {getTickersForCell(analyst, 'On-Deck', 'Long').map(ticker => 
+                       renderTickerButton(ticker, 'bg-green-100', 'text-green-800')
+                     )}
                    </div>
                  </td>
                  <td className="px-6 py-4 text-center">
                    <div className="space-y-1">
-                     {getTickersForCell(analyst, 'On-Deck', 'Short').map(ticker => (
-                       <div key={ticker.id} className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
-                         {ticker.ticker}
-                       </div>
-                     ))}
+                     {getTickersForCell(analyst, 'On-Deck', 'Short').map(ticker => 
+                       renderTickerButton(ticker, 'bg-red-100', 'text-red-800')
+                     )}
                    </div>
                  </td>
                  <td className="px-6 py-4 text-center">
                    <div className="space-y-1">
-                     {getTickersForCell(analyst, 'Portfolio', 'Long').map(ticker => (
-                       <div key={ticker.id} className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
-                         {ticker.ticker}
-                       </div>
-                     ))}
+                     {getTickersForCell(analyst, 'Portfolio', 'Long').map(ticker => 
+                       renderTickerButton(ticker, 'bg-green-100', 'text-green-800')
+                     )}
                    </div>
                  </td>
                  <td className="px-6 py-4 text-center">
                    <div className="space-y-1">
-                     {getTickersForCell(analyst, 'Portfolio', 'Short').map(ticker => (
-                       <div key={ticker.id} className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
-                         {ticker.ticker}
-                       </div>
-                     ))}
+                     {getTickersForCell(analyst, 'Portfolio', 'Short').map(ticker => 
+                       renderTickerButton(ticker, 'bg-red-100', 'text-red-800')
+                     )}
                    </div>
                  </td>
                </tr>
@@ -5849,20 +5892,16 @@ const TeamOutputPage = ({ tickers, analysts }) => {
                </td>
                <td className="px-6 py-4 text-center">
                  <div className="space-y-1">
-                   {getUnassignedTickersForCell('Portfolio', 'Long').map(ticker => (
-                     <div key={ticker.id} className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">
-                       {ticker.ticker}
-                     </div>
-                   ))}
+                   {getUnassignedTickersForCell('Portfolio', 'Long').map(ticker => 
+                     renderTickerButton(ticker, 'bg-orange-100', 'text-orange-800')
+                   )}
                  </div>
                </td>
                <td className="px-6 py-4 text-center">
                  <div className="space-y-1">
-                   {getUnassignedTickersForCell('Portfolio', 'Short').map(ticker => (
-                     <div key={ticker.id} className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded">
-                       {ticker.ticker}
-                     </div>
-                   ))}
+                   {getUnassignedTickersForCell('Portfolio', 'Short').map(ticker => 
+                     renderTickerButton(ticker, 'bg-orange-100', 'text-orange-800')
+                   )}
                  </div>
                </td>
              </tr>
@@ -5874,7 +5913,7 @@ const TeamOutputPage = ({ tickers, analysts }) => {
  );
 };
 // Earnings Tracking Page Component
-const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarningsAnalyst, earningsData, onUpdateEarnings, getEarningsData, onRefreshEarningsData, analysts, quotes = {}, onUpdateQuote, isLoadingQuotes = false, quoteErrors = {}, formatTradeLevel, formatCompactDate, currentUser }) => {
+const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarningsAnalyst, earningsData, onUpdateEarnings, getEarningsData, onRefreshEarningsData, analysts, quotes = {}, onUpdateQuote, isLoadingQuotes = false, quoteErrors = {}, formatTradeLevel, formatCompactDate, currentUser, onNavigateToIdeaDetail }) => {
   // State for sorting and filtering
   const [sortField, setSortField] = useState('days');
   const [sortDirection, setSortDirection] = useState('asc');
@@ -6270,6 +6309,8 @@ const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarnin
                   isLoadingQuotes={isLoadingQuotes}
                   quoteErrors={quoteErrors}
                   currentUser={currentUser}
+                  allTickers={tickers}
+                  onNavigateToIdeaDetail={onNavigateToIdeaDetail}
                 />
               ))}
             </tbody>
@@ -6292,7 +6333,7 @@ const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarnin
 };
 
 // Earnings Tracking Row Component
-const EarningsTrackingRow = ({ ticker, earningsData, onUpdateEarnings, formatDaysUntilEarnings, formatTradeLevel, formatCompactDate, quotes = {}, onUpdateQuote, isLoadingQuotes = false, quoteErrors = {}, currentUser }) => {
+const EarningsTrackingRow = ({ ticker, earningsData, onUpdateEarnings, formatDaysUntilEarnings, formatTradeLevel, formatCompactDate, quotes = {}, onUpdateQuote, isLoadingQuotes = false, quoteErrors = {}, currentUser, allTickers, onNavigateToIdeaDetail }) => {
  const [isEditing, setIsEditing] = useState(false);
  const [showIRPopup, setShowIRPopup] = useState(false);
  const [pendingEmailType, setPendingEmailType] = useState(null); // 'qp' or 'callback'
@@ -6451,7 +6492,7 @@ This email and any files transmitted with it may contain privileged or confident
  const quote = quotes[cleanSymbol];
  const currentPrice = quote ? quote.price : null;
  
- // Calculate row background color based on conditional formatting
+  // Calculate row background color based on conditional formatting
  const getRowBackgroundColor = () => {
    if (!earningsData.tradeRec || !earningsData.tradeLevel || !currentPrice) {
      return '';
@@ -6467,12 +6508,22 @@ This email and any files transmitted with it may contain privileged or confident
      return 'bg-green-100';
    }
    
-   // Red background: SELL/SHORT and tradeLevel < currentPrice  
+   // Red background: SELL/SHORT and tradeLevel < currentPrice
    if ((tradeRec === 'SELL' || tradeRec === 'SHORT') && tradeLevel < currentPrice) {
      return 'bg-red-100';
    }
    
    return '';
+ };
+
+ // Check if ticker exists in the idea database
+ const tickerInDatabase = allTickers ? allTickers.find(t => t.ticker.toUpperCase() === ticker.ticker.toUpperCase()) : null;
+
+ // Handle ticker click
+ const handleTickerClick = () => {
+   if (tickerInDatabase && onNavigateToIdeaDetail) {
+     onNavigateToIdeaDetail(tickerInDatabase);
+   }
  };
 
  if (isEditing) {
@@ -6622,7 +6673,17 @@ This email and any files transmitted with it may contain privileged or confident
      <tr className={`hover:bg-gray-50 ${getRowBackgroundColor()}`} onDoubleClick={() => setIsEditing(true)}>
      <td className={`px-2 py-4 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 z-10 ${getRowBackgroundColor() || 'bg-white'}`} style={{ width: '60px' }}>
        <div className="truncate" title={ticker.ticker}>
-         {ticker.ticker}
+         {tickerInDatabase ? (
+           <button
+             onClick={handleTickerClick}
+             className="text-blue-600 hover:text-blue-800 underline hover:no-underline font-medium"
+             title="Click to view in Idea Detail"
+           >
+             {ticker.ticker}
+           </button>
+         ) : (
+           <span className="text-gray-900">{ticker.ticker}</span>
+         )}
        </div>
      </td>
      <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500" style={{ width: '45px' }}>
@@ -7708,7 +7769,7 @@ const QuoteDisplay = ({ ticker, quote, onUpdateQuote, isLoading, hasError }) => 
 };
 
 // PM Detail Page Component - Shows status-grouped view with price target analysis
-const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors }) => {
+const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors, onNavigateToIdeaDetail }) => {
   const [sortField, setSortField] = useState('');
   const [sortDirection, setSortDirection] = useState('asc');
   
@@ -7875,7 +7936,13 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
                     <tr key={ticker.id} className={((ticker.lsPosition === 'Long' && basePercent && basePercent.startsWith('-')) || (ticker.lsPosition === 'Short' && basePercent && basePercent.startsWith('+'))) ? 'bg-red-50' : ''}>
                       <td className="px-2 py-2 whitespace-nowrap text-sm font-medium text-gray-900" style={{ width: '85px' }}>
                         <div className="truncate" title={ticker.ticker}>
-                          {ticker.ticker}
+                          <button
+                            onClick={() => onNavigateToIdeaDetail && onNavigateToIdeaDetail(ticker)}
+                            className="text-blue-600 hover:text-blue-800 underline hover:no-underline font-medium"
+                            title="Click to view in Idea Detail"
+                          >
+                            {ticker.ticker}
+                          </button>
                         </div>
                       </td>
                       <td className="px-1 py-2 whitespace-nowrap text-center" style={{ width: '40px' }}>
