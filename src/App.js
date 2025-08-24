@@ -3766,7 +3766,17 @@ const EnhancedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
   return (
     <tr>
       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 bg-white z-10">
-        {ticker.ticker}
+        {onNavigateToIdeaDetail ? (
+          <button
+            onClick={() => onNavigateToIdeaDetail(ticker)}
+            className="text-blue-600 hover:text-blue-800 underline hover:no-underline font-medium"
+            title="Click to view in Idea Detail"
+          >
+            {ticker.ticker}
+          </button>
+        ) : (
+          <span>{ticker.ticker}</span>
+        )}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 w-40" title={ticker.name}>
         {ticker.name && ticker.name.length > 20 ? ticker.name.substring(0, 20) + '...' : ticker.name}
@@ -4615,7 +4625,17 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
   return (
     <tr className="hover:bg-gray-50">
       <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 bg-white hover:bg-gray-50 z-10" style={{ width: '80px', minWidth: '80px' }}>
-        {ticker.ticker}
+        {onNavigateToIdeaDetail ? (
+          <button
+            onClick={() => onNavigateToIdeaDetail(ticker)}
+            className="text-blue-600 hover:text-blue-800 underline hover:no-underline font-medium"
+            title="Click to view in Idea Detail"
+          >
+            {ticker.ticker}
+          </button>
+        ) : (
+          <span>{ticker.ticker}</span>
+        )}
         {/* Add international stock indicator */}
         {(ticker.ticker.includes('.') || ticker.ticker.includes(' ')) && (
           <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800" title="International stock - limited data availability">
