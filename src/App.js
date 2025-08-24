@@ -6221,12 +6221,23 @@ const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarnin
     }
   };
 
+  // Calculate earnings counts for header
+  const earningsIn7Days = sortedTickers.filter(ticker => {
+    const daysUntilEarnings = formatDaysUntilEarnings(ticker.bestEarnings.earningsDate);
+    return daysUntilEarnings !== '-' && daysUntilEarnings >= 0 && daysUntilEarnings <= 7;
+  }).length;
+
+  const earningsIn14Days = sortedTickers.filter(ticker => {
+    const daysUntilEarnings = formatDaysUntilEarnings(ticker.bestEarnings.earningsDate);
+    return daysUntilEarnings !== '-' && daysUntilEarnings >= 0 && daysUntilEarnings <= 14;
+  }).length;
+
   return (
     <div className="bg-white shadow rounded-lg">
       <div className="px-4 py-5 sm:p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg leading-6 font-medium text-gray-900">
-            Earnings Tracking ({sortedTickers.length} Portfolio tickers)
+            Earnings Tracking - {earningsIn7Days} Earnings in next 7 days, {earningsIn14Days} Earnings in next 14 days
           </h3>
           <div className="flex items-center space-x-4">
             <button
