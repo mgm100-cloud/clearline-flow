@@ -52,6 +52,7 @@ async function fetchLateTickers() {
   });
 
   // Force fresh query with explicit ordering to bypass any caching
+  // Only include tickers where status = 'Portfolio'
   const { data, error } = await supabase
     .from('earnings_tracking')
     .select(`
@@ -63,9 +64,11 @@ async function fetchLateTickers() {
       updated_at,
       tickers!ticker_id (
         ticker,
-        analyst
+        analyst,
+        status
       )
     `)
+    .eq('tickers.status', 'Portfolio')
     .order('updated_at', { ascending: false });
 
   if (error) throw error;
