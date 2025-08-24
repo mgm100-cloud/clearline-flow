@@ -1982,118 +1982,7 @@ const ClearlineFlow = () => {
     
     return `${year}${quarter}`;
   };
-  // Refresh earnings dates from TwelveData
-  const refreshEarningsDates = async (tickersToRefresh) => {
-    if (!tickersToRefresh || tickersToRefresh.length === 0) return { success: 0, errors: {} };
 
-    const symbols = tickersToRefresh.map(ticker => ticker.ticker.replace(' US', ''));
-    
-    try {
-      console.log(`🔄 Refreshing earnings dates for ${symbols.length} tickers...`);
-      
-      const { earnings, errors } = await QuoteService.getBatchEarnings(symbols);
-      
-      let successCount = 0;
-      const cyqUpdates = {}; // Track which CYQs we're updating
-      
-      // Update earnings data for each ticker that returned data
-      for (const [symbol, earningsInfo] of Object.entries(earnings)) {
-        try {
-          const ticker = tickersToRefresh.find(t => t.ticker.replace(' US', '') === symbol);
-          if (ticker) {
-            // First, clear all existing earnings data for this ticker
-            console.log(`🔄 Clearing existing earnings data for ${ticker.ticker} before updating...`);
-            
-            // Generate CYQs for last 12 months + next 2 years (more efficient range)
-            const currentYear = new Date().getFullYear();
-            const allCYQs = [];
-            for (let year = currentYear - 1; year <= currentYear + 2; year++) {
-              for (let quarter = 1; quarter <= 4; quarter++) {
-                allCYQs.push(`${year}Q${quarter}`);
-              }
-            }
-            
-            for (const cyq of allCYQs) {
-              const existingData = getEarningsData(ticker.ticker, cyq);
-              if (existingData.earningsDate) {
-                await updateEarningsData(ticker.ticker, cyq, {
-                  earningsDate: null
-                });
-              }
-            }
-            
-            // Process ALL earnings dates if available
-            if (earningsInfo.allEarningsDates && Array.isArray(earningsInfo.allEarningsDates)) {
-              console.log(`📅 Processing ${earningsInfo.allEarningsDates.length} earnings dates for ${ticker.ticker}`);
-              
-              for (const earning of earningsInfo.allEarningsDates) {
-                if (earning.date) {
-                  // Automatically determine the correct CYQ based on the earnings date
-                  const autoCYQ = determineCYQFromDate(earning.date);
-                  
-                  if (autoCYQ) {
-                    await updateEarningsData(ticker.ticker, autoCYQ, {
-                      earningsDate: earning.date
-                    });
-                    
-                    // Track which CYQs we're updating
-                    if (!cyqUpdates[autoCYQ]) cyqUpdates[autoCYQ] = [];
-                    cyqUpdates[autoCYQ].push(ticker.ticker);
-                    
-                    console.log(`✅ Updated earnings date for ${ticker.ticker} in ${autoCYQ}: ${earning.date}`);
-                  } else {
-                    console.warn(`⚠️ Could not determine CYQ for ${ticker.ticker} with date: ${earning.date}`);
-                  }
-                }
-              }
-              
-              successCount++;
-            } else if (earningsInfo.nextEarningsDate) {
-              // Fallback to single earnings date (for Twelve Data or older API responses)
-              console.log(`📅 Processing single earnings date for ${ticker.ticker}`);
-              
-              const autoCYQ = determineCYQFromDate(earningsInfo.nextEarningsDate);
-              
-              if (autoCYQ) {
-                await updateEarningsData(ticker.ticker, autoCYQ, {
-                  earningsDate: earningsInfo.nextEarningsDate
-                });
-                
-                // Track which CYQs we're updating
-                if (!cyqUpdates[autoCYQ]) cyqUpdates[autoCYQ] = [];
-                cyqUpdates[autoCYQ].push(ticker.ticker);
-                
-                successCount++;
-                console.log(`✅ Updated earnings date for ${ticker.ticker} in ${autoCYQ}: ${earningsInfo.nextEarningsDate}`);
-              } else {
-                console.warn(`⚠️ Could not determine CYQ for ${ticker.ticker} with date: ${earningsInfo.nextEarningsDate}`);
-                errors[symbol] = `Could not determine CYQ from date: ${earningsInfo.nextEarningsDate}`;
-              }
-            } else {
-              // No earnings dates found - data already cleared above
-              console.log(`🔄 No earnings dates found for ${ticker.ticker}, data cleared`);
-              successCount++;
-            }
-          }
-        } catch (updateError) {
-          console.error(`Error updating earnings for ${symbol}:`, updateError);
-          errors[symbol] = updateError.message;
-        }
-      }
-      
-      // Log summary of CYQ updates
-      const cyqSummary = Object.entries(cyqUpdates)
-        .map(([cyq, tickers]) => `${cyq}: ${tickers.length} tickers`)
-        .join(', ');
-      
-      console.log(`🎉 Successfully updated ${successCount} earnings dates across CYQs: ${cyqSummary}`);
-      return { success: successCount, errors, cyqUpdates };
-      
-    } catch (error) {
-      console.error('Error refreshing earnings dates:', error);
-      throw error;
-    }
-  };
 
   // Refresh market cap and average daily volume for all tickers
   const refreshMarketData = async () => {
@@ -2877,7 +2766,6 @@ const ClearlineFlow = () => {
             earningsData={earningsData}
             onUpdateEarnings={updateEarningsData}
             getEarningsData={getEarningsData}
-            onRefreshEarnings={refreshEarningsDates}
             onRefreshEarningsData={refreshEarningsData}
             analysts={analysts}
             quotes={quotes}
@@ -5930,7 +5818,7 @@ const TeamOutputPage = ({ tickers, analysts }) => {
  );
 };
 // Earnings Tracking Page Component
-const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarningsAnalyst, earningsData, onUpdateEarnings, getEarningsData, onRefreshEarnings, onRefreshEarningsData, analysts, quotes = {}, onUpdateQuote, isLoadingQuotes = false, quoteErrors = {}, formatTradeLevel, formatCompactDate, currentUser }) => {
+const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarningsAnalyst, earningsData, onUpdateEarnings, getEarningsData, onRefreshEarningsData, analysts, quotes = {}, onUpdateQuote, isLoadingQuotes = false, quoteErrors = {}, formatTradeLevel, formatCompactDate, currentUser }) => {
   // State for sorting and filtering
   const [sortField, setSortField] = useState('days');
   const [sortDirection, setSortDirection] = useState('asc');
@@ -6091,7 +5979,6 @@ const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarnin
   );
 
   // Refresh earnings state
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshMessage, setRefreshMessage] = useState('');
   const [isRefreshingData, setIsRefreshingData] = useState(false);
 
@@ -6128,61 +6015,7 @@ const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarnin
     }
   };
 
-  // Handle refresh earnings dates
-  const handleRefreshEarnings = async () => {
-    // Refresh ALL portfolio tickers regardless of analyst filter or screen display
-    const allPortfolioTickers = tickers.filter(ticker => ticker.status === 'Portfolio');
-    if (!onRefreshEarnings || allPortfolioTickers.length === 0) return;
 
-    setIsRefreshing(true);
-    setRefreshMessage('Fetching earnings dates from TwelveData...');
-
-    try {
-      const result = await onRefreshEarnings(allPortfolioTickers);
-      
-      if (result.success > 0) {
-        // Create a summary of CYQ updates
-        let message = `✅ Successfully updated ${result.success} earnings dates`;
-        
-        if (result.cyqUpdates && Object.keys(result.cyqUpdates).length > 0) {
-          const cyqSummary = Object.entries(result.cyqUpdates)
-            .map(([cyq, tickers]) => `${cyq}: ${tickers.length}`)
-            .join(', ');
-          message += ` across CYQs (${cyqSummary})`;
-        }
-        
-        setRefreshMessage(message);
-      } else {
-        setRefreshMessage('⚠️ No earnings dates were updated');
-      }
-
-      // Show any errors
-      if (Object.keys(result.errors).length > 0) {
-        console.warn('Earnings refresh errors:', result.errors);
-        const errorCount = Object.keys(result.errors).length;
-        if (result.success > 0) {
-          setRefreshMessage(prev => `${prev} (${errorCount} errors - check console)`);
-        } else {
-          setRefreshMessage(`❌ ${errorCount} errors occurred - check console for details`);
-        }
-      }
-
-      // Clear message after 7 seconds (longer to read CYQ info)
-      setTimeout(() => {
-        setRefreshMessage('');
-      }, 7000);
-
-    } catch (error) {
-      console.error('Error refreshing earnings:', error);
-      setRefreshMessage(`❌ Error: ${error.message}`);
-      
-      setTimeout(() => {
-        setRefreshMessage('');
-      }, 5000);
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
 
   // PDF Export Function for Earnings Tracking
   const exportToPDF = () => {
@@ -6335,18 +6168,7 @@ const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarnin
               <RefreshCw className={`h-4 w-4 ${isRefreshingData ? 'animate-spin' : ''}`} />
               <span>Refresh Data</span>
             </button>
-            <button
-              onClick={handleRefreshEarnings}
-              disabled={isRefreshing}
-              className={`flex items-center space-x-1 px-3 py-1 rounded text-sm font-medium ${
-                isRefreshing
-                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-                  : 'bg-green-100 text-green-700 hover:bg-green-200'
-              }`}
-            >
-              <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-              <span>Refresh Earnings Dates</span>
-            </button>
+
           </div>
         </div>
         
