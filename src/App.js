@@ -6303,10 +6303,10 @@ const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarnin
             <button
               onClick={handleRefreshEarningsData}
               disabled={isRefreshingData}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-md text-sm font-medium ${
+              className={`flex items-center space-x-2 px-4 py-2 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 ${
                 isRefreshingData
                   ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-                  : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                  : 'bg-purple-100 text-purple-700 hover:bg-purple-200 focus:ring-purple-500'
               }`}
             >
               <RefreshCw className={`h-4 w-4 ${isRefreshingData ? 'animate-spin' : ''}`} />
