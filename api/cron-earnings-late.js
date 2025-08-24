@@ -51,82 +51,66 @@ async function fetchLateTickers() {
     global: { headers: { 'Cache-Control': 'no-cache' } }
   });
 
-  // Get all earnings data first, then join with tickers and filter by Portfolio status
+  // Get earnings data with Portfolio ticker join - use the correct relationship
   const { data: earningsData, error: earningsError } = await supabase
     .from('earnings_tracking')
     .select(`
       id,
-      ticker,
       earnings_date,
       preview_date,
       callback_date,
       cyq,
-      updated_at
+      updated_at,
+      tickers!ticker_id (
+        ticker,
+        analyst,
+        status
+      )
     `)
+    .eq('tickers.status', 'Portfolio')
     .order('updated_at', { ascending: false });
 
   if (earningsError) throw earningsError;
 
-  // Get all tickers with Portfolio status (case-insensitive)
-  const { data: tickersData, error: tickersError } = await supabase
-    .from('tickers')
-    .select('ticker, analyst, status')
-    .ilike('status', 'Portfolio');
-
-  if (tickersError) throw tickersError;
-
-  // Create a map of Portfolio tickers for quick lookup
-  const portfolioTickersMap = new Map();
-  (tickersData || []).forEach(ticker => {
-    portfolioTickersMap.set(ticker.ticker, ticker);
-  });
-
   // Debug logging
-  console.log(`Debug: Found ${earningsData?.length || 0} earnings records`);
-  console.log(`Debug: Found ${tickersData?.length || 0} Portfolio tickers`);
-  console.log('Debug: Portfolio tickers:', Array.from(portfolioTickersMap.keys()));
+  console.log(`Debug: Found ${earningsData?.length || 0} earnings records with Portfolio status`);
 
   const results = [];
   for (const row of earningsData || []) {
-    const tickerSymbol = row.ticker;
+    const ticker = row.tickers?.ticker;
+    const who = row.tickers?.analyst || '';
     const earningsDate = row.earnings_date || null;
     const previewDate = row.preview_date || null;
     const callbackDate = row.callback_date || null;
 
-    // Skip if no ticker symbol
-    if (!tickerSymbol) {
-      console.warn('Skipping earnings record with missing ticker:', row);
+    // Skip if no ticker info (should already be filtered by Portfolio status)
+    if (!ticker) {
+      console.warn('Skipping earnings record with missing ticker info:', row);
       continue;
     }
 
-    // Only process Portfolio tickers
-    const tickerInfo = portfolioTickersMap.get(tickerSymbol);
-    if (!tickerInfo) {
-      // Skip non-Portfolio tickers (this is expected behavior)
-      console.log(`Debug: Skipping non-Portfolio ticker: ${tickerSymbol}`);
-      continue;
-    }
-
-    console.log(`Debug: Processing Portfolio ticker: ${tickerSymbol}, earnings: ${earningsDate}, days: ${daysUntilInNY(earningsDate)}`);
-
-    const who = tickerInfo.analyst || '';
+    console.log(`Debug: Processing Portfolio ticker: ${ticker}, earnings: ${earningsDate}, analyst: ${who}`);
 
     if (!earningsDate) {
-      console.log(`Debug: Skipping ${tickerSymbol} - no earnings date`);
+      console.log(`Debug: Skipping ${ticker} - no earnings date`);
       continue;
     }
+    
     const days = daysUntilInNY(earningsDate);
     if (days == null) {
-      console.log(`Debug: Skipping ${tickerSymbol} - invalid date calculation`);
+      console.log(`Debug: Skipping ${ticker} - invalid date calculation`);
       continue;
     }
+    
+    console.log(`Debug: ${ticker} - days until earnings: ${days}`);
+    
     if (days >= 0 && days <= 14) {
       const isLate = !previewDate || !callbackDate;
-      console.log(`Debug: ${tickerSymbol} - days: ${days}, isLate: ${isLate}, preview: ${previewDate}, callback: ${callbackDate}`);
+      console.log(`Debug: ${ticker} - days: ${days}, isLate: ${isLate}, preview: ${previewDate}, callback: ${callbackDate}`);
       if (isLate) {
-        console.log(`Debug: Adding late ticker: ${tickerSymbol}`);
+        console.log(`Debug: Adding late ticker: ${ticker}`);
         results.push({
-          ticker: tickerSymbol,
+          ticker,
           who,
           earningsDate,
           previewDate,
@@ -134,9 +118,11 @@ async function fetchLateTickers() {
           cyq: row.cyq,
           days
         });
+      } else {
+        console.log(`Debug: ${ticker} - not late (has both preview and callback dates)`);
       }
     } else {
-      console.log(`Debug: Skipping ${tickerSymbol} - outside date range (${days} days)`);
+      console.log(`Debug: Skipping ${ticker} - outside date range (${days} days)`);
     }
   }
 
