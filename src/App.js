@@ -1262,6 +1262,7 @@ const ClearlineFlow = () => {
   const [activeTab, setActiveTab] = useState('input');
   const [selectedTickerForDetail, setSelectedTickerForDetail] = useState(null);
   const [previousTab, setPreviousTab] = useState('input');
+  const [navigationSource, setNavigationSource] = useState('dropdown'); // 'dropdown' or 'hyperlink'
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState('');
 
@@ -2449,6 +2450,11 @@ const ClearlineFlow = () => {
     setPreviousTab(activeTab);
     setActiveTab(tab);
     
+    // If manually navigating to idea-detail tab, set navigation source to dropdown
+    if (tab === 'idea-detail') {
+      setNavigationSource('dropdown');
+    }
+    
     // Set default analyst filter based on the tab and current user
     if (tab === 'todos') {
       try {
@@ -2498,23 +2504,33 @@ const ClearlineFlow = () => {
     }
   };
 
-  // Navigate to idea detail while remembering previous tab
+  // Navigate to idea detail while remembering previous tab (from hyperlinks)
   const navigateToIdeaDetail = (ticker) => {
-    // Only update previousTab if we're not already on idea-detail
-    // This prevents the back button issue when using dropdown navigation
-    if (activeTab !== 'idea-detail') {
-      setPreviousTab(activeTab);
-    }
+    setPreviousTab(activeTab);
+    setNavigationSource('hyperlink');
     setSelectedTickerForDetail(ticker);
     setActiveTab('idea-detail');
   };
 
-  // Navigate back to previous tab
+  // Navigate to idea detail from dropdown (internal navigation)
+  const navigateToIdeaDetailFromDropdown = (ticker) => {
+    // Don't change previousTab - we're staying on idea-detail tab
+    setNavigationSource('dropdown');
+    setSelectedTickerForDetail(ticker);
+    // Already on idea-detail tab, no need to change activeTab
+  };
+
+  // Navigate back based on how user got to idea detail
   const navigateBack = () => {
-    setSelectedTickerForDetail(null);
-    // If previousTab is idea-detail (edge case), default to database
-    const targetTab = previousTab === 'idea-detail' ? 'database' : previousTab;
-    setActiveTab(targetTab);
+    if (navigationSource === 'hyperlink') {
+      // User came from another tab via hyperlink - go back to that tab
+      setSelectedTickerForDetail(null);
+      setActiveTab(previousTab);
+    } else {
+      // User came from dropdown - go back to dropdown selection
+      setSelectedTickerForDetail(null);
+      // Stay on idea-detail tab to show dropdown
+    }
   };
 
   // Show loading while checking auth state
@@ -2862,7 +2878,7 @@ const ClearlineFlow = () => {
           <IdeaDetailPage 
             tickers={tickers}
             selectedTicker={selectedTickerForDetail}
-            onSelectTicker={setSelectedTickerForDetail}
+            onSelectTicker={navigateToIdeaDetailFromDropdown}
             onUpdate={(userRole === 'readwrite' || userRole === 'admin') ? updateTicker : null}
             analysts={analysts}
             quotes={quotes}
