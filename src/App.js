@@ -8084,6 +8084,7 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
 const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdate, analysts, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors, formatMarketCap, formatVolumeDollars, currentUser, onNavigateBack }) => {
   const [editingField, setEditingField] = useState(null);
   const [editValue, setEditValue] = useState('');
+  const lastUpdatedTickerRef = useRef(null);
 
   // Keep selectedTicker in sync with tickers array updates
   useEffect(() => {
@@ -8097,12 +8098,13 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdate, ana
 
   // Update quote when ticker is first selected to ensure current price is fresh
   useEffect(() => {
-    if (selectedTicker && onUpdateQuote) {
+    if (selectedTicker && onUpdateQuote && selectedTicker.id !== lastUpdatedTickerRef.current) {
       const cleanSymbol = selectedTicker.ticker.replace(' US', '');
       console.log(`🔄 Updating quote for ${cleanSymbol} on ticker selection`);
       onUpdateQuote(cleanSymbol);
+      lastUpdatedTickerRef.current = selectedTicker.id;
     }
-  }, [selectedTicker?.id, onUpdateQuote]); // Only depend on ticker ID, not quotes state
+  }, [selectedTicker, onUpdateQuote]); // Now we can safely depend on selectedTicker since we track updates with ref
 
   // If no ticker is selected, show ticker selection
   if (!selectedTicker) {
