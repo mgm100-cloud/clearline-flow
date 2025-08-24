@@ -8113,7 +8113,7 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdateSelec
     // Pre-select current user and Marc Majzner based on analyst emails
     const defaultRecipients = [];
     
-    // Find Marc Majzner in analyst emails (assuming MM analyst code or mmajzner email)
+    // Find Marc Majzner in analyst emails (assuming MM initials or mmajzner email)
     const marcProfile = analystEmails.find(analyst => 
       analyst.email === 'mmajzner@clearlinecap.com' || 
       analyst.analyst_code === 'MM' ||

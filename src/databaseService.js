@@ -550,17 +550,17 @@ export const DatabaseService = {
     try {
       const { data, error } = await supabase
         .from('analysts')
-        .select('full_name, email, analyst_code')
+        .select('full_name, initials, email')
         .eq('active', true)
         .order('full_name');
       
       if (error) throw error;
       
-      // Transform to match expected format (name instead of full_name)
+      // Transform to match expected format
       const transformedData = data.map(analyst => ({
         name: analyst.full_name,
         email: analyst.email,
-        analyst_code: analyst.analyst_code
+        analyst_code: analyst.initials
       }));
       
       console.log('✅ Fetched analyst emails from analysts table:', transformedData);
