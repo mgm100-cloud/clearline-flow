@@ -545,23 +545,23 @@ export const DatabaseService = {
     }
   },
 
-  // Get all user profiles for email recipients
-  async getUserProfiles() {
+  // Get all analysts for email recipients
+  async getAnalystEmails() {
     try {
       const { data, error } = await supabase
-        .from('user_profiles')
-        .select('full_name, email, analyst_code')
-        .order('full_name');
+        .from('analysts')
+        .select('name, email, analyst_code')
+        .order('name');
       
       if (error) throw error;
       
-      console.log('✅ Fetched user profiles:', data);
+      console.log('✅ Fetched analyst emails:', data);
       return data || [];
     } catch (error) {
-      console.error('Error fetching user profiles:', error);
+      console.error('Error fetching analyst emails:', error);
       
       // Fallback to empty array
-      console.warn('⚠️ Using empty user profiles list due to error');
+      console.warn('⚠️ Using empty analyst emails list due to error');
       return [];
     }
   }

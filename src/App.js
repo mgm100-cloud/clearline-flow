@@ -8091,33 +8091,33 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdateSelec
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [selectedRecipients, setSelectedRecipients] = useState([]);
   const [isEmailSending, setIsEmailSending] = useState(false);
-  const [userProfiles, setUserProfiles] = useState([]);
+  const [analystEmails, setAnalystEmails] = useState([]);
 
-  // Fetch user profiles on component mount
+  // Fetch analyst emails on component mount
   useEffect(() => {
-    const loadUserProfiles = async () => {
+    const loadAnalystEmails = async () => {
       try {
-        const profiles = await DatabaseService.getUserProfiles();
-        setUserProfiles(profiles);
+        const emails = await DatabaseService.getAnalystEmails();
+        setAnalystEmails(emails);
       } catch (error) {
-        console.error('Error loading user profiles:', error);
+        console.error('Error loading analyst emails:', error);
       }
     };
     
-    loadUserProfiles();
+    loadAnalystEmails();
   }, []);
 
   // Handle email modal
   const handleOpenEmailModal = () => {
     setShowEmailModal(true);
-    // Pre-select current user and Marc Majzner based on actual user profiles
+    // Pre-select current user and Marc Majzner based on analyst emails
     const defaultRecipients = [];
     
-    // Find Marc Majzner in user profiles (assuming MM analyst code or mmajzner email)
-    const marcProfile = userProfiles.find(user => 
-      user.email === 'mmajzner@clearlinecap.com' || 
-      user.analyst_code === 'MM' ||
-      user.full_name?.toLowerCase().includes('marc majzner')
+    // Find Marc Majzner in analyst emails (assuming MM analyst code or mmajzner email)
+    const marcProfile = analystEmails.find(analyst => 
+      analyst.email === 'mmajzner@clearlinecap.com' || 
+      analyst.analyst_code === 'MM' ||
+      analyst.name?.toLowerCase().includes('marc majzner')
     );
     if (marcProfile) {
       defaultRecipients.push(marcProfile.email);
@@ -8878,23 +8878,23 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdateSelec
               
               <div className="px-6 py-4">
                 <div className="space-y-3">
-                  {userProfiles.map((user) => (
-                    <label key={user.email} className="flex items-center">
+                  {analystEmails.map((analyst) => (
+                    <label key={analyst.email} className="flex items-center">
                       <input
                         type="checkbox"
-                        checked={selectedRecipients.includes(user.email)}
-                        onChange={() => handleRecipientToggle(user.email)}
+                        checked={selectedRecipients.includes(analyst.email)}
+                        onChange={() => handleRecipientToggle(analyst.email)}
                         className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                       />
                       <span className="ml-3 text-sm text-gray-700">
-                        {user.full_name} {user.analyst_code ? `(${user.analyst_code})` : ''} - {user.email}
+                        {analyst.name} {analyst.analyst_code ? `(${analyst.analyst_code})` : ''} - {analyst.email}
                       </span>
                     </label>
                   ))}
                 </div>
-                {userProfiles.length === 0 && (
+                {analystEmails.length === 0 && (
                   <div className="text-center py-4">
-                    <p className="text-sm text-gray-500">Loading user profiles...</p>
+                    <p className="text-sm text-gray-500">Loading analyst emails...</p>
                   </div>
                 )}
               </div>
