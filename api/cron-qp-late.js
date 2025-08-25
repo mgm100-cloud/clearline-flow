@@ -135,7 +135,7 @@ async function fetchLateQPTickers() {
     console.log(`Debug: ${ticker} - QP days: ${qpDays}, QP Start: ${qpStartDate}`);
     
     // Check if QP Start is within 0-14 days (similar to earnings check)
-    if (qpDays >= 0 && qpDays <= 22) {
+    if (qpDays >= 0 && qpDays <= 14) {
       const isLate = !qpCallDate; // Check if QP Call date is blank
       console.log(`Debug: ${ticker} - QP days: ${qpDays}, isLate: ${isLate}, qp_call: ${qpCallDate}`);
       if (isLate) {
