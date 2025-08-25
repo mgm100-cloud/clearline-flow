@@ -6433,6 +6433,7 @@ const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarnin
                 <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '45px' }}>Who</th>
                 <SortableHeader field="days" style={{ width: '45px' }}>Days</SortableHeader>
                 <SortableHeader field="earningsDate" style={{ width: '70px' }}>Earnings</SortableHeader>
+                <SortableHeader field="quarterEndDate" style={{ width: '70px' }}>Quarter End</SortableHeader>
                 <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '60px' }}>Trade Rec</th>
                 <th className="px-2 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '70px' }}>Trade Level</th>
                 <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '70px' }}>QP Call</th>
@@ -6490,6 +6491,7 @@ const EarningsTrackingRow = ({ ticker, earningsData, onUpdateEarnings, formatDay
  });
  const [editData, setEditData] = useState({
    earningsDate: earningsData.earningsDate || '',
+   quarterEndDate: earningsData.quarterEndDate || '',
    qpCallDate: earningsData.qpCallDate || '',
    previewDate: earningsData.previewDate || '',
    callbackDate: earningsData.callbackDate || '',
@@ -6520,6 +6522,7 @@ const EarningsTrackingRow = ({ ticker, earningsData, onUpdateEarnings, formatDay
  const handleCancel = () => {
    setEditData({
      earningsDate: earningsData.earningsDate || '',
+     quarterEndDate: earningsData.quarterEndDate || '',
      qpCallDate: earningsData.qpCallDate || '',
      previewDate: earningsData.previewDate || '',
      callbackDate: earningsData.callbackDate || '',
@@ -6693,6 +6696,15 @@ This email and any files transmitted with it may contain privileged or confident
            className="text-xs border border-gray-300 rounded px-1 py-1 w-full"
          />
        </td>
+       <td className="px-2 py-4 whitespace-nowrap" style={{ width: '70px' }}>
+         <input
+           type="date"
+           value={editData.quarterEndDate || ''}
+           onChange={(e) => setEditData({...editData, quarterEndDate: e.target.value})}
+           className="text-xs border border-gray-300 rounded px-1 py-1 w-full"
+           placeholder="Auto-calculated"
+         />
+       </td>
        <td className="px-2 py-4 whitespace-nowrap" style={{ width: '60px' }}>
          <select
            value={editData.tradeRec}
@@ -6849,6 +6861,9 @@ This email and any files transmitted with it may contain privileged or confident
      </td>
      <td className="px-2 py-4 whitespace-nowrap text-xs text-gray-500" style={{ width: '70px' }}>
        {formatCompactDate ? formatCompactDate(earningsData.earningsDate) : (earningsData.earningsDate || '-')}
+     </td>
+     <td className="px-2 py-4 whitespace-nowrap text-xs text-gray-500" style={{ width: '70px' }}>
+       {formatCompactDate ? formatCompactDate(earningsData.quarterEndDate) : (earningsData.quarterEndDate || '-')}
      </td>
      <td className="px-2 py-4 whitespace-nowrap text-sm" style={{ width: '60px' }}>
        {earningsData.tradeRec ? (

@@ -322,11 +322,18 @@ export const DatabaseService = {
         throw new Error(`Ticker ${ticker} not found in database`)
       }
       
+      // Calculate quarter end date if earnings date is being updated and quarter_end_date isn't already set
+      let quarterEndDate = updates.quarterEndDate;
+      if (updates.earningsDate && !quarterEndDate) {
+        quarterEndDate = await this.calculateQuarterEndDate(ticker, updates.earningsDate);
+      }
+      
       // Prepare data for database with correct foreign key
       const dataForDb = {
         ticker_id: tickerData.id,  // Use the actual ID from tickers table
         cyq,
         ...updates,
+        ...(quarterEndDate && { quarterEndDate }),
         updated_at: new Date().toISOString()
       };
       
@@ -347,6 +354,58 @@ export const DatabaseService = {
     } catch (error) {
       console.error('Error upserting earnings data:', error)
       throw error
+    }
+  },
+
+  // Calculate quarter end date based on earnings date and fiscal year end
+  async calculateQuarterEndDate(ticker, earningsDate) {
+    try {
+      if (!earningsDate) return null;
+      
+      // Get fiscal year end from tickers_extra_info
+      const { data: extraInfo, error: extraInfoError } = await supabase
+        .from('tickers_extra_info')
+        .select('fiscal_year_end')
+        .eq('ticker', ticker)
+        .single();
+      
+      let fiscalYearEnd = null;
+      if (!extraInfoError && extraInfo?.fiscal_year_end) {
+        fiscalYearEnd = extraInfo.fiscal_year_end;
+      }
+      
+      // Use the database function to calculate quarter end date
+      const { data, error } = await supabase
+        .rpc('calculate_quarter_end_date', {
+          p_earnings_date: earningsDate,
+          p_fiscal_year_end: fiscalYearEnd
+        });
+      
+      if (error) {
+        console.warn('Error calculating quarter end date:', error);
+        return null;
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Error in calculateQuarterEndDate:', error);
+      return null;
+    }
+  },
+
+  // Update quarter end dates for existing records
+  async updateQuarterEndDates() {
+    try {
+      const { data, error } = await supabase
+        .rpc('update_quarter_end_dates');
+      
+      if (error) throw error;
+      
+      console.log(`✅ Updated quarter end dates for ${data} records`);
+      return data;
+    } catch (error) {
+      console.error('Error updating quarter end dates:', error);
+      throw error;
     }
   },
 
