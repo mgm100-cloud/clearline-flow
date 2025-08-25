@@ -1259,6 +1259,7 @@ const ClearlineFlow = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [userRole, setUserRole] = useState(''); // 'readwrite' or 'readonly'
+  const [userDivision, setUserDivision] = useState(''); // 'Investment', 'Ops', 'Admin', 'Marketing'
   const [activeTab, setActiveTab] = useState('input');
   const [selectedTickerForDetail, setSelectedTickerForDetail] = useState(null);
   const [previousTab, setPreviousTab] = useState('input');
@@ -1361,13 +1362,23 @@ const ClearlineFlow = () => {
         if (session && user) {
           console.log('✅ User already authenticated:', user);
           const role = AuthService.getUserRole(user);
+          const division = AuthService.getUserDivision(user);
           const analystCode = AuthService.getUserAnalystCode(user);
           console.log('👤 User role determined:', role);
+          console.log('👤 User division:', division);
           console.log('👤 User analyst code:', analystCode);
           console.log('📋 User metadata:', user?.user_metadata);
           setCurrentUser(user);
           setUserRole(role);
+          setUserDivision(division);
           setIsAuthenticated(true);
+          
+          // Set default tab based on division
+          if (division === 'Investment') {
+            setActiveTab('input');
+          } else {
+            setActiveTab('todos'); // Ops, Admin, Marketing default to Todo List
+          }
           
           // Set default analyst selections based on user's analyst_code
           if (analystCode && analysts.includes(analystCode)) {
@@ -1402,14 +1413,24 @@ const ClearlineFlow = () => {
         const user = session.user;
         console.log('✅ User signed in:', user);
         const role = AuthService.getUserRole(user);
+        const division = AuthService.getUserDivision(user);
         const analystCode = AuthService.getUserAnalystCode(user);
         console.log('👤 User role determined:', role);
+        console.log('👤 User division:', division);
         console.log('👤 User analyst code:', analystCode);
         console.log('📋 User metadata:', user?.user_metadata);
         setCurrentUser(user);
         setUserRole(role);
+        setUserDivision(division);
         setIsAuthenticated(true);
         setAuthError('');
+        
+        // Set default tab based on division
+        if (division === 'Investment') {
+          setActiveTab('input');
+        } else {
+          setActiveTab('todos'); // Ops, Admin, Marketing default to Todo List
+        }
         
         // Set default analyst selections based on user's analyst_code
         if (analystCode && analysts.includes(analystCode)) {
@@ -1426,6 +1447,7 @@ const ClearlineFlow = () => {
         console.log('🚪 User signed out');
         setCurrentUser(null);
         setUserRole('');
+        setUserDivision('');
         setIsAuthenticated(false);
         setActiveTab('input');
         setAuthError('');
@@ -1524,14 +1546,24 @@ const ClearlineFlow = () => {
   const handleAuthSuccess = (user, session) => {
     console.log('🔑 Authentication successful:', user);
     const role = AuthService.getUserRole(user);
+    const division = AuthService.getUserDivision(user);
     const analystCode = AuthService.getUserAnalystCode(user);
     console.log('👤 User role determined:', role);
+    console.log('👤 User division:', division);
     console.log('👤 User analyst code:', analystCode);
     console.log('📋 User metadata:', user?.user_metadata);
     setCurrentUser(user);
     setUserRole(role);
+    setUserDivision(division);
     setIsAuthenticated(true);
     setAuthError('');
+    
+    // Set default tab based on division
+    if (division === 'Investment') {
+      setActiveTab('input');
+    } else {
+      setActiveTab('todos'); // Ops, Admin, Marketing default to Todo List
+    }
     
     // Set default analyst selections based on user's analyst_code
     if (analystCode && analysts.includes(analystCode)) {
@@ -2635,92 +2667,111 @@ const ClearlineFlow = () => {
       <nav className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex space-x-8">
-            {(userRole === 'readwrite' || userRole === 'admin') && (
-              <button
-                onClick={() => handleTabSwitch('input')}
-                disabled={isTabSwitching}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'input'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                } ${isTabSwitching ? 'cursor-not-allowed opacity-50' : ''}`}
-              >
-                <Plus className="inline h-4 w-4 mr-1" />
-                Input Page
-              </button>
+            {/* Show all tabs for Investment division */}
+            {userDivision === 'Investment' && (
+              <>
+                {(userRole === 'readwrite' || userRole === 'admin') && (
+                  <button
+                    onClick={() => handleTabSwitch('input')}
+                    disabled={isTabSwitching}
+                    className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                      activeTab === 'input'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                    } ${isTabSwitching ? 'cursor-not-allowed opacity-50' : ''}`}
+                  >
+                    <Plus className="inline h-4 w-4 mr-1" />
+                    Input Page
+                  </button>
+                )}
+                <button
+                  onClick={() => handleTabSwitch('database')}
+                  disabled={isTabSwitching}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'database'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  } ${isTabSwitching ? 'cursor-not-allowed opacity-50' : ''}`}
+                >
+                  <Database className="inline h-4 w-4 mr-1" />
+                  Idea Database
+                </button>
+                <button
+                  onClick={() => handleTabSwitch('database-detailed')}
+                  disabled={isTabSwitching}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'database-detailed'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  } ${isTabSwitching ? 'cursor-not-allowed opacity-50' : ''}`}
+                >
+                  <Database className="inline h-4 w-4 mr-1" />
+                  Idea Database Detailed
+                </button>
+                <button
+                  onClick={() => handleTabSwitch('pm-detail')}
+                  disabled={isTabSwitching}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'pm-detail'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  } ${isTabSwitching ? 'cursor-not-allowed opacity-50' : ''}`}
+                >
+                  <BarChart3 className="inline h-4 w-4 mr-1" />
+                  PM Detail
+                </button>
+                <button
+                  onClick={() => handleTabSwitch('analyst-detail')}
+                  disabled={isTabSwitching}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'analyst-detail'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  } ${isTabSwitching ? 'cursor-not-allowed opacity-50' : ''}`}
+                >
+                  <Users className="inline h-4 w-4 mr-1" />
+                  Analyst Detail
+                </button>
+                <button
+                  onClick={() => handleTabSwitch('team')}
+                  disabled={isTabSwitching}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'team'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  } ${isTabSwitching ? 'cursor-not-allowed opacity-50' : ''}`}
+                >
+                  <TrendingUp className="inline h-4 w-4 mr-1" />
+                  Team Output
+                </button>
+                <button
+                  onClick={() => handleTabSwitch('earnings')}
+                  disabled={isTabSwitching}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'earnings'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  } ${isTabSwitching ? 'cursor-not-allowed opacity-50' : ''}`}
+                >
+                  <BarChart3 className="inline h-4 w-4 mr-1" />
+                  Earnings Tracking
+                </button>
+                <button
+                  onClick={() => handleTabSwitch('idea-detail')}
+                  disabled={isTabSwitching}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'idea-detail'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  } ${isTabSwitching ? 'cursor-not-allowed opacity-50' : ''}`}
+                >
+                  <FileText className="inline h-4 w-4 mr-1" />
+                  Idea Detail
+                </button>
+              </>
             )}
-            <button
-              onClick={() => handleTabSwitch('database')}
-              disabled={isTabSwitching}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'database'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              } ${isTabSwitching ? 'cursor-not-allowed opacity-50' : ''}`}
-            >
-              <Database className="inline h-4 w-4 mr-1" />
-              Idea Database
-            </button>
-            <button
-              onClick={() => handleTabSwitch('database-detailed')}
-              disabled={isTabSwitching}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'database-detailed'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              } ${isTabSwitching ? 'cursor-not-allowed opacity-50' : ''}`}
-            >
-              <Database className="inline h-4 w-4 mr-1" />
-              Idea Database Detailed
-            </button>
-            <button
-              onClick={() => handleTabSwitch('pm-detail')}
-              disabled={isTabSwitching}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'pm-detail'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              } ${isTabSwitching ? 'cursor-not-allowed opacity-50' : ''}`}
-            >
-              <BarChart3 className="inline h-4 w-4 mr-1" />
-              PM Detail
-            </button>
-            <button
-              onClick={() => handleTabSwitch('analyst-detail')}
-              disabled={isTabSwitching}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'analyst-detail'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              } ${isTabSwitching ? 'cursor-not-allowed opacity-50' : ''}`}
-            >
-              <Users className="inline h-4 w-4 mr-1" />
-              Analyst Detail
-            </button>
-            <button
-              onClick={() => handleTabSwitch('team')}
-              disabled={isTabSwitching}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'team'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              } ${isTabSwitching ? 'cursor-not-allowed opacity-50' : ''}`}
-            >
-              <TrendingUp className="inline h-4 w-4 mr-1" />
-              Team Output
-            </button>
-            <button
-              onClick={() => handleTabSwitch('earnings')}
-              disabled={isTabSwitching}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'earnings'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              } ${isTabSwitching ? 'cursor-not-allowed opacity-50' : ''}`}
-            >
-              <BarChart3 className="inline h-4 w-4 mr-1" />
-              Earnings Tracking
-            </button>
+            
+            {/* Always show Todo List tab for all divisions */}
             <button
               onClick={() => handleTabSwitch('todos')}
               disabled={isTabSwitching}
@@ -2733,28 +2784,16 @@ const ClearlineFlow = () => {
               <CheckSquare className="inline h-4 w-4 mr-1" />
               Todo List
             </button>
-            <button
-              onClick={() => handleTabSwitch('idea-detail')}
-              disabled={isTabSwitching}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'idea-detail'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              } ${isTabSwitching ? 'cursor-not-allowed opacity-50' : ''}`}
-            >
-              <FileText className="inline h-4 w-4 mr-1" />
-              Idea Detail
-            </button>
           </div>
         </div>
       </nav>
 
       {/* Main Content */}
       <main className={`${activeTab === 'database-detailed' ? 'py-6' : 'max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8'}`}>
-        {activeTab === 'input' && (userRole === 'readwrite' || userRole === 'admin') && (
+        {activeTab === 'input' && userDivision === 'Investment' && (userRole === 'readwrite' || userRole === 'admin') && (
           <InputPage onAddTicker={addTicker} analysts={analysts} currentUser={currentUser} />
         )}
-        {activeTab === 'input' && userRole === 'readonly' && (
+        {activeTab === 'input' && userDivision === 'Investment' && userRole === 'readonly' && (
           <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
             <div className="px-4 py-6 sm:px-0">
               <div className="text-center">
@@ -2764,7 +2803,17 @@ const ClearlineFlow = () => {
             </div>
           </div>
         )}
-        {activeTab === 'database' && (
+        {activeTab === 'input' && userDivision !== 'Investment' && (
+          <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+            <div className="px-4 py-6 sm:px-0">
+              <div className="text-center">
+                <div className="text-gray-500 text-lg">Access Restricted</div>
+                <div className="text-gray-400 text-sm mt-2">This feature is only available to Investment division users</div>
+              </div>
+            </div>
+          </div>
+        )}
+        {activeTab === 'database' && userDivision === 'Investment' && (
           <DatabasePage 
             tickers={sortData(tickers, sortField)} 
             onSort={handleSort}
@@ -2787,7 +2836,7 @@ const ClearlineFlow = () => {
             onNavigateToIdeaDetail={navigateToIdeaDetail}
           />
         )}
-        {activeTab === 'database-detailed' && (
+        {activeTab === 'database-detailed' && userDivision === 'Investment' && (
           <DatabaseDetailedPage 
             tickers={sortData(tickers, sortField)} 
             onSort={handleSort}
@@ -2808,7 +2857,7 @@ const ClearlineFlow = () => {
             onNavigateToIdeaDetail={navigateToIdeaDetail}
           />
         )}
-                {activeTab === 'pm-detail' && (
+        {activeTab === 'pm-detail' && userDivision === 'Investment' && (
           <PMDetailPage 
             tickers={tickers}
             quotes={quotes}
@@ -2818,7 +2867,7 @@ const ClearlineFlow = () => {
             onNavigateToIdeaDetail={navigateToIdeaDetail}
           />
         )}
-        {activeTab === 'analyst-detail' && (
+        {activeTab === 'analyst-detail' && userDivision === 'Investment' && (
           <AnalystDetailPage 
             tickers={tickers} 
             analysts={analysts}
@@ -2831,14 +2880,14 @@ const ClearlineFlow = () => {
             onNavigateToIdeaDetail={navigateToIdeaDetail}
           />
         )}
-        {activeTab === 'team' && (
+        {activeTab === 'team' && userDivision === 'Investment' && (
           <TeamOutputPage 
             tickers={tickers} 
             analysts={analysts}
             onNavigateToIdeaDetail={navigateToIdeaDetail}
           />
         )}
-        {activeTab === 'earnings' && (
+        {activeTab === 'earnings' && userDivision === 'Investment' && (
           <EarningsTrackingPage 
             tickers={tickers}
             selectedEarningsAnalyst={selectedEarningsAnalyst}
@@ -2874,7 +2923,7 @@ const ClearlineFlow = () => {
             onNavigateToIdeaDetail={navigateToIdeaDetail}
           />
         )}
-        {activeTab === 'idea-detail' && (
+        {activeTab === 'idea-detail' && userDivision === 'Investment' && (
           <IdeaDetailPage 
             tickers={tickers}
             selectedTicker={selectedTickerForDetail}
