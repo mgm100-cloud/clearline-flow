@@ -65,6 +65,13 @@ async function fetchLateQPTickers() {
     global: { headers: { 'Cache-Control': 'no-cache' } }
   });
 
+ // Get earnings data with ticker join - filter for Portfolio status and recent/future dates
+ const oneYearAgoD = new Date();
+ oneYearAgoD.setFullYear(oneYearAgoD.getFullYear() - 1);
+ const oneYearAgoStrD = oneYearAgoD.toISOString().split('T')[0];
+
+
+
   // Get earnings data with Portfolio ticker join - include quarter_end_date and qp_call_date
   const { data: earningsData, error: earningsError } = await supabase
     .from('earnings_tracking')
@@ -82,7 +89,8 @@ async function fetchLateQPTickers() {
       )
     `)
     .eq('tickers.status', 'Portfolio')
-    .order('updated_at', { ascending: false });
+    .gte('earnings_date', oneYearAgoStrD) 
+    .order('earnings_date', { ascending: false });
 
   if (earningsError) throw earningsError;
 

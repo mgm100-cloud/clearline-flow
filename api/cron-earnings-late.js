@@ -74,8 +74,7 @@ async function fetchLateTickers() {
     `)
     .eq('tickers.status', 'Portfolio')
     .gte('earnings_date', oneYearAgoStr)
-    .order('earnings_date', { ascending: true })
-    .limit(2000);
+    .order('earnings_date', { ascending: false });
 
   if (earningsError) throw earningsError;
 
