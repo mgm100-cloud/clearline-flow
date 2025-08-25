@@ -7993,18 +7993,6 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, 
         <td className="px-6 py-4 whitespace-nowrap text-sm">
           <div className="flex space-x-2">
             <button
-              onClick={handleSendTodoEmail}
-              disabled={isEmailSending}
-              className={`text-xs font-bold border px-2 py-1 rounded ${
-                isEmailSending
-                  ? 'text-gray-400 border-gray-300 cursor-not-allowed'
-                  : 'text-blue-600 hover:text-blue-900 border-blue-500 hover:bg-blue-50'
-              }`}
-              title={`Send email to ${todo.analyst} about this todo`}
-            >
-              {isEmailSending ? '📧...' : '📧 Email'}
-            </button>
-            <button
               onClick={() => onUpdateTodo(todo.id, { isOpen: !todo.isOpen })}
               className={`text-xs font-bold border px-2 py-1 rounded ${
                 todo.isOpen 
@@ -8023,6 +8011,18 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, 
               className="text-red-600 hover:text-red-900 text-xs font-bold border border-red-500 px-2 py-1 rounded"
             >
               Delete
+            </button>
+            <button
+              onClick={handleSendTodoEmail}
+              disabled={isEmailSending}
+              className={`text-xs font-bold border px-2 py-1 rounded ${
+                isEmailSending
+                  ? 'text-gray-400 border-gray-300 cursor-not-allowed'
+                  : 'text-blue-600 hover:text-blue-900 border-blue-500 hover:bg-blue-50'
+              }`}
+              title={`Send email to ${todo.analyst} about this todo`}
+            >
+              {isEmailSending ? '📧...' : '📧'}
             </button>
           </div>
         </td>
