@@ -6323,12 +6323,47 @@ const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarnin
       sortedTickers.forEach(ticker => {
         const currentEarningsData = ticker.bestEarnings;
         
+        // Calculate QP Start date
+        const calculateQPStart = () => {
+          if (currentEarningsData.quarterEndDate) {
+            const quarterEndDate = new Date(currentEarningsData.quarterEndDate);
+            const qpDrift = ticker.qpDrift !== undefined ? ticker.qpDrift : 
+                           ticker.QP_Drift !== undefined ? ticker.QP_Drift : -14;
+            const qpStartDate = new Date(quarterEndDate);
+            qpStartDate.setDate(quarterEndDate.getDate() + qpDrift);
+            return qpStartDate.toISOString().split('T')[0];
+          }
+          return '-';
+        };
+        
+        // Calculate QP Days
+        const calculateQPDays = () => {
+          if (currentEarningsData.quarterEndDate) {
+            const quarterEndDate = new Date(currentEarningsData.quarterEndDate);
+            const qpDrift = ticker.qpDrift !== undefined ? ticker.qpDrift : 
+                           ticker.QP_Drift !== undefined ? ticker.QP_Drift : -14;
+            const qpStartDate = new Date(quarterEndDate);
+            qpStartDate.setDate(quarterEndDate.getDate() + qpDrift);
+            
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            qpStartDate.setHours(0, 0, 0, 0);
+            
+            const diffTime = qpStartDate.getTime() - today.getTime();
+            return Math.round(diffTime / (1000 * 60 * 60 * 24)).toString();
+          }
+          return '-';
+        };
+        
         const row = [
           ticker.ticker || '-',
           ticker.analyst || '-',
           currentEarningsData.cyq || '-',
-          currentEarningsData.days !== 999999 ? currentEarningsData.days.toString() : '-',
+          calculateQPStart(),
+          calculateQPDays(),
+          currentEarningsData.quarterEndDate || '-',
           currentEarningsData.earningsDate || '-',
+          currentEarningsData.days !== 999999 ? currentEarningsData.days.toString() : '-',
           currentEarningsData.tradeRec || '-',
           formatTradeLevel ? formatTradeLevel(currentEarningsData.tradeLevel) || '-' : currentEarningsData.tradeLevel || '-',
           currentEarningsData.qpCallDate || '-',
@@ -6342,7 +6377,7 @@ const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarnin
       
       // Create the PDF table
       autoTable(doc, {
-        head: [['Ticker', 'Analyst', 'CYQ', 'Days Until', 'Earnings Date', 'Trade Rec', 'Trade Level', 'QP Call Date', 'Preview Date', 'Callback Date']],
+        head: [['Ticker', 'Who', 'CYQ', 'QP Start', 'QP Days', 'QTR END', 'Earnings', 'Ern Days', 'Trade Rec', 'Trade Level', 'QP Call', 'Preview', 'Callback']],
         body: tableData,
         startY: 40,
         styles: {
@@ -6355,16 +6390,19 @@ const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarnin
           fontStyle: 'bold'
         },
         columnStyles: {
-          0: { cellWidth: 25 }, // Ticker
-          1: { cellWidth: 20 }, // Analyst
+          0: { cellWidth: 22 }, // Ticker
+          1: { cellWidth: 18 }, // Who
           2: { cellWidth: 15 }, // CYQ
-          3: { cellWidth: 20 }, // Days Until
-          4: { cellWidth: 25 }, // Earnings Date
-          5: { cellWidth: 20 }, // Trade Rec
-          6: { cellWidth: 25 }, // Trade Level
-          7: { cellWidth: 25 }, // QP Call Date
-          8: { cellWidth: 25 }, // Preview Date
-          9: { cellWidth: 25 }  // Callback Date
+          3: { cellWidth: 20 }, // QP Start
+          4: { cellWidth: 15 }, // QP Days
+          5: { cellWidth: 20 }, // QTR END
+          6: { cellWidth: 20 }, // Earnings
+          7: { cellWidth: 15 }, // Ern Days
+          8: { cellWidth: 18 }, // Trade Rec
+          9: { cellWidth: 22 }, // Trade Level
+          10: { cellWidth: 20 }, // QP Call
+          11: { cellWidth: 20 }, // Preview
+          12: { cellWidth: 20 }  // Callback
         }
       });
       
