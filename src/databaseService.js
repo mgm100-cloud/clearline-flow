@@ -57,7 +57,8 @@ const toSnakeCase = (str) => {
     'previewDate': 'preview_date',
     'callbackDate': 'callback_date',
     'irName': 'ir_name',
-    'irEmail': 'ir_email'
+    'irEmail': 'ir_email',
+    'qpDrift': 'qp_drift'
   };
   
   if (specialCases[str]) {

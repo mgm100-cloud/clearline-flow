@@ -2936,6 +2936,7 @@ const ClearlineFlow = () => {
             onSelectEarningsAnalyst={setSelectedEarningsAnalyst}
             earningsData={earningsData}
             onUpdateEarnings={updateEarningsData}
+            onUpdateTicker={updateTicker}
             getEarningsData={getEarningsData}
             onRefreshEarningsData={refreshEarningsData}
             analysts={analysts}
@@ -6034,7 +6035,7 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
  );
 };
 // Earnings Tracking Page Component
-const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarningsAnalyst, earningsData, onUpdateEarnings, getEarningsData, onRefreshEarningsData, analysts, quotes = {}, onUpdateQuote, isLoadingQuotes = false, quoteErrors = {}, formatTradeLevel, formatCompactDate, currentUser, onNavigateToIdeaDetail }) => {
+const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarningsAnalyst, earningsData, onUpdateEarnings, onUpdateTicker, getEarningsData, onRefreshEarningsData, analysts, quotes = {}, onUpdateQuote, isLoadingQuotes = false, quoteErrors = {}, formatTradeLevel, formatCompactDate, currentUser, onNavigateToIdeaDetail }) => {
   // State for sorting and filtering
   const [sortField, setSortField] = useState('days');
   const [sortDirection, setSortDirection] = useState('asc');
@@ -6105,15 +6106,30 @@ const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarnin
         if (earningsData.earningsDate) {
           const days = calculateDaysUntilEarnings(earningsData.earningsDate);
           if (days !== 999999) {
-            allEarningsData.push({ ...earningsData, cyq, days });
+            // Calculate QP Days for this entry
+            let qpDays = null;
+            if (earningsData.quarterEndDate) {
+              const quarterEndDate = new Date(earningsData.quarterEndDate);
+              const qpDrift = ticker.qpDrift !== undefined ? ticker.qpDrift : 
+                            ticker.QP_Drift !== undefined ? ticker.QP_Drift : -14;
+              const qpStartDate = new Date(quarterEndDate);
+              qpStartDate.setDate(quarterEndDate.getDate() + qpDrift);
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              qpStartDate.setHours(0, 0, 0, 0);
+              const diffTime = qpStartDate.getTime() - today.getTime();
+              qpDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+            }
+            
+            allEarningsData.push({ ...earningsData, cyq, days, qpDays });
           }
         }
       }
     }
     
-    // If hideOldEarnings is enabled, apply the old filter first
+    // If hideOldEarnings is enabled, filter by QP Days >= -7
     if (hideOldEarnings) {
-      allEarningsData = allEarningsData.filter(data => data.days >= -7);
+      allEarningsData = allEarningsData.filter(data => data.qpDays !== null && data.qpDays >= -7);
     }
     
     // If hidePastEarnings is enabled, filter out past earnings (negative days)
@@ -6126,8 +6142,21 @@ const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarnin
       data.days >= daysRange.min && data.days <= daysRange.max
     );
     
-    // Sort by days
-    earningsInRange.sort((a, b) => a.days - b.days);
+    // Sort based on active filters
+    if (hideOldEarnings) {
+      // Sort by QP Days (smallest to largest)
+      earningsInRange.sort((a, b) => {
+        const aQpDays = a.qpDays !== null ? a.qpDays : 999999;
+        const bQpDays = b.qpDays !== null ? b.qpDays : 999999;
+        return aQpDays - bQpDays;
+      });
+    } else if (hidePastEarnings) {
+      // Sort by Ern Days (smallest to largest)
+      earningsInRange.sort((a, b) => a.days - b.days);
+    } else {
+      // Default sort by days
+      earningsInRange.sort((a, b) => a.days - b.days);
+    }
     
     // Create a separate entry for each earnings date within range
     earningsInRange.forEach(earningsData => {
@@ -6153,6 +6182,38 @@ const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarnin
       case 'days':
         aValue = aEarningsData.days !== undefined ? aEarningsData.days : 999999;
         bValue = bEarningsData.days !== undefined ? bEarningsData.days : 999999;
+        break;
+      case 'qpDays':
+        // Calculate QP Days for sorting
+        if (aEarningsData.quarterEndDate) {
+          const quarterEndDateA = new Date(aEarningsData.quarterEndDate);
+          const qpDriftA = a.qpDrift !== undefined ? a.qpDrift : 
+                          a.QP_Drift !== undefined ? a.QP_Drift : -14;
+          const qpStartDateA = new Date(quarterEndDateA);
+          qpStartDateA.setDate(quarterEndDateA.getDate() + qpDriftA);
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          qpStartDateA.setHours(0, 0, 0, 0);
+          const diffTimeA = qpStartDateA.getTime() - today.getTime();
+          aValue = Math.round(diffTimeA / (1000 * 60 * 60 * 24));
+        } else {
+          aValue = 999999;
+        }
+        
+        if (bEarningsData.quarterEndDate) {
+          const quarterEndDateB = new Date(bEarningsData.quarterEndDate);
+          const qpDriftB = b.qpDrift !== undefined ? b.qpDrift : 
+                          b.QP_Drift !== undefined ? b.QP_Drift : -14;
+          const qpStartDateB = new Date(quarterEndDateB);
+          qpStartDateB.setDate(quarterEndDateB.getDate() + qpDriftB);
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          qpStartDateB.setHours(0, 0, 0, 0);
+          const diffTimeB = qpStartDateB.getTime() - today.getTime();
+          bValue = Math.round(diffTimeB / (1000 * 60 * 60 * 24));
+        } else {
+          bValue = 999999;
+        }
         break;
       case 'earningsDate':
         aValue = aEarningsData.earningsDate ? new Date(aEarningsData.earningsDate).getTime() : 0;
@@ -6380,7 +6441,7 @@ const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarnin
                   onChange={(e) => setHideOldEarnings(e.target.checked)}
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
-                <span>Hide &gt;1 week old</span>
+                <span>Hide &gt;1 week QP</span>
               </label>
               <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
                 <input
@@ -6431,9 +6492,15 @@ const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarnin
               <tr>
                 <SortableHeader field="ticker" style={{ width: '60px' }} className="sticky left-0 bg-gray-50 z-20">Ticker</SortableHeader>
                 <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '45px' }}>Who</th>
-                <SortableHeader field="days" style={{ width: '45px' }}>Days</SortableHeader>
+                <SortableHeader field="qpStart" style={{ width: '70px' }}>QP Start</SortableHeader>
+                <SortableHeader field="qpDays" style={{ width: '45px' }}>
+                  <div className="leading-tight">QP<br />Days</div>
+                </SortableHeader>
+                <SortableHeader field="quarterEndDate" style={{ width: '70px' }}>QTR END</SortableHeader>
                 <SortableHeader field="earningsDate" style={{ width: '70px' }}>Earnings</SortableHeader>
-                <SortableHeader field="quarterEndDate" style={{ width: '70px' }}>Quarter End</SortableHeader>
+                <SortableHeader field="days" style={{ width: '45px' }}>
+                  <div className="leading-tight">Ern<br />Days</div>
+                </SortableHeader>
                 <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '60px' }}>Trade Rec</th>
                 <th className="px-2 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '70px' }}>Trade Level</th>
                 <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '70px' }}>QP Call</th>
@@ -6449,6 +6516,7 @@ const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarnin
                   ticker={ticker}
                   earningsData={ticker.bestEarnings}
                   onUpdateEarnings={onUpdateEarnings}
+                  onUpdateTicker={onUpdateTicker}
                   formatDaysUntilEarnings={formatDaysUntilEarnings}
                   formatTradeLevel={formatTradeLevel}
                   formatCompactDate={formatCompactDate}
@@ -6481,7 +6549,7 @@ const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarnin
 };
 
 // Earnings Tracking Row Component
-const EarningsTrackingRow = ({ ticker, earningsData, onUpdateEarnings, formatDaysUntilEarnings, formatTradeLevel, formatCompactDate, quotes = {}, onUpdateQuote, isLoadingQuotes = false, quoteErrors = {}, currentUser, allTickers, onNavigateToIdeaDetail }) => {
+const EarningsTrackingRow = ({ ticker, earningsData, onUpdateEarnings, onUpdateTicker, formatDaysUntilEarnings, formatTradeLevel, formatCompactDate, quotes = {}, onUpdateQuote, isLoadingQuotes = false, quoteErrors = {}, currentUser, allTickers, onNavigateToIdeaDetail }) => {
  const [isEditing, setIsEditing] = useState(false);
  const [showIRPopup, setShowIRPopup] = useState(false);
  const [pendingEmailType, setPendingEmailType] = useState(null); // 'qp' or 'callback'
@@ -6492,6 +6560,18 @@ const EarningsTrackingRow = ({ ticker, earningsData, onUpdateEarnings, formatDay
  const [editData, setEditData] = useState({
    earningsDate: earningsData.earningsDate || '',
    quarterEndDate: earningsData.quarterEndDate || '',
+   qpStartDate: (() => {
+     // Calculate initial QP Start date from quarter end + QP_Drift
+     if (earningsData.quarterEndDate) {
+       const quarterEndDate = new Date(earningsData.quarterEndDate);
+       const qpDrift = ticker.qpDrift !== undefined ? ticker.qpDrift : 
+                      ticker.QP_Drift !== undefined ? ticker.QP_Drift : -14;
+       const qpStartDate = new Date(quarterEndDate);
+       qpStartDate.setDate(quarterEndDate.getDate() + qpDrift);
+       return qpStartDate.toISOString().split('T')[0];
+     }
+     return '';
+   })(),
    qpCallDate: earningsData.qpCallDate || '',
    previewDate: earningsData.previewDate || '',
    callbackDate: earningsData.callbackDate || '',
@@ -6502,8 +6582,36 @@ const EarningsTrackingRow = ({ ticker, earningsData, onUpdateEarnings, formatDay
  const handleSave = async () => {
    try {
      const cyq = earningsData.cyq || '';
-     console.log('Saving earnings data:', { ticker: ticker.ticker, cyq, editData });
-     await onUpdateEarnings(ticker.ticker, cyq, editData);
+     
+     // Calculate QP_Drift if QP Start date was changed
+     let qpDriftUpdate = null;
+     if (editData.qpStartDate && editData.quarterEndDate) {
+       const qpStartDate = new Date(editData.qpStartDate);
+       const quarterEndDate = new Date(editData.quarterEndDate);
+       const diffTime = qpStartDate.getTime() - quarterEndDate.getTime();
+       const qpDrift = Math.round(diffTime / (1000 * 60 * 60 * 24));
+       
+       // Only update if it's different from current value
+       const currentQpDrift = ticker.qpDrift !== undefined ? ticker.qpDrift : 
+                             ticker.QP_Drift !== undefined ? ticker.QP_Drift : -14;
+       if (qpDrift !== currentQpDrift) {
+         qpDriftUpdate = qpDrift;
+       }
+     }
+     
+     console.log('Saving earnings data:', { ticker: ticker.ticker, cyq, editData, qpDriftUpdate });
+     
+     // Save earnings data (excluding qpStartDate as it's calculated)
+     const { qpStartDate, ...earningsDataToSave } = editData;
+     await onUpdateEarnings(ticker.ticker, cyq, earningsDataToSave);
+     
+     // Update QP_Drift in tickers table if changed
+     if (qpDriftUpdate !== null) {
+       console.log(`Updating QP_Drift for ${ticker.ticker} to ${qpDriftUpdate}`);
+       // You'll need to add this function to update ticker QP_Drift
+       await updateTickerQPDrift(ticker.id, qpDriftUpdate);
+     }
+     
      setIsEditing(false);
    } catch (error) {
      console.error('Error updating earnings data:', error);
@@ -6519,10 +6627,38 @@ const EarningsTrackingRow = ({ ticker, earningsData, onUpdateEarnings, formatDay
    }
  };
 
+ // Helper function to update ticker QP_Drift
+ const updateTickerQPDrift = async (tickerId, qpDrift) => {
+   try {
+     console.log(`Updating ticker ${tickerId} QP_Drift to ${qpDrift}`);
+     if (onUpdateTicker) {
+       await onUpdateTicker(tickerId, { qpDrift: qpDrift });
+       console.log(`Successfully updated QP_Drift to ${qpDrift}`);
+     } else {
+       console.warn('onUpdateTicker not available');
+     }
+   } catch (error) {
+     console.error('Error updating QP_Drift:', error);
+     throw error;
+   }
+ };
+
  const handleCancel = () => {
    setEditData({
      earningsDate: earningsData.earningsDate || '',
      quarterEndDate: earningsData.quarterEndDate || '',
+     qpStartDate: (() => {
+       // Calculate initial QP Start date from quarter end + QP_Drift
+       if (earningsData.quarterEndDate) {
+         const quarterEndDate = new Date(earningsData.quarterEndDate);
+         const qpDrift = ticker.qpDrift !== undefined ? ticker.qpDrift : 
+                        ticker.QP_Drift !== undefined ? ticker.QP_Drift : -14;
+         const qpStartDate = new Date(quarterEndDate);
+         qpStartDate.setDate(quarterEndDate.getDate() + qpDrift);
+         return qpStartDate.toISOString().split('T')[0];
+       }
+       return '';
+     })(),
      qpCallDate: earningsData.qpCallDate || '',
      previewDate: earningsData.previewDate || '',
      callbackDate: earningsData.callbackDate || '',
@@ -6685,25 +6821,42 @@ This email and any files transmitted with it may contain privileged or confident
        <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500" style={{ width: '45px' }}>
          {ticker.analyst || '-'}
        </td>
-       <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500" style={{ width: '45px' }}>
-         {daysUntilEarnings}
-       </td>
        <td className="px-2 py-4 whitespace-nowrap" style={{ width: '70px' }}>
          <input
            type="date"
-           value={editData.earningsDate}
-           onChange={(e) => setEditData({...editData, earningsDate: e.target.value})}
-           className="text-xs border border-gray-300 rounded px-1 py-1 w-full"
+           value={editData.qpStartDate}
+           onChange={(e) => setEditData({...editData, qpStartDate: e.target.value})}
+           className="text-xs border border-gray-300 rounded px-1 py-1 w-full max-w-16"
+           style={{ fontSize: '10px', padding: '2px 1px' }}
+           title="QP Start Date - will update QP_Drift when saved"
          />
+       </td>
+       <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500" style={{ width: '45px' }}>
+         <div className="text-center">-</div>
+         <div className="text-xs text-gray-400">Calc</div>
        </td>
        <td className="px-2 py-4 whitespace-nowrap" style={{ width: '70px' }}>
          <input
            type="date"
            value={editData.quarterEndDate || ''}
            onChange={(e) => setEditData({...editData, quarterEndDate: e.target.value})}
-           className="text-xs border border-gray-300 rounded px-1 py-1 w-full"
+           className="text-xs border border-gray-300 rounded px-1 py-1 w-full max-w-16"
+           style={{ fontSize: '10px', padding: '2px 1px' }}
            placeholder="Auto-calculated"
          />
+       </td>
+       <td className="px-2 py-4 whitespace-nowrap" style={{ width: '70px' }}>
+         <input
+           type="date"
+           value={editData.earningsDate}
+           onChange={(e) => setEditData({...editData, earningsDate: e.target.value})}
+           className="text-xs border border-gray-300 rounded px-1 py-1 w-full max-w-16"
+           style={{ fontSize: '10px', padding: '2px 1px' }}
+         />
+       </td>
+       <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500" style={{ width: '45px' }}>
+         <div className="text-center">-</div>
+         <div className="text-xs text-gray-400">N/A</div>
        </td>
        <td className="px-2 py-4 whitespace-nowrap" style={{ width: '60px' }}>
          <select
@@ -6735,7 +6888,8 @@ This email and any files transmitted with it may contain privileged or confident
            type="date"
            value={editData.qpCallDate}
            onChange={(e) => setEditData({...editData, qpCallDate: e.target.value})}
-           className="text-xs border border-gray-300 rounded px-1 py-1 w-full"
+           className="text-xs border border-gray-300 rounded px-1 py-1 w-full max-w-16"
+           style={{ fontSize: '10px', padding: '2px 1px' }}
          />
        </td>
        <td className="px-2 py-4 whitespace-nowrap" style={{ width: '70px' }}>
@@ -6743,7 +6897,8 @@ This email and any files transmitted with it may contain privileged or confident
            type="date"
            value={editData.previewDate}
            onChange={(e) => setEditData({...editData, previewDate: e.target.value})}
-           className="text-xs border border-gray-300 rounded px-1 py-1 w-full"
+           className="text-xs border border-gray-300 rounded px-1 py-1 w-full max-w-16"
+           style={{ fontSize: '10px', padding: '2px 1px' }}
          />
        </td>
        <td className="px-2 py-4 whitespace-nowrap" style={{ width: '70px' }}>
@@ -6751,7 +6906,8 @@ This email and any files transmitted with it may contain privileged or confident
            type="date"
            value={editData.callbackDate}
            onChange={(e) => setEditData({...editData, callbackDate: e.target.value})}
-           className="text-xs border border-gray-300 rounded px-1 py-1 w-full"
+           className="text-xs border border-gray-300 rounded px-1 py-1 w-full max-w-16"
+           style={{ fontSize: '10px', padding: '2px 1px' }}
          />
        </td>
        <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -6850,6 +7006,58 @@ This email and any files transmitted with it may contain privileged or confident
          {ticker.analyst || '-'}
        </div>
      </td>
+     <td className="px-2 py-4 whitespace-nowrap text-xs text-gray-500" style={{ width: '70px' }}>
+       {(() => {
+         // Calculate QP Start = quarter_end_date + QP_Drift days
+         if (earningsData.quarterEndDate) {
+           const quarterEndDate = new Date(earningsData.quarterEndDate);
+           // Use QP_Drift from ticker, defaulting to -14 if not available
+           const qpDrift = ticker.qpDrift !== undefined ? ticker.qpDrift : 
+                          ticker.QP_Drift !== undefined ? ticker.QP_Drift : -14;
+           const qpStartDate = new Date(quarterEndDate);
+           qpStartDate.setDate(quarterEndDate.getDate() + qpDrift);
+           return formatCompactDate ? formatCompactDate(qpStartDate.toISOString().split('T')[0]) : qpStartDate.toISOString().split('T')[0];
+         }
+         return '-';
+       })()}
+     </td>
+     <td className="px-2 py-4 whitespace-nowrap text-sm" style={{ width: '45px' }}>
+       {(() => {
+         // Calculate QP Days = days from today to QP Start
+         if (earningsData.quarterEndDate) {
+           const quarterEndDate = new Date(earningsData.quarterEndDate);
+           const qpDrift = ticker.qpDrift !== undefined ? ticker.qpDrift : 
+                          ticker.QP_Drift !== undefined ? ticker.QP_Drift : -14;
+           const qpStartDate = new Date(quarterEndDate);
+           qpStartDate.setDate(quarterEndDate.getDate() + qpDrift);
+           
+           const today = new Date();
+           today.setHours(0, 0, 0, 0);
+           qpStartDate.setHours(0, 0, 0, 0);
+           
+           const diffTime = qpStartDate.getTime() - today.getTime();
+           const qpDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+           
+           return (
+             <span className={`${
+               qpDays <= 0 ? 'text-red-600 font-medium' :
+               qpDays <= 7 ? 'text-orange-600 font-medium' :
+               qpDays <= 30 ? 'text-yellow-600 font-medium' :
+               'text-gray-900'
+             }`}>
+               {qpDays}
+             </span>
+           );
+         }
+         return '-';
+       })()}
+     </td>
+     <td className="px-2 py-4 whitespace-nowrap text-xs text-gray-500" style={{ width: '70px' }}>
+       {formatCompactDate ? formatCompactDate(earningsData.quarterEndDate) : (earningsData.quarterEndDate || '-')}
+     </td>
+     <td className="px-2 py-4 whitespace-nowrap text-xs text-gray-500" style={{ width: '70px' }}>
+       {formatCompactDate ? formatCompactDate(earningsData.earningsDate) : (earningsData.earningsDate || '-')}
+     </td>
      <td className="px-2 py-4 whitespace-nowrap text-sm" style={{ width: '45px' }}>
        <span className={`${
          daysUntilEarnings !== '-' && daysUntilEarnings <= 7 ? 'text-red-600 font-medium' :
@@ -6858,12 +7066,6 @@ This email and any files transmitted with it may contain privileged or confident
        }`}>
          {daysUntilEarnings}
        </span>
-     </td>
-     <td className="px-2 py-4 whitespace-nowrap text-xs text-gray-500" style={{ width: '70px' }}>
-       {formatCompactDate ? formatCompactDate(earningsData.earningsDate) : (earningsData.earningsDate || '-')}
-     </td>
-     <td className="px-2 py-4 whitespace-nowrap text-xs text-gray-500" style={{ width: '70px' }}>
-       {formatCompactDate ? formatCompactDate(earningsData.quarterEndDate) : (earningsData.quarterEndDate || '-')}
      </td>
      <td className="px-2 py-4 whitespace-nowrap text-sm" style={{ width: '60px' }}>
        {earningsData.tradeRec ? (
@@ -6895,13 +7097,6 @@ This email and any files transmitted with it may contain privileged or confident
      </td>
      <td className="px-2 py-4 whitespace-nowrap text-sm" style={{ width: '140px' }}>
        <div className="flex space-x-1">
-         <button
-           onClick={() => setIsEditing(true)}
-           className="text-blue-600 hover:text-blue-900 text-xs font-bold border border-blue-500 px-1 py-1 rounded"
-           title="Edit earnings data"
-         >
-           🔧
-         </button>
          <button
            onClick={composeQPCallEmail}
            className="text-green-600 hover:text-green-900 text-xs font-bold border border-green-500 px-1 py-1 rounded bg-green-50 hover:bg-green-100"
