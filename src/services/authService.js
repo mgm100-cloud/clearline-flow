@@ -35,6 +35,7 @@ export const AuthService = {
           data: {
             role: userData.role || 'readonly',
             full_name: userData.fullName || '',
+            division: userData.division || '',
             analyst_code: userData.analystCode || ''
           }
         }
@@ -101,6 +102,12 @@ export const AuthService = {
   getUserAnalystCode(user) {
     if (!user || !user.user_metadata) return ''
     return user.user_metadata.analyst_code || ''
+  },
+
+  // Get user division from metadata
+  getUserDivision(user) {
+    if (!user || !user.user_metadata) return ''
+    return user.user_metadata.division || ''
   },
 
   // Get user full name from metadata

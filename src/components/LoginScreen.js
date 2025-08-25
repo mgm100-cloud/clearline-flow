@@ -9,7 +9,7 @@ const LoginScreen = ({ onAuthSuccess, authError, isLoading }) => {
     password: '',
     confirmPassword: '',
     fullName: '',
-    analystCode: '',
+    division: '',
     role: 'readonly'
   });
   const [showPassword, setShowPassword] = useState(false);
@@ -23,10 +23,26 @@ const LoginScreen = ({ onAuthSuccess, authError, isLoading }) => {
     setSuccess('');
   };
 
+  // Helper function to generate initials from full name
+  const generateInitials = (fullName) => {
+    if (!fullName) return '';
+    const names = fullName.trim().split(' ');
+    const initials = names.map(name => name.charAt(0).toUpperCase()).join('');
+    return initials.slice(0, 2); // Take first 2 initials
+  };
+
   const validateForm = () => {
     if (!formData.email) {
       setError('Email is required');
       return false;
+    }
+
+    if (mode === 'signup') {
+      // Email domain validation for signup
+      if (!formData.email.endsWith('@clearlinecap.com')) {
+        setError('Only @clearlinecap.com email addresses are allowed');
+        return false;
+      }
     }
 
     if (mode === 'signin' || mode === 'signup') {
@@ -48,6 +64,11 @@ const LoginScreen = ({ onAuthSuccess, authError, isLoading }) => {
 
         if (!formData.fullName) {
           setError('Full name is required');
+          return false;
+        }
+
+        if (!formData.division) {
+          setError('Division is required');
           return false;
         }
       }
@@ -88,12 +109,16 @@ const LoginScreen = ({ onAuthSuccess, authError, isLoading }) => {
     setError('');
 
     try {
+      // Generate analyst code from initials if division is Investment
+      const analystCode = formData.division === 'Investment' ? generateInitials(formData.fullName) : '';
+
       const { user, session } = await AuthService.signUp(
         formData.email,
         formData.password,
         {
           fullName: formData.fullName,
-          analystCode: formData.analystCode,
+          division: formData.division,
+          analystCode: analystCode,
           role: formData.role
         }
       );
@@ -148,7 +173,7 @@ const LoginScreen = ({ onAuthSuccess, authError, isLoading }) => {
       password: '',
       confirmPassword: '',
       fullName: '',
-      analystCode: '',
+      division: '',
       role: 'readonly'
     });
     setError('');
@@ -332,25 +357,30 @@ const LoginScreen = ({ onAuthSuccess, authError, isLoading }) => {
               </div>
 
               <div>
-                <label htmlFor="analyst-code" className="block text-sm font-medium text-gray-700">
-                  Analyst Code (Optional)
+                <label htmlFor="division" className="block text-sm font-medium text-gray-700">
+                  Division
                 </label>
-                <div className="mt-1">
+                <div className="mt-1 relative">
                   <select
-                    id="analyst-code"
-                    value={formData.analystCode}
-                    onChange={(e) => handleInputChange('analystCode', e.target.value)}
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    id="division"
+                    value={formData.division}
+                    onChange={(e) => handleInputChange('division', e.target.value)}
+                    className="appearance-none block w-full px-3 py-2 pl-10 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    required
                   >
-                    <option value="">Select Analyst Code</option>
-                    <option value="LT">LT</option>
-                    <option value="GA">GA</option>
-                    <option value="DP">DP</option>
-                    <option value="MS">MS</option>
-                    <option value="DO">DO</option>
-                    <option value="MM">MM</option>
+                    <option value="">Select Division</option>
+                    <option value="Investment">Investment</option>
+                    <option value="Ops">Ops</option>
+                    <option value="Admin">Admin</option>
+                    <option value="Marketing">Marketing</option>
                   </select>
+                  <UserCheck className="h-5 w-5 text-gray-400 absolute left-3 top-2.5" />
                 </div>
+                {formData.division === 'Investment' && formData.fullName && (
+                  <p className="mt-1 text-sm text-gray-500">
+                    Analyst code will be: {generateInitials(formData.fullName)}
+                  </p>
+                )}
               </div>
 
               <div>
