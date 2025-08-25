@@ -6916,6 +6916,7 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
   const [showAddCompletedForm, setShowAddCompletedForm] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isEmailSending, setIsEmailSending] = useState(false);
+  const [analystEmails, setAnalystEmails] = useState([]);
   const [newTodo, setNewTodo] = useState({
     ticker: '',
     analyst: '',
@@ -6948,6 +6949,20 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
       }
     }
   }, [currentUser]);
+
+  // Load analyst emails for individual todo emails
+  useEffect(() => {
+    const loadAnalystEmails = async () => {
+      try {
+        const emails = await DatabaseService.getAnalystEmails();
+        setAnalystEmails(emails);
+      } catch (error) {
+        console.error('Error loading analyst emails for todos:', error);
+      }
+    };
+    
+    loadAnalystEmails();
+  }, []);
 
   // Initial refresh when component is mounted - only run once
   useEffect(() => {
@@ -7671,6 +7686,8 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
                     isClosed={false}
                     tickers={tickers}
                     onNavigateToIdeaDetail={onNavigateToIdeaDetail}
+                    analystEmails={analystEmails}
+                    currentUser={currentUser}
                   />
                 ))}
               </tbody>
@@ -7716,6 +7733,8 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
                     isClosed={true}
                     tickers={tickers}
                     onNavigateToIdeaDetail={onNavigateToIdeaDetail}
+                    analystEmails={analystEmails}
+                    currentUser={currentUser}
                   />
                 ))}
               </tbody>
@@ -7730,9 +7749,10 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
 };
 
 // Todo Row Component with double-click editing
-const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, formatDate, userRole, hasWriteAccess, isClosed = false, tickers, onNavigateToIdeaDetail }) => {
+const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, formatDate, userRole, hasWriteAccess, isClosed = false, tickers, onNavigateToIdeaDetail, analystEmails = [], currentUser }) => {
   const [editingField, setEditingField] = useState(null); // 'priority' or 'item'
   const [editValue, setEditValue] = useState('');
+  const [isEmailSending, setIsEmailSending] = useState(false);
 
   const handleDoubleClick = (field, currentValue) => {
     if (!hasWriteAccess) return;
@@ -7781,6 +7801,122 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, 
   const handleTickerClick = () => {
     if (tickerInDatabase && onNavigateToIdeaDetail) {
       onNavigateToIdeaDetail(tickerInDatabase);
+    }
+  };
+
+  // Handle email sending for individual todo
+  const handleSendTodoEmail = async () => {
+    if (isEmailSending) return;
+
+    try {
+      setIsEmailSending(true);
+
+      // Find the analyst's email
+      const analystInfo = analystEmails.find(analyst => 
+        analyst.analyst_code === todo.analyst
+      );
+
+      if (!analystInfo || !analystInfo.email) {
+        alert(`No email found for analyst: ${todo.analyst}`);
+        return;
+      }
+
+      // Format the current date
+      const emailDate = new Date().toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+
+      // Create email content
+      const emailBody = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .header { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+            .content { background: white; padding: 20px; border-radius: 8px; border: 1px solid #dee2e6; }
+            .priority-high { color: #dc3545; font-weight: bold; }
+            .priority-medium { color: #ffc107; font-weight: bold; }
+            .priority-low { color: #28a745; font-weight: bold; }
+            .footer { margin-top: 20px; padding-top: 20px; border-top: 1px solid #dee2e6; color: #6c757d; font-size: 14px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2>📋 New Todo Item Added to Your List</h2>
+            <p>Hello ${analystInfo.name || todo.analyst},</p>
+            <p>This item was recently added to your to-do list and requires your attention.</p>
+          </div>
+          
+          <div class="content">
+            <h3>Todo Details:</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px; border-bottom: 1px solid #dee2e6; font-weight: bold; width: 120px;">Ticker:</td>
+                <td style="padding: 8px; border-bottom: 1px solid #dee2e6;">${todo.ticker}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px; border-bottom: 1px solid #dee2e6; font-weight: bold;">Analyst:</td>
+                <td style="padding: 8px; border-bottom: 1px solid #dee2e6;">${todo.analyst}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px; border-bottom: 1px solid #dee2e6; font-weight: bold;">Priority:</td>
+                <td style="padding: 8px; border-bottom: 1px solid #dee2e6;">
+                  <span class="priority-${todo.priority}">${todo.priority.toUpperCase()}</span>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 8px; border-bottom: 1px solid #dee2e6; font-weight: bold;">Date Entered:</td>
+                <td style="padding: 8px; border-bottom: 1px solid #dee2e6;">${formatDate(todo.dateEntered)}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px; font-weight: bold; vertical-align: top;">Task:</td>
+                <td style="padding: 8px;">${todo.item}</td>
+              </tr>
+            </table>
+          </div>
+          
+          <div class="footer">
+            <p>This email was sent from the Clearline Flow Todo Management System.</p>
+            <p>Generated on ${emailDate}</p>
+          </div>
+        </body>
+        </html>
+      `;
+
+      const subject = `📋 New Todo Item - ${todo.ticker} - ${todo.priority.toUpperCase()} Priority`;
+      const fromName = currentUser ? AuthService.getUserFullName(currentUser) : 'Clearline Flow App';
+      const fromEmail = currentUser?.email || null;
+
+      const response = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          to: [analystInfo.email],
+          subject: subject,
+          content: emailBody,
+          fromName: fromName,
+          fromEmail: fromEmail
+        })
+      });
+
+      if (response.ok) {
+        alert(`✅ Todo email sent successfully to ${analystInfo.name} (${analystInfo.email})`);
+      } else {
+        const errorData = await response.text();
+        throw new Error(`Failed to send email: ${errorData}`);
+      }
+    } catch (error) {
+      console.error('Error sending todo email:', error);
+      alert(`❌ Failed to send email: ${error.message}`);
+    } finally {
+      setIsEmailSending(false);
     }
   };
 
@@ -7856,6 +7992,18 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, 
       {hasWriteAccess && (
         <td className="px-6 py-4 whitespace-nowrap text-sm">
           <div className="flex space-x-2">
+            <button
+              onClick={handleSendTodoEmail}
+              disabled={isEmailSending}
+              className={`text-xs font-bold border px-2 py-1 rounded ${
+                isEmailSending
+                  ? 'text-gray-400 border-gray-300 cursor-not-allowed'
+                  : 'text-blue-600 hover:text-blue-900 border-blue-500 hover:bg-blue-50'
+              }`}
+              title={`Send email to ${todo.analyst} about this todo`}
+            >
+              {isEmailSending ? '📧...' : '📧 Email'}
+            </button>
             <button
               onClick={() => onUpdateTodo(todo.id, { isOpen: !todo.isOpen })}
               className={`text-xs font-bold border px-2 py-1 rounded ${
