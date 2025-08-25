@@ -162,6 +162,14 @@ export const AuthService = {
       return 'Investment';
     }
     
+    // Also check if user has admin/readwrite role - likely Investment users
+    const role = user.user_metadata.role;
+    if (role === 'admin' || role === 'readwrite') {
+      console.log('📝 Defaulting to Investment division for admin/readwrite user');
+      return 'Investment';
+    }
+    
+    console.log('📝 No analyst code or admin role found, returning empty division');
     return '';
   },
 

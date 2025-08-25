@@ -1368,6 +1368,16 @@ const ClearlineFlow = () => {
           console.log('👤 User division:', division);
           console.log('👤 User analyst code:', analystCode);
           console.log('📋 User metadata:', user?.user_metadata);
+          
+          // Temporary fix for existing users without division
+          if (!division && (analystCode || role === 'admin' || role === 'readwrite')) {
+            console.log('🔧 Applying temporary fix: setting division to Investment for existing user');
+            AuthService.addDivisionToUser('Investment').then(() => {
+              console.log('✅ Division added to user metadata. Please refresh the page.');
+            }).catch(error => {
+              console.error('❌ Failed to add division:', error);
+            });
+          }
           setCurrentUser(user);
           setUserRole(role);
           setUserDivision(division);
@@ -1423,6 +1433,16 @@ const ClearlineFlow = () => {
         console.log('👤 User division:', division);
         console.log('👤 User analyst code:', analystCode);
         console.log('📋 User metadata:', user?.user_metadata);
+        
+        // Temporary fix for existing users without division
+        if (!division && (analystCode || role === 'admin' || role === 'readwrite')) {
+          console.log('🔧 Applying temporary fix: setting division to Investment for existing user');
+          AuthService.addDivisionToUser('Investment').then(() => {
+            console.log('✅ Division added to user metadata. Please refresh the page.');
+          }).catch(error => {
+            console.error('❌ Failed to add division:', error);
+          });
+        }
         setCurrentUser(user);
         setUserRole(role);
         setUserDivision(division);
@@ -1560,6 +1580,16 @@ const ClearlineFlow = () => {
     console.log('👤 User division:', division);
     console.log('👤 User analyst code:', analystCode);
     console.log('📋 User metadata:', user?.user_metadata);
+    
+    // Temporary fix for existing users without division
+    if (!division && (analystCode || role === 'admin' || role === 'readwrite')) {
+      console.log('🔧 Applying temporary fix: setting division to Investment for existing user');
+      AuthService.addDivisionToUser('Investment').then(() => {
+        console.log('✅ Division added to user metadata. Please refresh the page.');
+      }).catch(error => {
+        console.error('❌ Failed to add division:', error);
+      });
+    }
     setCurrentUser(user);
     setUserRole(role);
     setUserDivision(division);
