@@ -1376,6 +1376,10 @@ const ClearlineFlow = () => {
           // Set default tab based on division
           if (division === 'Investment') {
             setActiveTab('input');
+          } else if (division === '') {
+            // No division set - might be existing user, default to todos but show message
+            console.warn('⚠️ User has no division set. Defaulting to todos tab.');
+            setActiveTab('todos');
           } else {
             setActiveTab('todos'); // Ops, Admin, Marketing default to Todo List
           }
@@ -1428,6 +1432,10 @@ const ClearlineFlow = () => {
         // Set default tab based on division
         if (division === 'Investment') {
           setActiveTab('input');
+        } else if (division === '') {
+          // No division set - might be existing user, default to todos but show message
+          console.warn('⚠️ User has no division set. Defaulting to todos tab.');
+          setActiveTab('todos');
         } else {
           setActiveTab('todos'); // Ops, Admin, Marketing default to Todo List
         }
@@ -1561,6 +1569,10 @@ const ClearlineFlow = () => {
     // Set default tab based on division
     if (division === 'Investment') {
       setActiveTab('input');
+    } else if (division === '') {
+      // No division set - might be existing user, default to todos but show message
+      console.warn('⚠️ User has no division set. Defaulting to todos tab.');
+      setActiveTab('todos');
     } else {
       setActiveTab('todos'); // Ops, Admin, Marketing default to Todo List
     }
@@ -2667,8 +2679,8 @@ const ClearlineFlow = () => {
       <nav className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex space-x-8">
-            {/* Show all tabs for Investment division */}
-            {userDivision === 'Investment' && (
+            {/* Show all tabs for Investment division or users without division (backward compatibility) */}
+            {(userDivision === 'Investment' || userDivision === '') && (
               <>
                 {(userRole === 'readwrite' || userRole === 'admin') && (
                   <button
@@ -2790,10 +2802,10 @@ const ClearlineFlow = () => {
 
       {/* Main Content */}
       <main className={`${activeTab === 'database-detailed' ? 'py-6' : 'max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8'}`}>
-        {activeTab === 'input' && userDivision === 'Investment' && (userRole === 'readwrite' || userRole === 'admin') && (
+        {activeTab === 'input' && (userDivision === 'Investment' || userDivision === '') && (userRole === 'readwrite' || userRole === 'admin') && (
           <InputPage onAddTicker={addTicker} analysts={analysts} currentUser={currentUser} />
         )}
-        {activeTab === 'input' && userDivision === 'Investment' && userRole === 'readonly' && (
+        {activeTab === 'input' && (userDivision === 'Investment' || userDivision === '') && userRole === 'readonly' && (
           <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
             <div className="px-4 py-6 sm:px-0">
               <div className="text-center">
@@ -2813,7 +2825,7 @@ const ClearlineFlow = () => {
             </div>
           </div>
         )}
-        {activeTab === 'database' && userDivision === 'Investment' && (
+        {activeTab === 'database' && (userDivision === 'Investment' || userDivision === '') && (
           <DatabasePage 
             tickers={sortData(tickers, sortField)} 
             onSort={handleSort}
@@ -2836,7 +2848,7 @@ const ClearlineFlow = () => {
             onNavigateToIdeaDetail={navigateToIdeaDetail}
           />
         )}
-        {activeTab === 'database-detailed' && userDivision === 'Investment' && (
+        {activeTab === 'database-detailed' && (userDivision === 'Investment' || userDivision === '') && (
           <DatabaseDetailedPage 
             tickers={sortData(tickers, sortField)} 
             onSort={handleSort}
@@ -2857,7 +2869,7 @@ const ClearlineFlow = () => {
             onNavigateToIdeaDetail={navigateToIdeaDetail}
           />
         )}
-        {activeTab === 'pm-detail' && userDivision === 'Investment' && (
+        {activeTab === 'pm-detail' && (userDivision === 'Investment' || userDivision === '') && (
           <PMDetailPage 
             tickers={tickers}
             quotes={quotes}
@@ -2867,7 +2879,7 @@ const ClearlineFlow = () => {
             onNavigateToIdeaDetail={navigateToIdeaDetail}
           />
         )}
-        {activeTab === 'analyst-detail' && userDivision === 'Investment' && (
+        {activeTab === 'analyst-detail' && (userDivision === 'Investment' || userDivision === '') && (
           <AnalystDetailPage 
             tickers={tickers} 
             analysts={analysts}
@@ -2880,14 +2892,14 @@ const ClearlineFlow = () => {
             onNavigateToIdeaDetail={navigateToIdeaDetail}
           />
         )}
-        {activeTab === 'team' && userDivision === 'Investment' && (
+        {activeTab === 'team' && (userDivision === 'Investment' || userDivision === '') && (
           <TeamOutputPage 
             tickers={tickers} 
             analysts={analysts}
             onNavigateToIdeaDetail={navigateToIdeaDetail}
           />
         )}
-        {activeTab === 'earnings' && userDivision === 'Investment' && (
+        {activeTab === 'earnings' && (userDivision === 'Investment' || userDivision === '') && (
           <EarningsTrackingPage 
             tickers={tickers}
             selectedEarningsAnalyst={selectedEarningsAnalyst}
@@ -2923,7 +2935,7 @@ const ClearlineFlow = () => {
             onNavigateToIdeaDetail={navigateToIdeaDetail}
           />
         )}
-        {activeTab === 'idea-detail' && userDivision === 'Investment' && (
+        {activeTab === 'idea-detail' && (userDivision === 'Investment' || userDivision === '') && (
           <IdeaDetailPage 
             tickers={tickers}
             selectedTicker={selectedTickerForDetail}

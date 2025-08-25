@@ -92,6 +92,36 @@ export const AuthService = {
     }
   },
 
+  // Add division to existing user metadata
+  async addDivisionToUser(division) {
+    try {
+      const currentUser = await this.getCurrentUser();
+      if (!currentUser) {
+        throw new Error('No current user found');
+      }
+
+      const currentMetadata = currentUser.user_metadata || {};
+      const updatedMetadata = {
+        ...currentMetadata,
+        division: division
+      };
+
+      console.log('📝 Adding division to user metadata:', { division, updatedMetadata });
+
+      const { data, error } = await supabase.auth.updateUser({
+        data: updatedMetadata
+      });
+
+      if (error) throw error;
+      
+      console.log('✅ Successfully added division to user metadata');
+      return data;
+    } catch (error) {
+      console.error('Error adding division to user:', error);
+      throw error;
+    }
+  },
+
   // Get user role from metadata
   getUserRole(user) {
     if (!user || !user.user_metadata) return 'readonly'
@@ -106,8 +136,33 @@ export const AuthService = {
 
   // Get user division from metadata
   getUserDivision(user) {
-    if (!user || !user.user_metadata) return ''
-    return user.user_metadata.division || ''
+    if (!user || !user.user_metadata) {
+      console.warn('⚠️ No user or user_metadata found for division lookup');
+      return '';
+    }
+    
+    console.log('🔍 Debug user metadata for division:', {
+      user_metadata: user.user_metadata,
+      division: user.user_metadata.division,
+      allKeys: Object.keys(user.user_metadata)
+    });
+    
+    // Check user_metadata first
+    const metadataDivision = user.user_metadata.division;
+    if (metadataDivision) {
+      return metadataDivision;
+    }
+    
+    console.warn('⚠️ No division found in user metadata. This might be an existing user who signed up before division field was added.');
+    
+    // For existing users, default to Investment division if they have an analyst code, otherwise return empty
+    const analystCode = user.user_metadata.analyst_code;
+    if (analystCode) {
+      console.log('📝 Defaulting to Investment division for user with analyst code:', analystCode);
+      return 'Investment';
+    }
+    
+    return '';
   },
 
   // Get user full name from metadata
