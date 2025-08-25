@@ -51,8 +51,8 @@ async function fetchLateTickers() {
     global: { headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache' } }
   });
 
-  // Get earnings data with ticker join (include NULL earnings_date for debugging)
-  const { data: earningsData, error: earningsError } = await supabase
+  // Get earnings data with ticker join - filter for Portfolio status, order by earnings_date
+  const { data: portfolioEarnings, error: earningsError } = await supabase
     .from('earnings_tracking')
     .select(`
       id,
@@ -68,24 +68,17 @@ async function fetchLateTickers() {
         status
       )
     `)
-    .order('updated_at', { ascending: false })
-    .limit(1000);
-
-  if (earningsError) throw earningsError;
-
-  // Filter to only portfolio tickers
-  const portfolioEarnings = (earningsData || []).filter(row => 
-    row.tickers?.status === 'Portfolio'
-  );
+    .eq('tickers.status', 'Portfolio')
+    .order('earnings_date', { ascending: true })
+    .limit(2000);
 
   if (earningsError) throw earningsError;
 
   // Debug logging
-  const portfolioWithDates = portfolioEarnings.filter(row => row.earnings_date);
-  const portfolioWithoutDates = portfolioEarnings.filter(row => !row.earnings_date);
+  const portfolioWithDates = (portfolioEarnings || []).filter(row => row.earnings_date);
+  const portfolioWithoutDates = (portfolioEarnings || []).filter(row => !row.earnings_date);
   
-  console.log(`Debug: Found ${earningsData?.length || 0} total earnings records`);
-  console.log(`Debug: Found ${portfolioEarnings.length} earnings records for portfolio tickers`);
+  console.log(`Debug: Found ${(portfolioEarnings || []).length} earnings records for portfolio tickers`);
   console.log(`Debug: Portfolio records WITH earnings_date: ${portfolioWithDates.length}`);
   console.log(`Debug: Portfolio records WITHOUT earnings_date (NULL): ${portfolioWithoutDates.length}`);
 
@@ -135,15 +128,11 @@ async function fetchLateTickers() {
     
     console.log(`Debug: ${ticker} - days until earnings: ${days}`);
     
-    // Temporarily expand range to see if we have ANY current earnings dates
-    if (days >= -30 && days <= 90) {
-      const isInNormalRange = days >= 0 && days <= 14;
-      if (isInNormalRange) {
-        inRangeCount++;
-      }
+    if (days >= 0 && days <= 14) {
+      inRangeCount++;
       const isLate = !previewDate || !callbackDate;
-      console.log(`Debug: ${ticker} - ${isInNormalRange ? 'IN RANGE' : 'EXPANDED RANGE'} - days: ${days}, isLate: ${isLate}, preview: ${previewDate || 'NULL'}, callback: ${callbackDate || 'NULL'}`);
-      if (isInNormalRange && isLate) {
+      console.log(`Debug: ${ticker} - IN RANGE - days: ${days}, isLate: ${isLate}, preview: ${previewDate || 'NULL'}, callback: ${callbackDate || 'NULL'}`);
+      if (isLate) {
         lateInRangeCount++;
         console.log(`Debug: *** ADDING LATE TICKER: ${ticker} ***`);
         results.push({
@@ -155,11 +144,14 @@ async function fetchLateTickers() {
           cyq: row.cyq,
           days
         });
-      } else if (isInNormalRange) {
+      } else {
         console.log(`Debug: ${ticker} - not late (has both preview and callback dates)`);
       }
+    } else if (days >= -7 && days <= 21) {
+      // Show nearby dates for context
+      console.log(`Debug: ${ticker} - NEAR RANGE (${days} days) - earnings: ${earningsDate}`);
     } else {
-      console.log(`Debug: Skipping ${ticker} - outside expanded range (${days} days)`);
+      console.log(`Debug: Skipping ${ticker} - outside date range (${days} days)`);
     }
   }
 
@@ -170,8 +162,7 @@ async function fetchLateTickers() {
   return {
     results,
     debugInfo: {
-      totalEarningsRecords: earningsData?.length || 0,
-      portfolioEarningsCount: portfolioEarnings.length,
+      portfolioEarningsCount: (portfolioEarnings || []).length,
       portfolioWithDates: portfolioWithDates.length,
       portfolioWithoutDates: portfolioWithoutDates.length,
       processedCount,
