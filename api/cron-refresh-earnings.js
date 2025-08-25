@@ -214,6 +214,24 @@ export default async function handler(req, res) {
       }
     }
 
+    // After processing all tickers, update quarter end dates for any missing records
+    console.log('Updating quarter end dates for existing records...');
+    try {
+      const { data: quarterEndUpdates, error: quarterEndError } = await supabase
+        .rpc('update_quarter_end_dates');
+      
+      if (quarterEndError) {
+        console.error('Error updating quarter end dates:', quarterEndError);
+        results.errors['quarter_end_update'] = String(quarterEndError?.message || quarterEndError);
+      } else {
+        console.log(`✅ Updated quarter end dates for ${quarterEndUpdates} records`);
+        results.quarterEndUpdates = quarterEndUpdates;
+      }
+    } catch (e) {
+      console.error('Error in quarter end update:', e);
+      results.errors['quarter_end_update'] = String(e?.message || e);
+    }
+
     return res.status(200).json({ success: true, ...results });
   } catch (error) {
     console.error('Error in cron-refresh-earnings:', error);
