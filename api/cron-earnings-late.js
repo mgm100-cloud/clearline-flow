@@ -51,54 +51,43 @@ async function fetchLateTickers() {
     global: { headers: { 'Cache-Control': 'no-cache' } }
   });
 
-  // Get earnings data first
+  // Get earnings data with ticker join
   const { data: earningsData, error: earningsError } = await supabase
     .from('earnings_tracking')
     .select(`
       id,
-      ticker,
+      ticker_id,
       earnings_date,
       preview_date,
       callback_date,
       cyq,
-      updated_at
+      updated_at,
+      tickers!ticker_id (
+        ticker,
+        analyst,
+        status
+      )
     `)
     .not('earnings_date', 'is', null)
     .order('earnings_date', { ascending: true });
 
   if (earningsError) throw earningsError;
 
-  // Get portfolio tickers separately
-  const { data: portfolioTickers, error: tickersError } = await supabase
-    .from('tickers')
-    .select('ticker, analyst, status')
-    .eq('status', 'Portfolio');
-
-  if (tickersError) throw tickersError;
-
-  // Create a map of portfolio tickers for quick lookup
-  const portfolioTickerMap = {};
-  for (const t of portfolioTickers || []) {
-    portfolioTickerMap[t.ticker] = t;
-  }
-
-  // Filter earnings to only include portfolio tickers
+  // Filter to only portfolio tickers
   const portfolioEarnings = (earningsData || []).filter(row => 
-    portfolioTickerMap[row.ticker]
+    row.tickers?.status === 'Portfolio'
   );
 
   if (earningsError) throw earningsError;
 
   // Debug logging
   console.log(`Debug: Found ${earningsData?.length || 0} total earnings records`);
-  console.log(`Debug: Found ${portfolioTickers?.length || 0} portfolio tickers`);
   console.log(`Debug: Found ${portfolioEarnings.length} earnings records for portfolio tickers`);
 
   const results = [];
   for (const row of portfolioEarnings) {
-    const ticker = row.ticker;
-    const tickerInfo = portfolioTickerMap[ticker];
-    const who = tickerInfo?.analyst || '';
+    const ticker = row.tickers?.ticker;
+    const who = row.tickers?.analyst || '';
     const earningsDate = row.earnings_date || null;
     const previewDate = row.preview_date || null;
     const callbackDate = row.callback_date || null;
