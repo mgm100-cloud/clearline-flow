@@ -84,7 +84,15 @@ async function fetchLateTickers() {
   console.log(`Debug: Found ${earningsData?.length || 0} total earnings records`);
   console.log(`Debug: Found ${portfolioEarnings.length} earnings records for portfolio tickers`);
 
+  // Show today's date for reference
+  const todayNY = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+  console.log(`Debug: Today (NY): ${todayNY.toISOString().split('T')[0]}`);
+
   const results = [];
+  let processedCount = 0;
+  let inRangeCount = 0;
+  let lateInRangeCount = 0;
+
   for (const row of portfolioEarnings) {
     const ticker = row.tickers?.ticker;
     const who = row.tickers?.analyst || '';
@@ -98,6 +106,7 @@ async function fetchLateTickers() {
       continue;
     }
 
+    processedCount++;
     console.log(`Debug: Processing Portfolio ticker: ${ticker}, earnings: ${earningsDate}, analyst: ${who}`);
 
     if (!earningsDate) {
@@ -107,17 +116,19 @@ async function fetchLateTickers() {
     
     const days = daysUntilInNY(earningsDate);
     if (days == null) {
-      console.log(`Debug: Skipping ${ticker} - invalid date calculation`);
+      console.log(`Debug: Skipping ${ticker} - invalid date calculation for ${earningsDate}`);
       continue;
     }
     
     console.log(`Debug: ${ticker} - days until earnings: ${days}`);
     
     if (days >= 0 && days <= 14) {
+      inRangeCount++;
       const isLate = !previewDate || !callbackDate;
-      console.log(`Debug: ${ticker} - days: ${days}, isLate: ${isLate}, preview: ${previewDate}, callback: ${callbackDate}`);
+      console.log(`Debug: ${ticker} - IN RANGE - days: ${days}, isLate: ${isLate}, preview: ${previewDate || 'NULL'}, callback: ${callbackDate || 'NULL'}`);
       if (isLate) {
-        console.log(`Debug: Adding late ticker: ${ticker}`);
+        lateInRangeCount++;
+        console.log(`Debug: *** ADDING LATE TICKER: ${ticker} ***`);
         results.push({
           ticker,
           who,
@@ -130,11 +141,15 @@ async function fetchLateTickers() {
       } else {
         console.log(`Debug: ${ticker} - not late (has both preview and callback dates)`);
       }
+    } else if (days >= -7 && days <= 21) {
+      // Show nearby dates for context
+      console.log(`Debug: ${ticker} - NEAR RANGE (${days} days) - earnings: ${earningsDate}`);
     } else {
       console.log(`Debug: Skipping ${ticker} - outside date range (${days} days)`);
     }
   }
 
+  console.log(`Debug: SUMMARY - Processed: ${processedCount}, In range (0-14): ${inRangeCount}, Late in range: ${lateInRangeCount}`);
   console.log(`Debug: Final results count: ${results.length}`);
   console.log('Debug: Results:', results.map(r => ({ ticker: r.ticker, days: r.days, isLate: !r.previewDate || !r.callbackDate })));
 
