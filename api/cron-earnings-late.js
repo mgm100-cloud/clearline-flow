@@ -51,7 +51,11 @@ async function fetchLateTickers() {
     global: { headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache' } }
   });
 
-  // Get earnings data with ticker join - filter for Portfolio status, order by earnings_date
+  // Get earnings data with ticker join - filter for Portfolio status and recent/future dates
+  const oneYearAgo = new Date();
+  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+  const oneYearAgoStr = oneYearAgo.toISOString().split('T')[0];
+  
   const { data: portfolioEarnings, error: earningsError } = await supabase
     .from('earnings_tracking')
     .select(`
@@ -69,6 +73,7 @@ async function fetchLateTickers() {
       )
     `)
     .eq('tickers.status', 'Portfolio')
+    .gte('earnings_date', oneYearAgoStr)
     .order('earnings_date', { ascending: true })
     .limit(2000);
 
@@ -78,7 +83,8 @@ async function fetchLateTickers() {
   const portfolioWithDates = (portfolioEarnings || []).filter(row => row.earnings_date);
   const portfolioWithoutDates = (portfolioEarnings || []).filter(row => !row.earnings_date);
   
-  console.log(`Debug: Found ${(portfolioEarnings || []).length} earnings records for portfolio tickers`);
+  console.log(`Debug: Date filter: earnings_date >= ${oneYearAgoStr}`);
+  console.log(`Debug: Found ${(portfolioEarnings || []).length} earnings records for portfolio tickers (filtered for recent dates)`);
   console.log(`Debug: Portfolio records WITH earnings_date: ${portfolioWithDates.length}`);
   console.log(`Debug: Portfolio records WITHOUT earnings_date (NULL): ${portfolioWithoutDates.length}`);
 
@@ -162,6 +168,7 @@ async function fetchLateTickers() {
   return {
     results,
     debugInfo: {
+      dateFilter: oneYearAgoStr,
       portfolioEarningsCount: (portfolioEarnings || []).length,
       portfolioWithDates: portfolioWithDates.length,
       portfolioWithoutDates: portfolioWithoutDates.length,
