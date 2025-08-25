@@ -48,7 +48,7 @@ async function fetchLateTickers() {
   }
   const supabase = createClient(supabaseUrl, serviceRoleKey, {
     db: { schema: 'public' },
-    global: { headers: { 'Cache-Control': 'no-cache' } }
+    global: { headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache' } }
   });
 
   // Get earnings data with ticker join
@@ -122,11 +122,15 @@ async function fetchLateTickers() {
     
     console.log(`Debug: ${ticker} - days until earnings: ${days}`);
     
-    if (days >= 0 && days <= 14) {
-      inRangeCount++;
+    // Temporarily expand range to see if we have ANY current earnings dates
+    if (days >= -30 && days <= 90) {
+      const isInNormalRange = days >= 0 && days <= 14;
+      if (isInNormalRange) {
+        inRangeCount++;
+      }
       const isLate = !previewDate || !callbackDate;
-      console.log(`Debug: ${ticker} - IN RANGE - days: ${days}, isLate: ${isLate}, preview: ${previewDate || 'NULL'}, callback: ${callbackDate || 'NULL'}`);
-      if (isLate) {
+      console.log(`Debug: ${ticker} - ${isInNormalRange ? 'IN RANGE' : 'EXPANDED RANGE'} - days: ${days}, isLate: ${isLate}, preview: ${previewDate || 'NULL'}, callback: ${callbackDate || 'NULL'}`);
+      if (isInNormalRange && isLate) {
         lateInRangeCount++;
         console.log(`Debug: *** ADDING LATE TICKER: ${ticker} ***`);
         results.push({
@@ -138,14 +142,11 @@ async function fetchLateTickers() {
           cyq: row.cyq,
           days
         });
-      } else {
+      } else if (isInNormalRange) {
         console.log(`Debug: ${ticker} - not late (has both preview and callback dates)`);
       }
-    } else if (days >= -7 && days <= 21) {
-      // Show nearby dates for context
-      console.log(`Debug: ${ticker} - NEAR RANGE (${days} days) - earnings: ${earningsDate}`);
     } else {
-      console.log(`Debug: Skipping ${ticker} - outside date range (${days} days)`);
+      console.log(`Debug: Skipping ${ticker} - outside expanded range (${days} days)`);
     }
   }
 
