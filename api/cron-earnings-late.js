@@ -153,7 +153,24 @@ async function fetchLateTickers() {
   console.log(`Debug: Final results count: ${results.length}`);
   console.log('Debug: Results:', results.map(r => ({ ticker: r.ticker, days: r.days, isLate: !r.previewDate || !r.callbackDate })));
 
-  return results;
+  return {
+    results,
+    debugInfo: {
+      totalEarningsRecords: earningsData?.length || 0,
+      portfolioEarningsCount: portfolioEarnings.length,
+      processedCount,
+      inRangeCount,
+      lateInRangeCount,
+      todayNY: todayNY.toISOString().split('T')[0],
+      sampleEarnings: portfolioEarnings.slice(0, 3).map(row => ({
+        ticker: row.tickers?.ticker,
+        earningsDate: row.earnings_date,
+        previewDate: row.preview_date,
+        callbackDate: row.callback_date,
+        analyst: row.tickers?.analyst
+      }))
+    }
+  };
 }
 
 function buildSummaryEmail(lateItems) {
@@ -401,7 +418,9 @@ export default async function handler(req, res) {
       }
     }
 
-    const lateItems = await fetchLateTickers();
+    const fetchResult = await fetchLateTickers();
+    const lateItems = fetchResult.results || fetchResult; // Handle both old and new return formats
+    const fetchDebugInfo = fetchResult.debugInfo || {};
 
     // Always email MM
     const adminEmail = 'mmajzner@clearlinecap.com';
@@ -520,6 +539,8 @@ export default async function handler(req, res) {
       response.mappedAnalysts = Object.keys(mergedMap);
       response.whoKeys = whoKeys;
       response.lookupDetails = lookupDetails;
+      // Add debug info from fetchLateTickers
+      response.fetchDebugInfo = fetchDebugInfo;
       // Limit userKeyMap sample size for response
       const sample = {};
       let count = 0;
