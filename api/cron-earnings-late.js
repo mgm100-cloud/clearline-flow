@@ -56,13 +56,13 @@ async function fetchLateTickers() {
     .from('earnings_tracking')
     .select(`
       id,
+      ticker,
       earnings_date,
       preview_date,
       callback_date,
       cyq,
       updated_at,
-      tickers!ticker_id (
-        ticker,
+      tickers!ticker (
         analyst,
         status
       )
@@ -78,15 +78,15 @@ async function fetchLateTickers() {
 
   const results = [];
   for (const row of earningsData || []) {
-    const ticker = row.tickers?.ticker;
+    const ticker = row.ticker; // Use direct ticker field
     const who = row.tickers?.analyst || '';
     const earningsDate = row.earnings_date || null;
     const previewDate = row.preview_date || null;
     const callbackDate = row.callback_date || null;
 
-    // Skip if no ticker info (should already be filtered by Portfolio status)
+    // Skip if no ticker info
     if (!ticker) {
-      console.warn('Skipping earnings record with missing ticker info:', row);
+      console.warn('Skipping earnings record with missing ticker:', row);
       continue;
     }
 
