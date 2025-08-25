@@ -68,7 +68,8 @@ async function fetchLateTickers() {
       )
     `)
     .eq('tickers.status', 'Portfolio')
-    .order('updated_at', { ascending: false });
+    .not('earnings_date', 'is', null)
+    .order('earnings_date', { ascending: true });
 
   if (earningsError) throw earningsError;
 
