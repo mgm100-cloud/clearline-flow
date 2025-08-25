@@ -51,7 +51,7 @@ async function fetchLateTickers() {
     global: { headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache' } }
   });
 
-  // Get earnings data with ticker join
+  // Get earnings data with ticker join (include NULL earnings_date for debugging)
   const { data: earningsData, error: earningsError } = await supabase
     .from('earnings_tracking')
     .select(`
@@ -68,8 +68,8 @@ async function fetchLateTickers() {
         status
       )
     `)
-    .not('earnings_date', 'is', null)
-    .order('earnings_date', { ascending: true });
+    .order('updated_at', { ascending: false })
+    .limit(1000);
 
   if (earningsError) throw earningsError;
 
@@ -81,22 +81,40 @@ async function fetchLateTickers() {
   if (earningsError) throw earningsError;
 
   // Debug logging
+  const portfolioWithDates = portfolioEarnings.filter(row => row.earnings_date);
+  const portfolioWithoutDates = portfolioEarnings.filter(row => !row.earnings_date);
+  
   console.log(`Debug: Found ${earningsData?.length || 0} total earnings records`);
   console.log(`Debug: Found ${portfolioEarnings.length} earnings records for portfolio tickers`);
+  console.log(`Debug: Portfolio records WITH earnings_date: ${portfolioWithDates.length}`);
+  console.log(`Debug: Portfolio records WITHOUT earnings_date (NULL): ${portfolioWithoutDates.length}`);
 
   // Show today's date for reference
   const todayNY = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
   console.log(`Debug: Today (NY): ${todayNY.toISOString().split('T')[0]}`);
+
+  // Show sample of recent records (with and without dates)
+  console.log(`Debug: Recent records with dates:`, portfolioWithDates.slice(0, 3).map(r => ({
+    ticker: r.tickers?.ticker,
+    earningsDate: r.earnings_date,
+    updatedAt: r.updated_at
+  })));
+  console.log(`Debug: Recent records without dates:`, portfolioWithoutDates.slice(0, 3).map(r => ({
+    ticker: r.tickers?.ticker,
+    earningsDate: r.earnings_date,
+    updatedAt: r.updated_at
+  })));
 
   const results = [];
   let processedCount = 0;
   let inRangeCount = 0;
   let lateInRangeCount = 0;
 
-  for (const row of portfolioEarnings) {
+  // Only process records that have earnings dates
+  for (const row of portfolioWithDates) {
     const ticker = row.tickers?.ticker;
     const who = row.tickers?.analyst || '';
-    const earningsDate = row.earnings_date || null;
+    const earningsDate = row.earnings_date;
     const previewDate = row.preview_date || null;
     const callbackDate = row.callback_date || null;
 
@@ -108,11 +126,6 @@ async function fetchLateTickers() {
 
     processedCount++;
     console.log(`Debug: Processing Portfolio ticker: ${ticker}, earnings: ${earningsDate}, analyst: ${who}`);
-
-    if (!earningsDate) {
-      console.log(`Debug: Skipping ${ticker} - no earnings date`);
-      continue;
-    }
     
     const days = daysUntilInNY(earningsDate);
     if (days == null) {
@@ -159,16 +172,27 @@ async function fetchLateTickers() {
     debugInfo: {
       totalEarningsRecords: earningsData?.length || 0,
       portfolioEarningsCount: portfolioEarnings.length,
+      portfolioWithDates: portfolioWithDates.length,
+      portfolioWithoutDates: portfolioWithoutDates.length,
       processedCount,
       inRangeCount,
       lateInRangeCount,
       todayNY: todayNY.toISOString().split('T')[0],
-      sampleEarnings: portfolioEarnings.slice(0, 3).map(row => ({
+      sampleWithDates: portfolioWithDates.slice(0, 3).map(row => ({
         ticker: row.tickers?.ticker,
         earningsDate: row.earnings_date,
         previewDate: row.preview_date,
         callbackDate: row.callback_date,
-        analyst: row.tickers?.analyst
+        analyst: row.tickers?.analyst,
+        updatedAt: row.updated_at
+      })),
+      sampleWithoutDates: portfolioWithoutDates.slice(0, 3).map(row => ({
+        ticker: row.tickers?.ticker,
+        earningsDate: row.earnings_date,
+        previewDate: row.preview_date,
+        callbackDate: row.callback_date,
+        analyst: row.tickers?.analyst,
+        updatedAt: row.updated_at
       }))
     }
   };
