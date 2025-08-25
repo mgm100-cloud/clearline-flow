@@ -123,8 +123,9 @@ DECLARE
 BEGIN
   -- Update records that don't have quarter_end_date set
   FOR earnings_record IN 
-    SELECT et.id, et.ticker, et.earnings_date
+    SELECT et.id, t.ticker, et.earnings_date
     FROM public.earnings_tracking et
+    JOIN public.tickers t ON et.ticker_id = t.id
     WHERE et.quarter_end_date IS NULL
     AND et.earnings_date IS NOT NULL
   LOOP
