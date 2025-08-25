@@ -51,7 +51,7 @@ async function fetchLateTickers() {
     global: { headers: { 'Cache-Control': 'no-cache' } }
   });
 
-  // Get earnings data with Portfolio ticker join - use the correct relationship
+  // Get earnings data first
   const { data: earningsData, error: earningsError } = await supabase
     .from('earnings_tracking')
     .select(`
@@ -61,25 +61,44 @@ async function fetchLateTickers() {
       preview_date,
       callback_date,
       cyq,
-      updated_at,
-      tickers!ticker (
-        analyst,
-        status
-      )
+      updated_at
     `)
-    .eq('tickers.status', 'Portfolio')
     .not('earnings_date', 'is', null)
     .order('earnings_date', { ascending: true });
 
   if (earningsError) throw earningsError;
 
+  // Get portfolio tickers separately
+  const { data: portfolioTickers, error: tickersError } = await supabase
+    .from('tickers')
+    .select('ticker, analyst, status')
+    .eq('status', 'Portfolio');
+
+  if (tickersError) throw tickersError;
+
+  // Create a map of portfolio tickers for quick lookup
+  const portfolioTickerMap = {};
+  for (const t of portfolioTickers || []) {
+    portfolioTickerMap[t.ticker] = t;
+  }
+
+  // Filter earnings to only include portfolio tickers
+  const portfolioEarnings = (earningsData || []).filter(row => 
+    portfolioTickerMap[row.ticker]
+  );
+
+  if (earningsError) throw earningsError;
+
   // Debug logging
-  console.log(`Debug: Found ${earningsData?.length || 0} earnings records with Portfolio status`);
+  console.log(`Debug: Found ${earningsData?.length || 0} total earnings records`);
+  console.log(`Debug: Found ${portfolioTickers?.length || 0} portfolio tickers`);
+  console.log(`Debug: Found ${portfolioEarnings.length} earnings records for portfolio tickers`);
 
   const results = [];
-  for (const row of earningsData || []) {
-    const ticker = row.ticker; // Use direct ticker field
-    const who = row.tickers?.analyst || '';
+  for (const row of portfolioEarnings) {
+    const ticker = row.ticker;
+    const tickerInfo = portfolioTickerMap[ticker];
+    const who = tickerInfo?.analyst || '';
     const earningsDate = row.earnings_date || null;
     const previewDate = row.preview_date || null;
     const callbackDate = row.callback_date || null;
