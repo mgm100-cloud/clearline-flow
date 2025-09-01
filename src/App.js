@@ -1383,7 +1383,7 @@ const ClearlineFlow = () => {
           setUserDivision(division);
           setIsAuthenticated(true);
           
-          // Set default tab based on division
+          // Set default tab based on division - only on app initialization
           if (division === 'Investment') {
             setActiveTab('input');
           } else if (division === '') {
@@ -1449,15 +1449,18 @@ const ClearlineFlow = () => {
         setIsAuthenticated(true);
         setAuthError('');
         
-        // Set default tab based on division
-        if (division === 'Investment') {
-          setActiveTab('input');
-        } else if (division === '') {
-          // No division set - might be existing user, default to todos but show message
-          console.warn('⚠️ User has no division set. Defaulting to todos tab.');
-          setActiveTab('todos');
-        } else {
-          setActiveTab('todos'); // Ops, Admin, Marketing default to Todo List
+        // Set default tab based on division - only on initial sign-in, not on token refresh
+        // Check if this is an initial sign-in by seeing if currentUser was null before
+        if (!currentUser) {
+          if (division === 'Investment') {
+            setActiveTab('input');
+          } else if (division === '') {
+            // No division set - might be existing user, default to todos but show message
+            console.warn('⚠️ User has no division set. Defaulting to todos tab.');
+            setActiveTab('todos');
+          } else {
+            setActiveTab('todos'); // Ops, Admin, Marketing default to Todo List
+          }
         }
         
         // Set default analyst selections based on user's analyst_code
