@@ -9269,9 +9269,9 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdateSelec
               {renderField('Input Price', 'inputPrice', ticker.inputPrice ? `$${parseFloat(ticker.inputPrice).toFixed(2)}` : '', 'number')}
               {renderField('Market Cap', 'marketCap', ticker.marketCap ? `$${formatMarketCap(ticker.marketCap)}mm` : '', 'number')}
               {renderField('ADV 3 Month', 'adv3Month', ticker.adv3Month ? `$${formatVolumeDollars(ticker.adv3Month)}mm` : '', 'number')}
-              {renderPriceTargetField('PT Bear', 'ptBear', ticker.ptBear, quote.price || ticker.currentPrice)}
-              {renderPriceTargetField('PT Base', 'ptBase', ticker.ptBase, quote.price || ticker.currentPrice)}
               {renderPriceTargetField('PT Bull', 'ptBull', ticker.ptBull, quote.price || ticker.currentPrice)}
+              {renderPriceTargetField('PT Base', 'ptBase', ticker.ptBase, quote.price || ticker.currentPrice)}
+              {renderPriceTargetField('PT Bear', 'ptBear', ticker.ptBear, quote.price || ticker.currentPrice)}
             </dl>
           </div>
         </div>
