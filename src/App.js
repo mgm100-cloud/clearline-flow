@@ -1253,17 +1253,42 @@ const QuoteService = {
     }
   }
 };
+// Helper function to get value from localStorage with fallback
+const getStoredValue = (key, defaultValue) => {
+  try {
+    const item = window.localStorage.getItem(`clearlineflow_${key}`);
+    return item ? JSON.parse(item) : defaultValue;
+  } catch (error) {
+    console.warn(`Failed to load ${key} from localStorage:`, error);
+    return defaultValue;
+  }
+};
+
+// Helper function to store value in localStorage
+const setStoredValue = (key, value) => {
+  try {
+    window.localStorage.setItem(`clearlineflow_${key}`, JSON.stringify(value));
+  } catch (error) {
+    console.warn(`Failed to save ${key} to localStorage:`, error);
+  }
+};
+
 const ClearlineFlow = () => {
   console.log('🚀 ClearlineFlow component loaded');
+  
+  // Reference to prevent re-initialization on tab focus
+  const isInitializedRef = useRef(false);
   
   // Authentication state - using Supabase Auth
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [userRole, setUserRole] = useState(''); // 'readwrite' or 'readonly'
   const [userDivision, setUserDivision] = useState(''); // 'Investment', 'Ops', 'Admin', 'Marketing', 'Super'
-  const [activeTab, setActiveTab] = useState('input');
+  
+  // Persistent state - these will restore from localStorage
+  const [activeTab, _setActiveTab] = useState(() => getStoredValue('activeTab', 'input'));
   const [selectedTickerForDetail, setSelectedTickerForDetail] = useState(null);
-  const [previousTab, setPreviousTab] = useState('input');
+  const [previousTab, _setPreviousTab] = useState(() => getStoredValue('previousTab', 'input'));
   const [navigationSource, setNavigationSource] = useState('dropdown'); // 'dropdown' or 'hyperlink'
   const [authLoading, setAuthLoading] = useState(true);
   const [authError, setAuthError] = useState('');
@@ -1271,7 +1296,23 @@ const ClearlineFlow = () => {
   // Data state
   const [tickers, setTickers] = useState([]);
   const [analysts, setAnalysts] = useState(['LT', 'GA', 'DP', 'MS', 'DO', 'MM']);
-  const [selectedAnalyst, setSelectedAnalyst] = useState('LT');
+  const [selectedAnalyst, _setSelectedAnalyst] = useState(() => getStoredValue('selectedAnalyst', 'LT'));
+  
+  // Persistent state setters that also save to localStorage
+  const setActiveTab = useCallback((value) => {
+    _setActiveTab(value);
+    setStoredValue('activeTab', value);
+  }, []);
+  
+  const setPreviousTab = useCallback((value) => {
+    _setPreviousTab(value);
+    setStoredValue('previousTab', value);
+  }, []);
+  
+  const setSelectedAnalyst = useCallback((value) => {
+    _setSelectedAnalyst(value);
+    setStoredValue('selectedAnalyst', value);
+  }, []);
   const [sortField, setSortField] = useState('');
   const [sortDirection, setSortDirection] = useState('asc');
   
@@ -1283,11 +1324,22 @@ const ClearlineFlow = () => {
   
   // Earnings tracking state
   const [earningsData, setEarningsData] = useState([]);
-  const [selectedEarningsAnalyst, setSelectedEarningsAnalyst] = useState('');
+  const [selectedEarningsAnalyst, _setSelectedEarningsAnalyst] = useState(() => getStoredValue('selectedEarningsAnalyst', ''));
   
   // Todo state
   const [todos, setTodos] = useState([]);
-  const [selectedTodoAnalyst, setSelectedTodoAnalyst] = useState('');
+  const [selectedTodoAnalyst, _setSelectedTodoAnalyst] = useState(() => getStoredValue('selectedTodoAnalyst', ''));
+  
+  // More persistent state setters
+  const setSelectedEarningsAnalyst = useCallback((value) => {
+    _setSelectedEarningsAnalyst(value);
+    setStoredValue('selectedEarningsAnalyst', value);
+  }, []);
+  
+  const setSelectedTodoAnalyst = useCallback((value) => {
+    _setSelectedTodoAnalyst(value);
+    setStoredValue('selectedTodoAnalyst', value);
+  }, []);
   
   // Data refresh state
   const [isRefreshingData, setIsRefreshingData] = useState(false);
@@ -1384,19 +1436,27 @@ const ClearlineFlow = () => {
           setUserDivision(division);
           setIsAuthenticated(true);
           
-          // Set default tab based on division - only on app initialization
-          if (division === 'Investment' || division === 'Super') {
-            setActiveTab('input');
-          } else if (division === '') {
-            // No division set - might be existing user, default to todos but show message
-            console.warn('⚠️ User has no division set. Defaulting to todos tab.');
-            setActiveTab('todos');
-          } else {
-            setActiveTab('todos'); // Ops, Admin, Marketing default to Todo List
+          // Only set defaults if not already persisted in localStorage and not already initialized
+          const hasPersistedTab = getStoredValue('activeTab', null);
+          const hasPersistedAnalyst = getStoredValue('selectedAnalyst', null);
+          
+          if (!hasPersistedTab && !isInitializedRef.current) {
+            console.log('🏗️ Setting default tab based on division (first time initialization)');
+            if (division === 'Investment' || division === 'Super') {
+              setActiveTab('input');
+            } else if (division === '') {
+              console.warn('⚠️ User has no division set. Defaulting to todos tab.');
+              setActiveTab('todos');
+            } else {
+              setActiveTab('todos'); // Ops, Admin, Marketing default to Todo List
+            }
+          } else if (hasPersistedTab) {
+            console.log('🔄 Restored tab from localStorage:', hasPersistedTab);
           }
           
-          // Set default analyst selections based on user's analyst_code
-          if (analystCode && analysts.includes(analystCode)) {
+          // Set default analyst selections based on user's analyst_code - only if not persisted
+          if (analystCode && analysts.includes(analystCode) && !hasPersistedAnalyst && !isInitializedRef.current) {
+            console.log('🏗️ Setting default analyst selections (first time initialization)');
             setSelectedAnalyst(analystCode);
             setSelectedTodoAnalyst(analystCode);
             // For earnings tracking, set to 'All Analysts' if user is MM, otherwise use their analyst code
@@ -1405,7 +1465,11 @@ const ClearlineFlow = () => {
             } else {
               setSelectedEarningsAnalyst(analystCode);
             }
+          } else if (hasPersistedAnalyst) {
+            console.log('🔄 Restored analyst from localStorage:', hasPersistedAnalyst);
           }
+          
+          isInitializedRef.current = true;
         } else {
           console.log('🔓 No active session found');
           setIsAuthenticated(false);
@@ -1420,6 +1484,17 @@ const ClearlineFlow = () => {
 
     initializeAuth();
 
+    // Add visibility API to detect tab switches
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('🔄 Tab became visible - preserving state');
+      } else {
+        console.log('🔄 Tab became hidden - state preserved in localStorage');
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     // Listen for auth state changes
     const { data: { subscription } } = AuthService.onAuthStateChange(async (event, session) => {
       // Ignore token refresh events to preserve app state during tab switching
@@ -1429,7 +1504,7 @@ const ClearlineFlow = () => {
       }
       
       // If user is already authenticated and this is the same user signing in again, ignore
-      if (event === 'SIGNED_IN' && session && currentUser && currentUser.id === session.user.id && isAuthenticated) {
+      if (event === 'SIGNED_IN' && session && currentUser && currentUser.id === session.user.id && isAuthenticated && isInitializedRef.current) {
         console.log('🔄 Duplicate sign-in event for current user - preserving app state');
         return;
       }
@@ -1462,21 +1537,27 @@ const ClearlineFlow = () => {
         setIsAuthenticated(true);
         setAuthError('');
         
-        // Set default tab based on division - only on initial sign-in, not on token refresh
-        // Check if this is an initial sign-in by seeing if currentUser was null before
-        if (!currentUser) {
-          if (division === 'Investment' || division === 'Super') {
-            setActiveTab('input');
-          } else if (division === '') {
-            // No division set - might be existing user, default to todos but show message
-            console.warn('⚠️ User has no division set. Defaulting to todos tab.');
-            setActiveTab('todos');
-          } else {
-            setActiveTab('todos'); // Ops, Admin, Marketing default to Todo List
+        // Only set defaults if this is truly a new sign-in (not a tab focus/remount)
+        // Check if we don't have persisted state AND haven't initialized yet
+        const hasPersistedTab = getStoredValue('activeTab', null);
+        const hasPersistedAnalyst = getStoredValue('selectedAnalyst', null);
+        
+        if (!currentUser && !isInitializedRef.current) {
+          console.log('🏗️ New sign-in detected - setting defaults if not persisted');
+          
+          if (!hasPersistedTab) {
+            if (division === 'Investment' || division === 'Super') {
+              setActiveTab('input');
+            } else if (division === '') {
+              console.warn('⚠️ User has no division set. Defaulting to todos tab.');
+              setActiveTab('todos');
+            } else {
+              setActiveTab('todos'); // Ops, Admin, Marketing default to Todo List
+            }
           }
           
-          // Set default analyst selections based on user's analyst_code - only on initial sign-in
-          if (analystCode && analysts.includes(analystCode)) {
+          // Set default analyst selections based on user's analyst_code - only if not persisted
+          if (analystCode && analysts.includes(analystCode) && !hasPersistedAnalyst) {
             setSelectedAnalyst(analystCode);
             setSelectedTodoAnalyst(analystCode);
             // For earnings tracking, set to 'All Analysts' if user is MM, otherwise use their analyst code
@@ -1486,6 +1567,10 @@ const ClearlineFlow = () => {
               setSelectedEarningsAnalyst(analystCode);
             }
           }
+          
+          isInitializedRef.current = true;
+        } else {
+          console.log('🔄 Tab refocus or remount detected - preserving existing state');
         }
       } else if (event === 'SIGNED_OUT') {
         console.log('🚪 User signed out');
@@ -1495,6 +1580,14 @@ const ClearlineFlow = () => {
         setIsAuthenticated(false);
         setActiveTab('input');
         setAuthError('');
+        // Reset initialization flag and clear localStorage
+        isInitializedRef.current = false;
+        // Clear persisted state on logout
+        window.localStorage.removeItem('clearlineflow_activeTab');
+        window.localStorage.removeItem('clearlineflow_selectedAnalyst');
+        window.localStorage.removeItem('clearlineflow_selectedEarningsAnalyst');
+        window.localStorage.removeItem('clearlineflow_selectedTodoAnalyst');
+        window.localStorage.removeItem('clearlineflow_previousTab');
         // Reset to default values
         setSelectedAnalyst('LT');
         setSelectedTodoAnalyst('');
@@ -1502,9 +1595,10 @@ const ClearlineFlow = () => {
       }
     });
 
-    // Cleanup subscription on unmount
+    // Cleanup subscription and event listener on unmount
     return () => {
       subscription?.unsubscribe();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 
