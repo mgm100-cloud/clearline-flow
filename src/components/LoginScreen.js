@@ -109,8 +109,8 @@ const LoginScreen = ({ onAuthSuccess, authError, isLoading }) => {
     setError('');
 
     try {
-      // Generate analyst code from initials if division is Investment
-      const analystCode = formData.division === 'Investment' ? generateInitials(formData.fullName) : '';
+      // Generate analyst code from initials if division is Investment or Super
+      const analystCode = (formData.division === 'Investment' || formData.division === 'Super') ? generateInitials(formData.fullName) : '';
 
       const { user, session } = await AuthService.signUp(
         formData.email,
@@ -373,10 +373,11 @@ const LoginScreen = ({ onAuthSuccess, authError, isLoading }) => {
                     <option value="Ops">Ops</option>
                     <option value="Admin">Admin</option>
                     <option value="Marketing">Marketing</option>
+                    <option value="Super">Super</option>
                   </select>
                   <UserCheck className="h-5 w-5 text-gray-400 absolute left-3 top-2.5" />
                 </div>
-                {formData.division === 'Investment' && formData.fullName && (
+                {(formData.division === 'Investment' || formData.division === 'Super') && formData.fullName && (
                   <p className="mt-1 text-sm text-gray-500">
                     Analyst code will be: {generateInitials(formData.fullName)}
                   </p>

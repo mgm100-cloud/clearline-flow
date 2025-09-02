@@ -88,3 +88,5 @@ GRANT EXECUTE ON FUNCTION public.calculate_quarter_end_date(DATE, VARCHAR) TO au
 
 COMMENT ON FUNCTION public.calculate_quarter_end_date IS 'Calculate quarter end date based on earnings date and company fiscal year end. Earnings dates are matched to the most recent preceding quarter end.';
 
+
+

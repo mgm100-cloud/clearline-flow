@@ -1259,7 +1259,7 @@ const ClearlineFlow = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [userRole, setUserRole] = useState(''); // 'readwrite' or 'readonly'
-  const [userDivision, setUserDivision] = useState(''); // 'Investment', 'Ops', 'Admin', 'Marketing'
+  const [userDivision, setUserDivision] = useState(''); // 'Investment', 'Ops', 'Admin', 'Marketing', 'Super'
   const [activeTab, setActiveTab] = useState('input');
   const [selectedTickerForDetail, setSelectedTickerForDetail] = useState(null);
   const [previousTab, setPreviousTab] = useState('input');
@@ -1384,7 +1384,7 @@ const ClearlineFlow = () => {
           setIsAuthenticated(true);
           
           // Set default tab based on division - only on app initialization
-          if (division === 'Investment') {
+          if (division === 'Investment' || division === 'Super') {
             setActiveTab('input');
           } else if (division === '') {
             // No division set - might be existing user, default to todos but show message
@@ -1452,7 +1452,7 @@ const ClearlineFlow = () => {
         // Set default tab based on division - only on initial sign-in, not on token refresh
         // Check if this is an initial sign-in by seeing if currentUser was null before
         if (!currentUser) {
-          if (division === 'Investment') {
+          if (division === 'Investment' || division === 'Super') {
             setActiveTab('input');
           } else if (division === '') {
             // No division set - might be existing user, default to todos but show message
@@ -1600,7 +1600,7 @@ const ClearlineFlow = () => {
     setAuthError('');
     
     // Set default tab based on division
-    if (division === 'Investment') {
+    if (division === 'Investment' || division === 'Super') {
       setActiveTab('input');
     } else if (division === '') {
       // No division set - might be existing user, default to todos but show message
@@ -2712,8 +2712,8 @@ const ClearlineFlow = () => {
       <nav className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex space-x-8">
-            {/* Show all tabs for Investment division or users without division (backward compatibility) */}
-            {(userDivision === 'Investment' || userDivision === '') && (
+            {/* Show all tabs for Investment/Super division or users without division (backward compatibility) */}
+            {(userDivision === 'Investment' || userDivision === 'Super' || userDivision === '') && (
               <>
                 {(userRole === 'readwrite' || userRole === 'admin') && (
                   <button
@@ -2835,10 +2835,10 @@ const ClearlineFlow = () => {
 
       {/* Main Content */}
       <main className={`${activeTab === 'database-detailed' ? 'py-6' : 'max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8'}`}>
-        {activeTab === 'input' && (userDivision === 'Investment' || userDivision === '') && (userRole === 'readwrite' || userRole === 'admin') && (
+        {activeTab === 'input' && (userDivision === 'Investment' || userDivision === 'Super' || userDivision === '') && (userRole === 'readwrite' || userRole === 'admin') && (
           <InputPage onAddTicker={addTicker} analysts={analysts} currentUser={currentUser} />
         )}
-        {activeTab === 'input' && (userDivision === 'Investment' || userDivision === '') && userRole === 'readonly' && (
+        {activeTab === 'input' && (userDivision === 'Investment' || userDivision === 'Super' || userDivision === '') && userRole === 'readonly' && (
           <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
             <div className="px-4 py-6 sm:px-0">
               <div className="text-center">
@@ -2848,17 +2848,17 @@ const ClearlineFlow = () => {
             </div>
           </div>
         )}
-        {activeTab === 'input' && userDivision !== 'Investment' && (
+        {activeTab === 'input' && userDivision !== 'Investment' && userDivision !== 'Super' && userDivision !== '' && (
           <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
             <div className="px-4 py-6 sm:px-0">
               <div className="text-center">
                 <div className="text-gray-500 text-lg">Access Restricted</div>
-                <div className="text-gray-400 text-sm mt-2">This feature is only available to Investment division users</div>
+                <div className="text-gray-400 text-sm mt-2">This feature is only available to Investment and Super division users</div>
               </div>
             </div>
           </div>
         )}
-        {activeTab === 'database' && (userDivision === 'Investment' || userDivision === '') && (
+        {activeTab === 'database' && (userDivision === 'Investment' || userDivision === 'Super' || userDivision === '') && (
           <DatabasePage 
             tickers={sortData(tickers, sortField)} 
             onSort={handleSort}
@@ -2881,7 +2881,7 @@ const ClearlineFlow = () => {
             onNavigateToIdeaDetail={navigateToIdeaDetail}
           />
         )}
-        {activeTab === 'database-detailed' && (userDivision === 'Investment' || userDivision === '') && (
+        {activeTab === 'database-detailed' && (userDivision === 'Investment' || userDivision === 'Super' || userDivision === '') && (
           <DatabaseDetailedPage 
             tickers={sortData(tickers, sortField)} 
             onSort={handleSort}
@@ -2902,7 +2902,7 @@ const ClearlineFlow = () => {
             onNavigateToIdeaDetail={navigateToIdeaDetail}
           />
         )}
-        {activeTab === 'pm-detail' && (userDivision === 'Investment' || userDivision === '') && (
+        {activeTab === 'pm-detail' && (userDivision === 'Investment' || userDivision === 'Super' || userDivision === '') && (
           <PMDetailPage 
             tickers={tickers}
             quotes={quotes}
@@ -2912,7 +2912,7 @@ const ClearlineFlow = () => {
             onNavigateToIdeaDetail={navigateToIdeaDetail}
           />
         )}
-        {activeTab === 'analyst-detail' && (userDivision === 'Investment' || userDivision === '') && (
+        {activeTab === 'analyst-detail' && (userDivision === 'Investment' || userDivision === 'Super' || userDivision === '') && (
           <AnalystDetailPage 
             tickers={tickers} 
             analysts={analysts}
@@ -2925,14 +2925,14 @@ const ClearlineFlow = () => {
             onNavigateToIdeaDetail={navigateToIdeaDetail}
           />
         )}
-        {activeTab === 'team' && (userDivision === 'Investment' || userDivision === '') && (
+        {activeTab === 'team' && (userDivision === 'Investment' || userDivision === 'Super' || userDivision === '') && (
           <TeamOutputPage 
             tickers={tickers} 
             analysts={analysts}
             onNavigateToIdeaDetail={navigateToIdeaDetail}
           />
         )}
-        {activeTab === 'earnings' && (userDivision === 'Investment' || userDivision === '') && (
+        {activeTab === 'earnings' && (userDivision === 'Investment' || userDivision === 'Super' || userDivision === '') && (
           <EarningsTrackingPage 
             tickers={tickers}
             selectedEarningsAnalyst={selectedEarningsAnalyst}
@@ -2969,7 +2969,7 @@ const ClearlineFlow = () => {
             onNavigateToIdeaDetail={navigateToIdeaDetail}
           />
         )}
-        {activeTab === 'idea-detail' && (userDivision === 'Investment' || userDivision === '') && (
+        {activeTab === 'idea-detail' && (userDivision === 'Investment' || userDivision === 'Super' || userDivision === '') && (
           <IdeaDetailPage 
             tickers={tickers}
             selectedTicker={selectedTickerForDetail}
