@@ -9507,7 +9507,9 @@ const UpdatePortfolioPage = ({ tickers, onUpdateTickers, currentUser, userRole }
       setPortfolioTickers(tickersFromFile);
 
       // Check which tickers from file are missing in database
-      const existingTickers = tickers.map(t => t.symbol.toUpperCase());
+      const existingTickers = tickers
+        .filter(t => t && t.symbol) // Filter out null/undefined tickers or tickers without symbol
+        .map(t => t.symbol.toUpperCase());
       const missing = tickersFromFile.filter(ticker => !existingTickers.includes(ticker));
 
       if (missing.length > 0) {
@@ -9563,7 +9565,7 @@ const UpdatePortfolioPage = ({ tickers, onUpdateTickers, currentUser, userRole }
       const freshTickers = await DatabaseService.getTickers();
       
       // Update existing Portfolio tickers to Old if they're not in the file
-      const currentPortfolioTickers = freshTickers.filter(t => t.status === 'Portfolio');
+      const currentPortfolioTickers = freshTickers.filter(t => t && t.status === 'Portfolio' && t.symbol);
       const tickersToMakeOld = currentPortfolioTickers.filter(t => 
         !portfolioTickers.includes(t.symbol.toUpperCase())
       );
@@ -9575,7 +9577,7 @@ const UpdatePortfolioPage = ({ tickers, onUpdateTickers, currentUser, userRole }
 
       // Update tickers in file to Portfolio status
       const tickersToMakePortfolio = freshTickers.filter(t => 
-        portfolioTickers.includes(t.symbol.toUpperCase()) && t.status !== 'Portfolio'
+        t && t.symbol && portfolioTickers.includes(t.symbol.toUpperCase()) && t.status !== 'Portfolio'
       );
 
       setUploadStatus(`Updating ${tickersToMakePortfolio.length} tickers to Portfolio status...`);
