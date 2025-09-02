@@ -134,36 +134,61 @@ export const AuthService = {
     return user.user_metadata.analyst_code || ''
   },
 
-  // Get user division from metadata
-  getUserDivision(user) {
-    if (!user || !user.user_metadata) {
-      console.warn('⚠️ No user or user_metadata found for division lookup');
+  // Get user division from metadata or database
+  async getUserDivision(user) {
+    if (!user) {
+      console.warn('⚠️ No user found for division lookup');
       return '';
     }
     
     console.log('🔍 Debug user metadata for division:', {
       user_metadata: user.user_metadata,
-      division: user.user_metadata.division,
-      allKeys: Object.keys(user.user_metadata)
+      division: user.user_metadata?.division,
+      allKeys: user.user_metadata ? Object.keys(user.user_metadata) : []
     });
     
     // Check user_metadata first
-    const metadataDivision = user.user_metadata.division;
+    const metadataDivision = user.user_metadata?.division;
     if (metadataDivision) {
+      console.log('✅ Found division in user metadata:', metadataDivision);
       return metadataDivision;
     }
     
-    console.warn('⚠️ No division found in user metadata. This might be an existing user who signed up before division field was added.');
+    // If not in metadata, check user_profiles table
+    try {
+      console.log('🔍 Division not in metadata, checking user_profiles table...');
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('division')
+        .eq('id', user.id)
+        .single();
+      
+      if (error) {
+        console.warn('⚠️ Error fetching user profile:', error);
+      } else if (data && data.division) {
+        console.log('✅ Found division in user_profiles:', data.division);
+        
+        // Sync division to user metadata for future use
+        console.log('🔄 Syncing division to user metadata...');
+        await this.addDivisionToUser(data.division);
+        
+        return data.division;
+      }
+    } catch (error) {
+      console.error('❌ Error checking user_profiles for division:', error);
+    }
+    
+    console.warn('⚠️ No division found in user metadata or user_profiles. This might be an existing user who signed up before division field was added.');
     
     // For existing users, default to Investment division if they have an analyst code, otherwise return empty
-    const analystCode = user.user_metadata.analyst_code;
+    const analystCode = user.user_metadata?.analyst_code;
     if (analystCode) {
       console.log('📝 Defaulting to Investment division for user with analyst code:', analystCode);
       return 'Investment';
     }
     
     // Also check if user has admin/readwrite role - likely Investment users
-    const role = user.user_metadata.role;
+    const role = user.user_metadata?.role;
     if (role === 'admin' || role === 'readwrite') {
       console.log('📝 Defaulting to Investment division for admin/readwrite user');
       return 'Investment';

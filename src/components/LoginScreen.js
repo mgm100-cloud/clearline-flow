@@ -89,7 +89,7 @@ const LoginScreen = ({ onAuthSuccess, authError, isLoading }) => {
       
       if (user && session) {
         console.log('✅ Sign in successful:', user);
-        onAuthSuccess(user, session);
+        await onAuthSuccess(user, session);
       } else {
         setError('Invalid credentials. Please try again.');
       }
@@ -127,7 +127,7 @@ const LoginScreen = ({ onAuthSuccess, authError, isLoading }) => {
         if (session) {
           // User is immediately signed in
           console.log('✅ Sign up and sign in successful:', user);
-          onAuthSuccess(user, session);
+          await onAuthSuccess(user, session);
         } else {
           // Email confirmation required
           setSuccess('Account created! Please check your email to verify your account.');

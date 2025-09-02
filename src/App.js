@@ -1363,7 +1363,7 @@ const ClearlineFlow = () => {
         if (session && user) {
           console.log('✅ User already authenticated:', user);
           const role = AuthService.getUserRole(user);
-          const division = AuthService.getUserDivision(user);
+          const division = await AuthService.getUserDivision(user);
           const analystCode = AuthService.getUserAnalystCode(user);
           console.log('👤 User role determined:', role);
           console.log('👤 User division:', division);
@@ -1428,7 +1428,7 @@ const ClearlineFlow = () => {
         const user = session.user;
         console.log('✅ User signed in:', user);
         const role = AuthService.getUserRole(user);
-        const division = AuthService.getUserDivision(user);
+        const division = await AuthService.getUserDivision(user);
         const analystCode = AuthService.getUserAnalystCode(user);
         console.log('👤 User role determined:', role);
         console.log('👤 User division:', division);
@@ -1575,10 +1575,10 @@ const ClearlineFlow = () => {
   }, [isAuthenticated]);
 
   // Handle successful authentication
-  const handleAuthSuccess = (user, session) => {
+  const handleAuthSuccess = async (user, session) => {
     console.log('🔑 Authentication successful:', user);
     const role = AuthService.getUserRole(user);
-    const division = AuthService.getUserDivision(user);
+    const division = await AuthService.getUserDivision(user);
     const analystCode = AuthService.getUserAnalystCode(user);
     console.log('👤 User role determined:', role);
     console.log('👤 User division:', division);
