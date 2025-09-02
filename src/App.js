@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Plus, Database, Users, TrendingUp, BarChart3, LogOut, ChevronUp, ChevronDown, RefreshCw, Download, CheckSquare, User, Mail, FileText } from 'lucide-react';
+import { Plus, Database, Users, TrendingUp, BarChart3, LogOut, ChevronUp, ChevronDown, RefreshCw, Download, CheckSquare, User, Mail, FileText, Upload } from 'lucide-react';
 import { DatabaseService } from './databaseService';
 import { AuthService } from './services/authService';
 import LoginScreen from './components/LoginScreen';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 
 // TwelveData API configuration - using environment variable
 const TWELVE_DATA_API_KEY = process.env.REACT_APP_TWELVE_DATA_API_KEY || 'YOUR_API_KEY_HERE';
@@ -2816,6 +2817,22 @@ const ClearlineFlow = () => {
               </>
             )}
             
+            {/* Update Portfolio tab for Super and Ops divisions */}
+            {(userDivision === 'Super' || userDivision === 'Ops') && (
+              <button
+                onClick={() => handleTabSwitch('update-portfolio')}
+                disabled={isTabSwitching}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'update-portfolio'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                } ${isTabSwitching ? 'cursor-not-allowed opacity-50' : ''}`}
+              >
+                <Upload className="inline h-4 w-4 mr-1" />
+                Update Portfolio
+              </button>
+            )}
+            
             {/* Always show Todo List tab for all divisions */}
             <button
               onClick={() => handleTabSwitch('todos')}
@@ -2951,6 +2968,14 @@ const ClearlineFlow = () => {
             formatCompactDate={formatCompactDate}
             currentUser={currentUser}
             onNavigateToIdeaDetail={navigateToIdeaDetail}
+          />
+        )}
+        {activeTab === 'update-portfolio' && (userDivision === 'Super' || userDivision === 'Ops') && (
+          <UpdatePortfolioPage 
+            tickers={tickers}
+            onUpdateTickers={setTickers}
+            currentUser={currentUser}
+            userRole={userRole}
           />
         )}
         {activeTab === 'todos' && (
@@ -9421,6 +9446,302 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdateSelec
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+};
+
+// Update Portfolio Page Component
+const UpdatePortfolioPage = ({ tickers, onUpdateTickers, currentUser, userRole }) => {
+  const [uploadFile, setUploadFile] = useState(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState('');
+  const [portfolioTickers, setPortfolioTickers] = useState([]);
+  const [missingTickers, setMissingTickers] = useState([]);
+  const [showMissingPrompt, setShowMissingPrompt] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    setUploadFile(file);
+    setUploadStatus('');
+    setPortfolioTickers([]);
+    setMissingTickers([]);
+    setShowMissingPrompt(false);
+  };
+
+  const processExcelFile = async () => {
+    if (!uploadFile) {
+      setUploadStatus('Please select a file first.');
+      return;
+    }
+
+    setIsProcessing(true);
+    setUploadStatus('Processing file...');
+
+    try {
+      const data = await uploadFile.arrayBuffer();
+      const workbook = XLSX.read(data);
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+      // Extract tickers from column B (index 1), skip header row
+      const tickersFromFile = [];
+      for (let i = 1; i < jsonData.length; i++) {
+        const row = jsonData[i];
+        if (row && row[1] && typeof row[1] === 'string') {
+          const ticker = row[1].trim().toUpperCase();
+          if (ticker && !tickersFromFile.includes(ticker)) {
+            tickersFromFile.push(ticker);
+          }
+        }
+      }
+
+      if (tickersFromFile.length === 0) {
+        setUploadStatus('No tickers found in column B of the file.');
+        setIsProcessing(false);
+        return;
+      }
+
+      setPortfolioTickers(tickersFromFile);
+
+      // Check which tickers from file are missing in database
+      const existingTickers = tickers.map(t => t.symbol.toUpperCase());
+      const missing = tickersFromFile.filter(ticker => !existingTickers.includes(ticker));
+
+      if (missing.length > 0) {
+        setMissingTickers(missing);
+        setShowMissingPrompt(true);
+        setUploadStatus(`Found ${tickersFromFile.length} tickers in file. ${missing.length} tickers are not in the database.`);
+      } else {
+        setUploadStatus(`Found ${tickersFromFile.length} tickers in file. All tickers exist in database.`);
+      }
+
+      setIsProcessing(false);
+    } catch (error) {
+      console.error('Error processing Excel file:', error);
+      setUploadStatus('Error processing file. Please make sure it\'s a valid Excel file.');
+      setIsProcessing(false);
+    }
+  };
+
+  const updatePortfolioStatus = async (addMissingTickers = false) => {
+    if (portfolioTickers.length === 0) {
+      setUploadStatus('No portfolio data to process.');
+      return;
+    }
+
+    setIsUpdating(true);
+    setUploadStatus('Updating portfolio status...');
+
+    try {
+      // Add missing tickers if requested
+      if (addMissingTickers && missingTickers.length > 0) {
+        setUploadStatus(`Adding ${missingTickers.length} missing tickers...`);
+        for (const ticker of missingTickers) {
+          const newTicker = {
+            symbol: ticker,
+            company_name: ticker, // Will need to be updated manually or via API
+            sector: '',
+            analyst: '',
+            thesis: '',
+            target_price: null,
+            entry_price: null,
+            status: 'Portfolio',
+            trade_level: '',
+            exit_criteria: '',
+            risk_factors: '',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+          await DatabaseService.addTicker(newTicker);
+        }
+      }
+
+      // Get fresh ticker list from database
+      const freshTickers = await DatabaseService.getTickers();
+      
+      // Update existing Portfolio tickers to Old if they're not in the file
+      const currentPortfolioTickers = freshTickers.filter(t => t.status === 'Portfolio');
+      const tickersToMakeOld = currentPortfolioTickers.filter(t => 
+        !portfolioTickers.includes(t.symbol.toUpperCase())
+      );
+
+      setUploadStatus(`Updating ${tickersToMakeOld.length} tickers from Portfolio to Old...`);
+      for (const ticker of tickersToMakeOld) {
+        await DatabaseService.updateTicker(ticker.id, { status: 'Old' });
+      }
+
+      // Update tickers in file to Portfolio status
+      const tickersToMakePortfolio = freshTickers.filter(t => 
+        portfolioTickers.includes(t.symbol.toUpperCase()) && t.status !== 'Portfolio'
+      );
+
+      setUploadStatus(`Updating ${tickersToMakePortfolio.length} tickers to Portfolio status...`);
+      for (const ticker of tickersToMakePortfolio) {
+        await DatabaseService.updateTicker(ticker.id, { status: 'Portfolio' });
+      }
+
+      // Refresh the ticker list in the parent component
+      const updatedTickers = await DatabaseService.getTickers();
+      onUpdateTickers(updatedTickers);
+
+      setUploadStatus(`✅ Portfolio update completed successfully! 
+        - ${tickersToMakePortfolio.length} tickers set to Portfolio
+        - ${tickersToMakeOld.length} tickers set to Old
+        ${addMissingTickers ? `- ${missingTickers.length} new tickers added` : ''}`);
+      
+      // Reset form
+      setUploadFile(null);
+      setPortfolioTickers([]);
+      setMissingTickers([]);
+      setShowMissingPrompt(false);
+      
+    } catch (error) {
+      console.error('Error updating portfolio status:', error);
+      setUploadStatus('❌ Error updating portfolio status. Please try again.');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const canUpdate = userRole === 'readwrite' || userRole === 'admin';
+
+  return (
+    <div className="bg-white shadow rounded-lg">
+      <div className="px-4 py-5 sm:p-6">
+        <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+          Update Portfolio Status
+        </h3>
+        
+        <div className="space-y-6">
+          <div>
+            <p className="text-sm text-gray-600 mb-4">
+              Upload an Excel file to update ticker portfolio status. Tickers listed in column B will be set to "Portfolio" status,
+              and existing Portfolio tickers not in the file will be set to "Old" status.
+            </p>
+            
+            {!canUpdate && (
+              <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                <p className="text-sm text-yellow-800">
+                  You have read-only access. Portfolio updates require write permissions.
+                </p>
+              </div>
+            )}
+
+            <div className="mb-4">
+              <label htmlFor="excel-file" className="block text-sm font-medium text-gray-700 mb-2">
+                Select Excel File
+              </label>
+              <input
+                id="excel-file"
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={handleFileUpload}
+                disabled={isProcessing || isUpdating || !canUpdate}
+                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-50"
+              />
+            </div>
+
+            {uploadFile && (
+              <div className="mb-4">
+                <button
+                  onClick={processExcelFile}
+                  disabled={isProcessing || isUpdating || !canUpdate}
+                  className={`px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                    isProcessing || isUpdating || !canUpdate
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      : 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500'
+                  }`}
+                >
+                  {isProcessing ? 'Processing...' : 'Process File'}
+                </button>
+              </div>
+            )}
+
+            {uploadStatus && (
+              <div className={`mb-4 p-3 rounded-md ${
+                uploadStatus.includes('✅') ? 'bg-green-50 border border-green-200' :
+                uploadStatus.includes('❌') ? 'bg-red-50 border border-red-200' :
+                'bg-blue-50 border border-blue-200'
+              }`}>
+                <p className={`text-sm ${
+                  uploadStatus.includes('✅') ? 'text-green-800' :
+                  uploadStatus.includes('❌') ? 'text-red-800' :
+                  'text-blue-800'
+                }`} style={{ whiteSpace: 'pre-line' }}>
+                  {uploadStatus}
+                </p>
+              </div>
+            )}
+
+            {portfolioTickers.length > 0 && (
+              <div className="mb-4">
+                <h4 className="text-sm font-medium text-gray-900 mb-2">
+                  Tickers found in file ({portfolioTickers.length}):
+                </h4>
+                <div className="max-h-32 overflow-y-auto bg-gray-50 p-2 rounded border text-sm">
+                  {portfolioTickers.join(', ')}
+                </div>
+              </div>
+            )}
+
+            {showMissingPrompt && missingTickers.length > 0 && (
+              <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+                <h4 className="text-sm font-medium text-yellow-900 mb-2">
+                  Missing Tickers ({missingTickers.length}):
+                </h4>
+                <div className="max-h-24 overflow-y-auto bg-white p-2 rounded border text-sm mb-3">
+                  {missingTickers.join(', ')}
+                </div>
+                <p className="text-sm text-yellow-800 mb-3">
+                  These tickers are in your file but not in the database. Would you like to add them?
+                </p>
+                <div className="flex space-x-3">
+                  <button
+                    onClick={() => updatePortfolioStatus(true)}
+                    disabled={isUpdating || !canUpdate}
+                    className={`px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                      isUpdating || !canUpdate
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        : 'bg-green-600 text-white hover:bg-green-700 focus:ring-green-500'
+                    }`}
+                  >
+                    {isUpdating ? 'Updating...' : 'Add Missing & Update Portfolio'}
+                  </button>
+                  <button
+                    onClick={() => updatePortfolioStatus(false)}
+                    disabled={isUpdating || !canUpdate}
+                    className={`px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                      isUpdating || !canUpdate
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        : 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500'
+                    }`}
+                  >
+                    {isUpdating ? 'Updating...' : 'Update Portfolio Only'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {portfolioTickers.length > 0 && !showMissingPrompt && (
+              <div className="mb-4">
+                <button
+                  onClick={() => updatePortfolioStatus(false)}
+                  disabled={isUpdating || !canUpdate}
+                  className={`px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                    isUpdating || !canUpdate
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      : 'bg-green-600 text-white hover:bg-green-700 focus:ring-green-500'
+                  }`}
+                >
+                  {isUpdating ? 'Updating...' : 'Update Portfolio Status'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
