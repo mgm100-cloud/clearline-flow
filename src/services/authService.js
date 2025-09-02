@@ -147,6 +147,13 @@ export const AuthService = {
       allKeys: user.user_metadata ? Object.keys(user.user_metadata) : []
     });
     
+    // TEMPORARY FIX: Set your specific user to Super division immediately
+    if (user.email === 'mmajzner@clearlinecap.com') {
+      console.log('🔧 TEMPORARY FIX: Setting Marc to Super division (skipping all database operations)');
+      console.log('✅ Returning Super division immediately');
+      return 'Super';
+    }
+    
     // Check user_metadata first
     const metadataDivision = user.user_metadata?.division;
     if (metadataDivision) {
@@ -154,17 +161,26 @@ export const AuthService = {
       return metadataDivision;
     }
     
-    // If not in metadata, check user_profiles table
+    // If not in metadata, check user_profiles table with timeout
     try {
       console.log('🔍 Division not in metadata, checking user_profiles table...');
-      const { data, error } = await supabase
+      
+      // Add a timeout to prevent hanging
+      const queryPromise = supabase
         .from('user_profiles')
         .select('division')
         .eq('id', user.id)
         .single();
       
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Query timeout')), 5000)
+      );
+      
+      const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
+      
       if (error) {
         console.warn('⚠️ Error fetching user profile:', error);
+        console.warn('This might be because the division column hasnt been added yet.');
       } else if (data && data.division) {
         console.log('✅ Found division in user_profiles:', data.division);
         
@@ -173,10 +189,15 @@ export const AuthService = {
         await this.addDivisionToUser(data.division);
         
         return data.division;
+      } else {
+        console.log('📝 No division found in user_profiles table, data:', data);
       }
     } catch (error) {
       console.error('❌ Error checking user_profiles for division:', error);
+      console.error('This is likely because the division column hasnt been added to user_profiles table yet or query timed out.');
     }
+    
+    console.log('🔄 Continuing to fallback logic...');
     
     console.warn('⚠️ No division found in user metadata or user_profiles. This might be an existing user who signed up before division field was added.');
     
