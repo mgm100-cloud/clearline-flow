@@ -9451,23 +9451,146 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdateSelec
   );
 };
 
+// Helper function to parse Bloomberg-style tickers
+const parseBloombergTicker = (rawTicker) => {
+  if (!rawTicker || typeof rawTicker !== 'string') {
+    return null;
+  }
+
+  // Skip currencies - anything with CURNCY
+  if (rawTicker.includes('CURNCY')) {
+    return null;
+  }
+
+  // Remove common Bloomberg suffixes
+  const cleaned = rawTicker
+    .replace(/\s+EQUITY$/, '') // Remove " EQUITY" suffix
+    .replace(/\s+INDEX$/, '')  // Remove " INDEX" suffix
+    .replace(/\s+CORP$/, '')   // Remove " CORP" suffix
+    .replace(/\s+COMDTY$/, '') // Remove " COMDTY" suffix
+    .trim();
+
+  if (!cleaned) {
+    return null;
+  }
+
+  const parts = cleaned.split(/\s+/);
+  
+  if (parts.length === 1) {
+    // Single part, just return it (e.g., "AAPL" -> "AAPL")
+    return parts[0];
+  } else if (parts.length === 2) {
+    const [symbol, suffix] = parts;
+    
+    // US market suffixes that should be removed (including UP)
+    const usMarketSuffixes = ['UN', 'UR', 'US', 'UV', 'UW', 'UQ', 'UP'];
+    
+    // Market suffix transformations
+    const suffixTransformations = {
+      'AT': 'AU',  // Austria -> Australia format
+      'SE': 'SW',  // Sweden transformation
+      'CT': 'CN',  // China transformation
+      'KQ': 'KS'   // South Korea transformation
+    };
+    
+    if (usMarketSuffixes.includes(suffix)) {
+      // Remove US market suffixes (e.g., "DOUG UN" -> "DOUG", "SPY UP" -> "SPY")
+      return symbol;
+    } else if (suffixTransformations[suffix]) {
+      // Transform suffix (e.g., "MYX AT" -> "MYX AU")
+      return `${symbol} ${suffixTransformations[suffix]}`;
+    } else {
+      // Keep other non-US market suffixes (e.g., "IWG LN" -> "IWG LN")
+      return cleaned;
+    }
+  } else if (parts.length >= 3) {
+    // Multiple parts - take first two and apply same logic
+    const [symbol, suffix] = parts;
+    const usMarketSuffixes = ['UN', 'UR', 'US', 'UV', 'UW', 'UQ', 'UP'];
+    const suffixTransformations = {
+      'AT': 'AU',
+      'SE': 'SW',
+      'CT': 'CN',
+      'KQ': 'KS'
+    };
+    
+    if (usMarketSuffixes.includes(suffix)) {
+      return symbol;
+    } else if (suffixTransformations[suffix]) {
+      return `${symbol} ${suffixTransformations[suffix]}`;
+    } else {
+      return `${symbol} ${suffix}`;
+    }
+  }
+
+  return cleaned;
+};
+
 // Update Portfolio Page Component
 const UpdatePortfolioPage = ({ tickers, onUpdateTickers, currentUser, userRole }) => {
   const [uploadFile, setUploadFile] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadStatus, setUploadStatus] = useState('');
   const [portfolioTickers, setPortfolioTickers] = useState([]);
+  const [alreadyPortfolioTickers, setAlreadyPortfolioTickers] = useState([]);
+  const [toBeSetPortfolioTickers, setToBeSetPortfolioTickers] = useState([]);
   const [missingTickers, setMissingTickers] = useState([]);
   const [showMissingPrompt, setShowMissingPrompt] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  
+  // Section enable/disable states
+  const [updateAlreadyPortfolio, setUpdateAlreadyPortfolio] = useState(false); // Default false since no change needed
+  const [updateToBeSetPortfolio, setUpdateToBeSetPortfolio] = useState(true);  // Default true
+  const [updateMissingTickers, setUpdateMissingTickers] = useState(false);     // Default false, user decides
+  const [updatePortfolioToOld, setUpdatePortfolioToOld] = useState(true);     // Default true
+  
+  // Individual ticker exclusions
+  const [excludedAlreadyPortfolio, setExcludedAlreadyPortfolio] = useState(new Set());
+  const [excludedToBeSetPortfolio, setExcludedToBeSetPortfolio] = useState(new Set());
+  const [excludedMissingTickers, setExcludedMissingTickers] = useState(new Set());
+  const [excludedPortfolioToOld, setExcludedPortfolioToOld] = useState(new Set());
+  
+  // Individual position selections for missing tickers
+  const [tickerPositions, setTickerPositions] = useState(new Map());
+
+  // Helper functions for ticker exclusion
+  const toggleTickerExclusion = (ticker, excludedSet, setExcludedSet) => {
+    const newSet = new Set(excludedSet);
+    if (newSet.has(ticker)) {
+      newSet.delete(ticker);
+    } else {
+      newSet.add(ticker);
+    }
+    setExcludedSet(newSet);
+  };
+
+  // Helper function for ticker position selection
+  const setTickerPosition = (ticker, position) => {
+    const newPositions = new Map(tickerPositions);
+    newPositions.set(ticker, position);
+    setTickerPositions(newPositions);
+  };
 
   const handleFileUpload = (event) => {
     const file = event.target.files[0];
     setUploadFile(file);
     setUploadStatus('');
     setPortfolioTickers([]);
+    setAlreadyPortfolioTickers([]);
+    setToBeSetPortfolioTickers([]);
     setMissingTickers([]);
     setShowMissingPrompt(false);
+    
+    // Reset checkboxes and exclusions
+    setUpdateAlreadyPortfolio(false);
+    setUpdateToBeSetPortfolio(true);
+    setUpdateMissingTickers(false);
+    setUpdatePortfolioToOld(true);
+    setExcludedAlreadyPortfolio(new Set());
+    setExcludedToBeSetPortfolio(new Set());
+    setExcludedMissingTickers(new Set());
+    setExcludedPortfolioToOld(new Set());
+    setTickerPositions(new Map());
   };
 
   const processExcelFile = async () => {
@@ -9487,13 +9610,18 @@ const UpdatePortfolioPage = ({ tickers, onUpdateTickers, currentUser, userRole }
       const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
       // Extract tickers from column B (index 1), skip header row
+      // Parse Bloomberg-style tickers (e.g., "DOUG UN EQUITY" -> "DOUG", "IWG LN EQUITY" -> "IWG LN")
       const tickersFromFile = [];
       for (let i = 1; i < jsonData.length; i++) {
         const row = jsonData[i];
         if (row && row[1] && typeof row[1] === 'string') {
-          const ticker = row[1].trim().toUpperCase();
-          if (ticker && !tickersFromFile.includes(ticker)) {
-            tickersFromFile.push(ticker);
+          const rawTicker = row[1].trim().toUpperCase();
+          if (rawTicker) {
+            const parsedTicker = parseBloombergTicker(rawTicker);
+            if (parsedTicker && !tickersFromFile.includes(parsedTicker)) {
+              console.log(`📊 Parsed ticker: "${rawTicker}" -> "${parsedTicker}"`);
+              tickersFromFile.push(parsedTicker);
+            }
           }
         }
       }
@@ -9507,17 +9635,67 @@ const UpdatePortfolioPage = ({ tickers, onUpdateTickers, currentUser, userRole }
       setPortfolioTickers(tickersFromFile);
 
       // Check which tickers from file are missing in database
-      const existingTickers = tickers
-        .filter(t => t && t.symbol) // Filter out null/undefined tickers or tickers without symbol
-        .map(t => t.symbol.toUpperCase());
+      console.log(`🗃️ Raw tickers array has ${tickers.length} entries`);
+      console.log(`🔍 First few raw tickers:`, tickers.slice(0, 3));
+      
+      const validTickers = tickers.filter(t => t && t.ticker);
+      console.log(`✅ Valid tickers (with ticker): ${validTickers.length}`);
+      console.log(`📝 First few valid tickers:`, validTickers.slice(0, 3).map(t => ({ ticker: t.ticker, status: t.status })));
+      
+      const existingTickers = validTickers.map(t => t.ticker.toUpperCase());
+      
+      console.log(`🔍 Database has ${existingTickers.length} tickers:`, existingTickers.slice(0, 10), '...');
+      console.log(`📋 File has ${tickersFromFile.length} parsed tickers:`, tickersFromFile.slice(0, 10), '...');
+      
       const missing = tickersFromFile.filter(ticker => !existingTickers.includes(ticker));
+      const found = tickersFromFile.filter(ticker => existingTickers.includes(ticker));
+      
+      // Split found tickers into two categories based on current status
+      const alreadyPortfolioTickers = found.filter(ticker => {
+        const dbTicker = validTickers.find(t => t.ticker.toUpperCase() === ticker);
+        return dbTicker && dbTicker.status === 'Portfolio';
+      });
+      
+      const toBeSetPortfolioTickers = found.filter(ticker => {
+        const dbTicker = validTickers.find(t => t.ticker.toUpperCase() === ticker);
+        return dbTicker && dbTicker.status !== 'Portfolio';
+      });
+      
+      // Find current Portfolio tickers that are NOT in the file (will be set to Old)
+      const currentPortfolioTickers = validTickers.filter(t => t.status === 'Portfolio');
+      const currentPortfolioSymbols = currentPortfolioTickers.map(t => t.ticker.toUpperCase());
+      const toBeSetToOld = currentPortfolioSymbols.filter(ticker => !tickersFromFile.includes(ticker));
+      
+      console.log(`✅ Found ${found.length} matching tickers:`, found.slice(0, 5));
+      console.log(`📋 Already Portfolio: ${alreadyPortfolioTickers.length}`, alreadyPortfolioTickers.slice(0, 5));
+      console.log(`🔄 To be set to Portfolio: ${toBeSetPortfolioTickers.length}`, toBeSetPortfolioTickers.slice(0, 5));
+      console.log(`❌ Missing ${missing.length} tickers:`, missing.slice(0, 5));
+      console.log(`📉 Current Portfolio tickers to be set to Old: ${toBeSetToOld.length}`, toBeSetToOld.slice(0, 5));
+
+      // Set state for all categories
+      setMissingTickers(missing);
+      setAlreadyPortfolioTickers(alreadyPortfolioTickers);
+      setToBeSetPortfolioTickers(toBeSetPortfolioTickers);
+      
+      // Set default Long position for all missing tickers
+      const newPositions = new Map();
+      missing.forEach(ticker => {
+        newPositions.set(ticker, 'Long');
+      });
+      setTickerPositions(newPositions);
+
+      // Create comprehensive status message
+      let statusMessage = `📊 Portfolio Update Summary:\n`;
+      statusMessage += `• Found ${found.length} tickers that exist in database\n`;
+      statusMessage += `  - ${alreadyPortfolioTickers.length} already marked as Portfolio (no change)\n`;
+      statusMessage += `  - ${toBeSetPortfolioTickers.length} will be changed to Portfolio status\n`;
+      statusMessage += `• Missing ${missing.length} tickers not in database\n`;
+      statusMessage += `• ${toBeSetToOld.length} current Portfolio tickers will be set to 'Old' status`;
+
+      setUploadStatus(statusMessage);
 
       if (missing.length > 0) {
-        setMissingTickers(missing);
         setShowMissingPrompt(true);
-        setUploadStatus(`Found ${tickersFromFile.length} tickers in file. ${missing.length} tickers are not in the database.`);
-      } else {
-        setUploadStatus(`Found ${tickersFromFile.length} tickers in file. All tickers exist in database.`);
       }
 
       setIsProcessing(false);
@@ -9528,77 +9706,110 @@ const UpdatePortfolioPage = ({ tickers, onUpdateTickers, currentUser, userRole }
     }
   };
 
-  const updatePortfolioStatus = async (addMissingTickers = false) => {
-    if (portfolioTickers.length === 0) {
-      setUploadStatus('No portfolio data to process.');
-      return;
-    }
-
+  const updatePortfolioStatus = async () => {
     setIsUpdating(true);
     setUploadStatus('Updating portfolio status...');
 
     try {
-      // Add missing tickers if requested
-      if (addMissingTickers && missingTickers.length > 0) {
-        setUploadStatus(`Adding ${missingTickers.length} missing tickers...`);
-        for (const ticker of missingTickers) {
-          const newTicker = {
-            symbol: ticker,
-            company_name: ticker, // Will need to be updated manually or via API
-            sector: '',
-            analyst: '',
-            thesis: '',
-            target_price: null,
-            entry_price: null,
-            status: 'Portfolio',
-            trade_level: '',
-            exit_criteria: '',
-            risk_factors: '',
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          };
-          await DatabaseService.addTicker(newTicker);
+      let addedCount = 0;
+      let portfolioCount = 0;
+      let oldCount = 0;
+      
+      // Get fresh ticker list from database
+      const freshTickers = await DatabaseService.getTickers();
+
+      // 1. Add missing tickers if enabled and not excluded
+      if (updateMissingTickers && missingTickers.length > 0) {
+        const tickersToAdd = missingTickers.filter(ticker => !excludedMissingTickers.has(ticker));
+        if (tickersToAdd.length > 0) {
+          setUploadStatus(`Adding ${tickersToAdd.length} missing tickers...`);
+          for (const ticker of tickersToAdd) {
+            const newTicker = {
+              ticker: ticker,
+              name: ticker, // Will need to be updated manually or via API
+              dateIn: new Date().toLocaleDateString('en-US', { 
+                year: '2-digit', 
+                month: '2-digit', 
+                day: '2-digit' 
+              }),
+              pokeDate: new Date().toISOString().split('T')[0],
+              status: 'Portfolio',
+              lsPosition: tickerPositions.get(ticker) || 'Long', // Individual ticker position or default to Long
+              priority: 'A', // Default value
+              thesis: '', // Required field - empty string instead of null
+              analyst: '', // Set empty string for now
+              source: '' // Set empty string for now
+            };
+            await DatabaseService.addTicker(newTicker);
+            addedCount++;
+          }
         }
       }
 
-      // Get fresh ticker list from database
-      const freshTickers = await DatabaseService.getTickers();
-      
-      // Update existing Portfolio tickers to Old if they're not in the file
-      const currentPortfolioTickers = freshTickers.filter(t => t && t.status === 'Portfolio' && t.symbol);
-      const tickersToMakeOld = currentPortfolioTickers.filter(t => 
-        !portfolioTickers.includes(t.symbol.toUpperCase())
-      );
+      // 2. Update existing Portfolio tickers to Old if enabled and not excluded
+      if (updatePortfolioToOld) {
+        const currentPortfolioTickers = freshTickers.filter(t => t && t.status === 'Portfolio' && t.ticker);
+        const tickersToMakeOld = currentPortfolioTickers.filter(t => {
+          const upperTicker = t.ticker.toUpperCase();
+          return !portfolioTickers.includes(upperTicker) && !excludedPortfolioToOld.has(upperTicker);
+        });
 
-      setUploadStatus(`Updating ${tickersToMakeOld.length} tickers from Portfolio to Old...`);
-      for (const ticker of tickersToMakeOld) {
-        await DatabaseService.updateTicker(ticker.id, { status: 'Old' });
+        if (tickersToMakeOld.length > 0) {
+          setUploadStatus(`Updating ${tickersToMakeOld.length} tickers from Portfolio to Old...`);
+          for (const ticker of tickersToMakeOld) {
+            await DatabaseService.updateTicker(ticker.id, { status: 'Old' });
+            oldCount++;
+          }
+        }
       }
 
-      // Update tickers in file to Portfolio status
-      const tickersToMakePortfolio = freshTickers.filter(t => 
-        t && t.symbol && portfolioTickers.includes(t.symbol.toUpperCase()) && t.status !== 'Portfolio'
-      );
-
-      setUploadStatus(`Updating ${tickersToMakePortfolio.length} tickers to Portfolio status...`);
-      for (const ticker of tickersToMakePortfolio) {
-        await DatabaseService.updateTicker(ticker.id, { status: 'Portfolio' });
+      // 3. Update tickers to Portfolio status if enabled and not excluded
+      if (updateToBeSetPortfolio && toBeSetPortfolioTickers.length > 0) {
+        const tickersToMakePortfolio = toBeSetPortfolioTickers.filter(ticker => !excludedToBeSetPortfolio.has(ticker));
+        
+        if (tickersToMakePortfolio.length > 0) {
+          setUploadStatus(`Updating ${tickersToMakePortfolio.length} tickers to Portfolio status...`);
+          
+          // Get fresh ticker list again in case missing tickers were added
+          const latestTickers = await DatabaseService.getTickers();
+          
+          for (const tickerSymbol of tickersToMakePortfolio) {
+            const ticker = latestTickers.find(t => t && t.ticker && t.ticker.toUpperCase() === tickerSymbol);
+            if (ticker) {
+              await DatabaseService.updateTicker(ticker.id, { status: 'Portfolio' });
+              portfolioCount++;
+            }
+          }
+        }
       }
 
       // Refresh the ticker list in the parent component
       const updatedTickers = await DatabaseService.getTickers();
       onUpdateTickers(updatedTickers);
 
-      setUploadStatus(`✅ Portfolio update completed successfully! 
-        - ${tickersToMakePortfolio.length} tickers set to Portfolio
-        - ${tickersToMakeOld.length} tickers set to Old
-        ${addMissingTickers ? `- ${missingTickers.length} new tickers added` : ''}`);
+      let statusMessage = '✅ Portfolio update completed successfully!';
+      if (portfolioCount > 0) statusMessage += `\n- ${portfolioCount} tickers set to Portfolio`;
+      if (oldCount > 0) statusMessage += `\n- ${oldCount} tickers set to Old`;
+      if (addedCount > 0) statusMessage += `\n- ${addedCount} new tickers added`;
+      
+      setUploadStatus(statusMessage);
       
       // Reset form
       setUploadFile(null);
       setPortfolioTickers([]);
+      setAlreadyPortfolioTickers([]);
+      setToBeSetPortfolioTickers([]);
       setMissingTickers([]);
       setShowMissingPrompt(false);
+      setUpdateAlreadyPortfolio(false);
+      setUpdateToBeSetPortfolio(true);
+      setUpdateMissingTickers(false);
+      setUpdatePortfolioToOld(true);
+      setExcludedAlreadyPortfolio(new Set());
+      setExcludedToBeSetPortfolio(new Set());
+      setExcludedMissingTickers(new Set());
+      setExcludedPortfolioToOld(new Set());
+      setTickerPositions(new Map());
       
     } catch (error) {
       console.error('Error updating portfolio status:', error);
@@ -9679,67 +9890,259 @@ const UpdatePortfolioPage = ({ tickers, onUpdateTickers, currentUser, userRole }
             )}
 
             {portfolioTickers.length > 0 && (
+              <div className="mb-6 space-y-4">
+                <h4 className="text-lg font-semibold text-gray-900">Portfolio Analysis Results:</h4>
+                
+                {/* 1. All tickers from file */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h5 className="text-sm font-medium text-blue-900 mb-2">
+                    📋 All Tickers from File: {portfolioTickers.length}
+                  </h5>
+                  <div className="max-h-24 overflow-y-auto bg-white p-2 rounded border text-sm">
+                    {portfolioTickers.join(', ')}
+                  </div>
+                </div>
+
+                {/* 2. Already Portfolio Tickers */}
+                {alreadyPortfolioTickers.length > 0 && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <h5 className="text-sm font-medium text-green-900">
+                        📋 Already Portfolio (No Change): {alreadyPortfolioTickers.length}
+                      </h5>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={updateAlreadyPortfolio}
+                          onChange={(e) => setUpdateAlreadyPortfolio(e.target.checked)}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-green-800">Include in update</span>
+                      </label>
+                    </div>
+                    <div className="max-h-32 overflow-y-auto bg-white p-2 rounded border text-sm">
+                      {alreadyPortfolioTickers.map((ticker, index) => (
+                        <div key={ticker} className="flex items-center justify-between py-1">
+                          <span className={excludedAlreadyPortfolio.has(ticker) ? 'line-through text-gray-400' : ''}>
+                            {ticker}
+                          </span>
+                          <button
+                            onClick={() => toggleTickerExclusion(ticker, excludedAlreadyPortfolio, setExcludedAlreadyPortfolio)}
+                            className={`text-xs px-2 py-1 rounded ${
+                              excludedAlreadyPortfolio.has(ticker) 
+                                ? 'bg-red-100 text-red-700 hover:bg-red-200' 
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                          >
+                            {excludedAlreadyPortfolio.has(ticker) ? 'Include' : 'Exclude'}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. To be Set to Portfolio */}
+                {toBeSetPortfolioTickers.length > 0 && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <h5 className="text-sm font-medium text-yellow-900">
+                        🔄 Will be Set to Portfolio: {toBeSetPortfolioTickers.length}
+                      </h5>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={updateToBeSetPortfolio}
+                          onChange={(e) => setUpdateToBeSetPortfolio(e.target.checked)}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-yellow-800">Include in update</span>
+                      </label>
+                    </div>
+                    <div className="max-h-32 overflow-y-auto bg-white p-2 rounded border text-sm">
+                      {toBeSetPortfolioTickers.map((ticker, index) => (
+                        <div key={ticker} className="flex items-center justify-between py-1">
+                          <span className={excludedToBeSetPortfolio.has(ticker) ? 'line-through text-gray-400' : ''}>
+                            {ticker}
+                          </span>
+                          <button
+                            onClick={() => toggleTickerExclusion(ticker, excludedToBeSetPortfolio, setExcludedToBeSetPortfolio)}
+                            className={`text-xs px-2 py-1 rounded ${
+                              excludedToBeSetPortfolio.has(ticker) 
+                                ? 'bg-red-100 text-red-700 hover:bg-red-200' 
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                          >
+                            {excludedToBeSetPortfolio.has(ticker) ? 'Include' : 'Exclude'}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 4. Missing Tickers (only show if there are any) */}
+            {missingTickers.length > 0 && (
               <div className="mb-4">
-                <h4 className="text-sm font-medium text-gray-900 mb-2">
-                  Tickers found in file ({portfolioTickers.length}):
-                </h4>
-                <div className="max-h-32 overflow-y-auto bg-gray-50 p-2 rounded border text-sm">
-                  {portfolioTickers.join(', ')}
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h5 className="text-sm font-medium text-red-900">
+                      ❌ Missing Tickers (Not in Database): {missingTickers.length}
+                    </h5>
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={updateMissingTickers}
+                        onChange={(e) => setUpdateMissingTickers(e.target.checked)}
+                        className="mr-2"
+                      />
+                      <span className="text-sm text-red-800">Add to database</span>
+                    </label>
+                  </div>
+                  <div className="max-h-32 overflow-y-auto bg-white p-2 rounded border text-sm">
+                    {missingTickers.map((ticker, index) => (
+                      <div key={ticker} className="flex items-center justify-between py-1">
+                        <span className={excludedMissingTickers.has(ticker) ? 'line-through text-gray-400' : ''}>
+                          {ticker}
+                        </span>
+                        <div className="flex items-center space-x-2">
+                          {/* Position Selection Buttons */}
+                          <div className="flex border rounded">
+                            <button
+                              onClick={() => setTickerPosition(ticker, 'Long')}
+                              className={`text-xs px-2 py-1 rounded-l ${
+                                tickerPositions.get(ticker) === 'Long'
+                                  ? 'bg-green-600 text-white'
+                                  : 'bg-green-100 text-green-700 hover:bg-green-200'
+                              }`}
+                            >
+                              Long
+                            </button>
+                            <button
+                              onClick={() => setTickerPosition(ticker, 'Short')}
+                              className={`text-xs px-2 py-1 rounded-r ${
+                                tickerPositions.get(ticker) === 'Short'
+                                  ? 'bg-red-600 text-white'
+                                  : 'bg-red-100 text-red-700 hover:bg-red-200'
+                              }`}
+                            >
+                              Short
+                            </button>
+                          </div>
+                          {/* Exclude/Include Button */}
+                          <button
+                            onClick={() => toggleTickerExclusion(ticker, excludedMissingTickers, setExcludedMissingTickers)}
+                            className={`text-xs px-2 py-1 rounded ${
+                              excludedMissingTickers.has(ticker) 
+                                ? 'bg-red-100 text-red-700 hover:bg-red-200' 
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                          >
+                            {excludedMissingTickers.has(ticker) ? 'Include' : 'Exclude'}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
 
-            {showMissingPrompt && missingTickers.length > 0 && (
-              <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
-                <h4 className="text-sm font-medium text-yellow-900 mb-2">
-                  Missing Tickers ({missingTickers.length}):
-                </h4>
-                <div className="max-h-24 overflow-y-auto bg-white p-2 rounded border text-sm mb-3">
-                  {missingTickers.join(', ')}
+            {/* 5. Current Portfolio tickers to be set to Old */}
+            {portfolioTickers.length > 0 && (() => {
+              const currentPortfolioTickers = tickers.filter(t => t && t.status === 'Portfolio');
+              const currentPortfolioSymbols = currentPortfolioTickers.map(t => t.ticker.toUpperCase());
+              const toBeSetToOld = currentPortfolioSymbols.filter(ticker => !portfolioTickers.includes(ticker));
+              
+              return toBeSetToOld.length > 0 && (
+                <div className="mb-4">
+                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <h5 className="text-sm font-medium text-orange-900">
+                        📉 Current Portfolio → Old: {toBeSetToOld.length}
+                      </h5>
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={updatePortfolioToOld}
+                          onChange={(e) => setUpdatePortfolioToOld(e.target.checked)}
+                          className="mr-2"
+                        />
+                        <span className="text-sm text-orange-800">Include in update</span>
+                      </label>
+                    </div>
+                    <div className="max-h-32 overflow-y-auto bg-white p-2 rounded border text-sm">
+                      {toBeSetToOld.map((ticker, index) => (
+                        <div key={ticker} className="flex items-center justify-between py-1">
+                          <span className={excludedPortfolioToOld.has(ticker) ? 'line-through text-gray-400' : ''}>
+                            {ticker}
+                          </span>
+                          <button
+                            onClick={() => toggleTickerExclusion(ticker, excludedPortfolioToOld, setExcludedPortfolioToOld)}
+                            className={`text-xs px-2 py-1 rounded ${
+                              excludedPortfolioToOld.has(ticker) 
+                                ? 'bg-red-100 text-red-700 hover:bg-red-200' 
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                          >
+                            {excludedPortfolioToOld.has(ticker) ? 'Include' : 'Exclude'}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-                <p className="text-sm text-yellow-800 mb-3">
-                  These tickers are in your file but not in the database. Would you like to add them?
-                </p>
-                <div className="flex space-x-3">
+              );
+            })()}
+
+
+
+            {/* Single Update Button */}
+            {portfolioTickers.length > 0 && (
+              <div className="mb-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-gray-700">
+                    <p className="font-medium mb-1">Update Summary:</p>
+                    <ul className="list-disc list-inside space-y-1">
+                      {updateToBeSetPortfolio && toBeSetPortfolioTickers.filter(t => !excludedToBeSetPortfolio.has(t)).length > 0 && (
+                        <li>Set {toBeSetPortfolioTickers.filter(t => !excludedToBeSetPortfolio.has(t)).length} tickers to Portfolio</li>
+                      )}
+                      {updatePortfolioToOld && (() => {
+                        const currentPortfolioTickers = tickers.filter(t => t && t.status === 'Portfolio');
+                        const currentPortfolioSymbols = currentPortfolioTickers.map(t => t.ticker.toUpperCase());
+                        const toBeSetToOld = currentPortfolioSymbols.filter(ticker => !portfolioTickers.includes(ticker) && !excludedPortfolioToOld.has(ticker));
+                        return toBeSetToOld.length > 0 && <li>Set {toBeSetToOld.length} tickers to Old</li>;
+                      })()}
+                      {updateMissingTickers && missingTickers.filter(t => !excludedMissingTickers.has(t)).length > 0 && (
+                        <li>Add {missingTickers.filter(t => !excludedMissingTickers.has(t)).length} new tickers with individual positions</li>
+                      )}
+                      {!updateToBeSetPortfolio && !updatePortfolioToOld && !updateMissingTickers && (
+                        <li className="text-gray-500">No actions selected</li>
+                      )}
+                    </ul>
+                  </div>
                   <button
-                    onClick={() => updatePortfolioStatus(true)}
-                    disabled={isUpdating || !canUpdate}
-                    className={`px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                      isUpdating || !canUpdate
+                    onClick={updatePortfolioStatus}
+                    disabled={
+                      isUpdating || 
+                      !canUpdate || 
+                      (!updateToBeSetPortfolio && !updatePortfolioToOld && !updateMissingTickers) ||
+                      (updateMissingTickers && missingTickers.filter(t => !excludedMissingTickers.has(t)).some(t => !tickerPositions.has(t)))
+                    }
+                    className={`px-6 py-3 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                      isUpdating || 
+                      !canUpdate || 
+                      (!updateToBeSetPortfolio && !updatePortfolioToOld && !updateMissingTickers) ||
+                      (updateMissingTickers && missingTickers.filter(t => !excludedMissingTickers.has(t)).some(t => !tickerPositions.has(t)))
                         ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                         : 'bg-green-600 text-white hover:bg-green-700 focus:ring-green-500'
                     }`}
                   >
-                    {isUpdating ? 'Updating...' : 'Add Missing & Update Portfolio'}
-                  </button>
-                  <button
-                    onClick={() => updatePortfolioStatus(false)}
-                    disabled={isUpdating || !canUpdate}
-                    className={`px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                      isUpdating || !canUpdate
-                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                        : 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500'
-                    }`}
-                  >
-                    {isUpdating ? 'Updating...' : 'Update Portfolio Only'}
+                    {isUpdating ? 'Updating...' : 'Update Database'}
                   </button>
                 </div>
-              </div>
-            )}
-
-            {portfolioTickers.length > 0 && !showMissingPrompt && (
-              <div className="mb-4">
-                <button
-                  onClick={() => updatePortfolioStatus(false)}
-                  disabled={isUpdating || !canUpdate}
-                  className={`px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                    isUpdating || !canUpdate
-                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      : 'bg-green-600 text-white hover:bg-green-700 focus:ring-green-500'
-                  }`}
-                >
-                  {isUpdating ? 'Updating...' : 'Update Portfolio Status'}
-                </button>
               </div>
             )}
           </div>
