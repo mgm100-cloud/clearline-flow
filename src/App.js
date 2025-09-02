@@ -1422,6 +1422,18 @@ const ClearlineFlow = () => {
 
     // Listen for auth state changes
     const { data: { subscription } } = AuthService.onAuthStateChange(async (event, session) => {
+      // Ignore token refresh events to preserve app state during tab switching
+      if (event === 'TOKEN_REFRESHED') {
+        console.log('🔄 Token refreshed - preserving app state');
+        return;
+      }
+      
+      // If user is already authenticated and this is the same user signing in again, ignore
+      if (event === 'SIGNED_IN' && session && currentUser && currentUser.id === session.user.id && isAuthenticated) {
+        console.log('🔄 Duplicate sign-in event for current user - preserving app state');
+        return;
+      }
+      
       console.log('🔄 Auth state changed:', event, session);
       
       if (event === 'SIGNED_IN' && session) {
@@ -1462,17 +1474,17 @@ const ClearlineFlow = () => {
           } else {
             setActiveTab('todos'); // Ops, Admin, Marketing default to Todo List
           }
-        }
-        
-        // Set default analyst selections based on user's analyst_code
-        if (analystCode && analysts.includes(analystCode)) {
-          setSelectedAnalyst(analystCode);
-          setSelectedTodoAnalyst(analystCode);
-          // For earnings tracking, set to 'All Analysts' if user is MM, otherwise use their analyst code
-          if (analystCode === 'MM') {
-            setSelectedEarningsAnalyst('All Analysts');
-          } else {
-            setSelectedEarningsAnalyst(analystCode);
+          
+          // Set default analyst selections based on user's analyst_code - only on initial sign-in
+          if (analystCode && analysts.includes(analystCode)) {
+            setSelectedAnalyst(analystCode);
+            setSelectedTodoAnalyst(analystCode);
+            // For earnings tracking, set to 'All Analysts' if user is MM, otherwise use their analyst code
+            if (analystCode === 'MM') {
+              setSelectedEarningsAnalyst('All Analysts');
+            } else {
+              setSelectedEarningsAnalyst(analystCode);
+            }
           }
         }
       } else if (event === 'SIGNED_OUT') {
@@ -1487,9 +1499,6 @@ const ClearlineFlow = () => {
         setSelectedAnalyst('LT');
         setSelectedTodoAnalyst('');
         setSelectedEarningsAnalyst('');
-      } else if (event === 'TOKEN_REFRESHED' && session) {
-        console.log('🔄 Token refreshed');
-        setCurrentUser(session.user);
       }
     });
 
