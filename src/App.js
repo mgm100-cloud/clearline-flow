@@ -6724,7 +6724,21 @@ const EarningsTrackingRow = ({ ticker, earningsData, onUpdateEarnings, onUpdateT
  const [pendingEmailType, setPendingEmailType] = useState(null); // 'qp' or 'callback'
  const [irData, setIrData] = useState({
    irName: ticker.irName || '',
-   irEmail: ticker.irEmail || ''
+   irEmail: ticker.irEmail || '',
+   irName2: ticker.irName2 || '',
+   irEmail2: ticker.irEmail2 || '',
+   irName3: ticker.irName3 || '',
+   irEmail3: ticker.irEmail3 || '',
+   irName4: ticker.irName4 || '',
+   irEmail4: ticker.irEmail4 || ''
+ });
+ const [contactCount, setContactCount] = useState(() => {
+   // Initialize with the number of existing contacts
+   let count = 1;
+   if (ticker.irName2 || ticker.irEmail2) count = 2;
+   if (ticker.irName3 || ticker.irEmail3) count = 3;
+   if (ticker.irName4 || ticker.irEmail4) count = 4;
+   return count;
  });
  const [editData, setEditData] = useState({
    earningsDate: earningsData.earningsDate || '',
@@ -6850,21 +6864,51 @@ const EarningsTrackingRow = ({ ticker, earningsData, onUpdateEarnings, onUpdateT
 
  // Handle saving IR data and proceeding with email
  const handleSaveIRData = async () => {
+   // Validate that at least the first contact has both name and email
    if (!irData.irName || !irData.irEmail) {
-     alert('Please fill in both IR Name and IR Email fields.');
+     alert('Please fill in both IR Name and IR Email fields for the first contact.');
      return;
    }
 
+   // Validate that if any contact field is filled, both name and email are filled for that contact
+   for (let i = 2; i <= contactCount; i++) {
+     const nameField = `irName${i}`;
+     const emailField = `irEmail${i}`;
+     const name = irData[nameField];
+     const email = irData[emailField];
+     
+     if ((name && !email) || (!name && email)) {
+       alert(`Please fill in both name and email for contact ${i}, or leave both empty.`);
+       return;
+     }
+   }
+
    try {
-     // Update ticker with IR data
-     await DatabaseService.updateTicker(ticker.id, {
+     // Prepare update data with all IR contacts
+     const updateData = {
        irName: irData.irName,
        irEmail: irData.irEmail
-     });
+     };
+
+     // Add additional contacts if they exist
+     for (let i = 2; i <= 4; i++) {
+       const nameField = `irName${i}`;
+       const emailField = `irEmail${i}`;
+       if (irData[nameField] && irData[emailField]) {
+         updateData[nameField] = irData[nameField];
+         updateData[emailField] = irData[emailField];
+       } else {
+         // Clear fields if empty
+         updateData[nameField] = null;
+         updateData[emailField] = null;
+       }
+     }
+
+     // Update ticker with IR data
+     await DatabaseService.updateTicker(ticker.id, updateData);
 
      // Update local ticker object
-     ticker.irName = irData.irName;
-     ticker.irEmail = irData.irEmail;
+     Object.assign(ticker, updateData);
 
      // Close popup
      setShowIRPopup(false);
@@ -6918,9 +6962,16 @@ Email: ${userEmail}
 This email and any files transmitted with it may contain privileged or confidential information, and any use, disclosure, copying, or distribution by anyone other than an intended recipient is strictly prohibited. If you have received this email in error, please notify the sender by reply email and then immediately delete this email. Information contained herein is provided for informational purposes only and does not constitute an offer or a solicitation to buy, hold, or sell securities or investment advisory services, and is not intended as investment, tax, or legal advice. Any opinions expressed herein are those of the author and do not necessarily reflect the opinions of Clearline Capital LP or its affiliates.`;
      }
 
-     // Open email client
-     if (subject && body) {
-       const mailtoLink = `mailto:${irData.irEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+     // Collect all valid email addresses
+     const allEmails = [];
+     if (irData.irEmail) allEmails.push(irData.irEmail);
+     if (irData.irEmail2) allEmails.push(irData.irEmail2);
+     if (irData.irEmail3) allEmails.push(irData.irEmail3);
+     if (irData.irEmail4) allEmails.push(irData.irEmail4);
+
+     // Open email client with all recipients
+     if (subject && body && allEmails.length > 0) {
+       const mailtoLink = `mailto:${allEmails.join(';')}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
        window.open(mailtoLink);
      }
 
@@ -6936,8 +6987,20 @@ This email and any files transmitted with it may contain privileged or confident
    setPendingEmailType(null);
    setIrData({
      irName: ticker.irName || '',
-     irEmail: ticker.irEmail || ''
+     irEmail: ticker.irEmail || '',
+     irName2: ticker.irName2 || '',
+     irEmail2: ticker.irEmail2 || '',
+     irName3: ticker.irName3 || '',
+     irEmail3: ticker.irEmail3 || '',
+     irName4: ticker.irName4 || '',
+     irEmail4: ticker.irEmail4 || ''
    });
+   // Reset contact count to existing data
+   let count = 1;
+   if (ticker.irName2 || ticker.irEmail2) count = 2;
+   if (ticker.irName3 || ticker.irEmail3) count = 3;
+   if (ticker.irName4 || ticker.irEmail4) count = 4;
+   setContactCount(count);
  };
 
  const daysUntilEarnings = formatDaysUntilEarnings(earningsData.earningsDate);
@@ -7104,38 +7167,89 @@ This email and any files transmitted with it may contain privileged or confident
      {/* IR Information Popup */}
      {showIRPopup && (
        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-         <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+         <div className="relative top-10 mx-auto p-5 border max-w-sm w-full max-h-[90vh] overflow-y-auto shadow-lg rounded-md bg-white" style={{ width: '300px' }}>
            <div className="mt-3">
              <h3 className="text-lg font-medium text-gray-900 mb-4">
                Add IR Contact Information for {ticker.ticker}
              </h3>
              <div className="space-y-4">
-               <div>
-                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                   IR Contact Name
-                 </label>
-                 <input
-                   type="text"
-                   value={irData.irName}
-                   onChange={(e) => setIrData({...irData, irName: e.target.value})}
-                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                   placeholder="e.g., John Smith"
-                 />
-               </div>
-               <div>
-                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                   IR Email Address
-                 </label>
-                 <input
-                   type="email"
-                   value={irData.irEmail}
-                   onChange={(e) => setIrData({...irData, irEmail: e.target.value})}
-                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                   placeholder="e.g., ir@company.com"
-                 />
-               </div>
+               {/* Render contact forms based on contactCount */}
+               {Array.from({ length: contactCount }, (_, index) => {
+                 const contactNum = index + 1;
+                 const nameField = contactNum === 1 ? 'irName' : `irName${contactNum}`;
+                 const emailField = contactNum === 1 ? 'irEmail' : `irEmail${contactNum}`;
+                 
+                 return (
+                   <div key={contactNum} className="border-b border-gray-200 pb-4 last:border-b-0">
+                     <h4 className="text-sm font-medium text-gray-800 mb-3">
+                       {contactNum === 1 ? 'Primary IR Contact' : `IR Contact ${contactNum}`}
+                       {contactNum > 1 && (
+                         <button
+                           onClick={() => {
+                             // Clear this contact's data
+                             setIrData({
+                               ...irData,
+                               [nameField]: '',
+                               [emailField]: ''
+                             });
+                             // If this is the last contact, reduce the count
+                             if (contactNum === contactCount && contactNum > 1) {
+                               setContactCount(contactCount - 1);
+                             }
+                           }}
+                           className="ml-2 text-red-500 hover:text-red-700 text-xs"
+                           title="Remove this contact"
+                         >
+                           ✕
+                         </button>
+                       )}
+                     </h4>
+                     <div className="grid grid-cols-1 gap-3">
+                       <div>
+                         <label className="block text-sm font-medium text-gray-700 mb-1">
+                           Contact Name {contactNum === 1 && <span className="text-red-500">*</span>}
+                         </label>
+                         <input
+                           type="text"
+                           value={irData[nameField] || ''}
+                           onChange={(e) => setIrData({...irData, [nameField]: e.target.value})}
+                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                           placeholder="e.g., John Smith"
+                           required={contactNum === 1}
+                         />
+                       </div>
+                       <div>
+                         <label className="block text-sm font-medium text-gray-700 mb-1">
+                           Email Address {contactNum === 1 && <span className="text-red-500">*</span>}
+                         </label>
+                         <input
+                           type="email"
+                           value={irData[emailField] || ''}
+                           onChange={(e) => setIrData({...irData, [emailField]: e.target.value})}
+                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                           placeholder="e.g., ir@company.com"
+                           required={contactNum === 1}
+                         />
+                       </div>
+                     </div>
+                   </div>
+                 );
+               })}
+               
+               {/* Add Another Contact Button */}
+               {contactCount < 4 && (
+                 <div className="flex justify-center pt-2">
+                   <button
+                     onClick={() => setContactCount(contactCount + 1)}
+                     className="px-4 py-2 bg-green-100 text-green-700 rounded-md hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                   >
+                     + Add Another Contact
+                   </button>
+                 </div>
+               )}
              </div>
-             <div className="flex justify-end space-x-3 mt-6">
+             
+             <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
                <button
                  onClick={handleCancelIRPopup}
                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"

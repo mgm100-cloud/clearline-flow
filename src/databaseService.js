@@ -58,6 +58,12 @@ const toSnakeCase = (str) => {
     'callbackDate': 'callback_date',
     'irName': 'ir_name',
     'irEmail': 'ir_email',
+    'irName2': 'ir_name2',
+    'irEmail2': 'ir_email2',
+    'irName3': 'ir_name3',
+    'irEmail3': 'ir_email3',
+    'irName4': 'ir_name4',
+    'irEmail4': 'ir_email4',
     'qpDrift': 'qp_drift'
   };
   
@@ -125,7 +131,13 @@ const toCamelCase = (str) => {
     'preview_date': 'previewDate',
     'callback_date': 'callbackDate',
     'ir_name': 'irName',
-    'ir_email': 'irEmail'
+    'ir_email': 'irEmail',
+    'ir_name2': 'irName2',
+    'ir_email2': 'irEmail2',
+    'ir_name3': 'irName3',
+    'ir_email3': 'irEmail3',
+    'ir_name4': 'irName4',
+    'ir_email4': 'irEmail4'
   };
   
   if (specialCases[str]) {
@@ -151,7 +163,7 @@ const cleanDataForDb = (obj) => {
       cleaned[key] = value === '' ? null : value;
     }
     // Convert empty strings to null for other optional fields
-    else if (['source', 'valueOrGrowth', 'value_or_growth', 'tradeRec', 'trade_rec', 'irName', 'ir_name', 'irEmail', 'ir_email'].includes(key)) {
+    else if (['source', 'valueOrGrowth', 'value_or_growth', 'tradeRec', 'trade_rec', 'irName', 'ir_name', 'irEmail', 'ir_email', 'irName2', 'ir_name2', 'irEmail2', 'ir_email2', 'irName3', 'ir_name3', 'irEmail3', 'ir_email3', 'irName4', 'ir_name4', 'irEmail4', 'ir_email4'].includes(key)) {
       cleaned[key] = value === '' ? null : value;
     }
     else {
