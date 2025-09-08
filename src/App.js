@@ -1385,6 +1385,10 @@ const ClearlineFlow = () => {
     try {
       const raw = typeof dateString === 'string' ? dateString : '';
       const ymd = raw.split('T')[0];
+      
+      // Check if the date is 01/01/2000 (our N/A indicator)
+      if (ymd === '2000-01-01') return 'N/A';
+      
       const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
       if (match) {
         const [, y, m, d] = match;
@@ -6755,7 +6759,7 @@ const EarningsTrackingRow = ({ ticker, earningsData, onUpdateEarnings, onUpdateT
      }
      return '';
    })(),
-   qpCallDate: earningsData.qpCallDate || '',
+   qpCallDate: earningsData.qpCallDate === '2000-01-01' ? 'N/A' : (earningsData.qpCallDate || ''),
    previewDate: earningsData.previewDate || '',
    callbackDate: earningsData.callbackDate || '',
    tradeRec: earningsData.tradeRec || '',
@@ -6786,6 +6790,12 @@ const EarningsTrackingRow = ({ ticker, earningsData, onUpdateEarnings, onUpdateT
      
      // Save earnings data (excluding qpStartDate as it's calculated)
      const { qpStartDate, ...earningsDataToSave } = editData;
+     
+     // Convert N/A to 2000-01-01 for database storage
+     if (earningsDataToSave.qpCallDate === 'N/A') {
+       earningsDataToSave.qpCallDate = '2000-01-01';
+     }
+     
      await onUpdateEarnings(ticker.ticker, cyq, earningsDataToSave);
      
      // Update QP_Drift in tickers table if changed
@@ -6842,7 +6852,7 @@ const EarningsTrackingRow = ({ ticker, earningsData, onUpdateEarnings, onUpdateT
        }
        return '';
      })(),
-     qpCallDate: earningsData.qpCallDate || '',
+     qpCallDate: earningsData.qpCallDate === '2000-01-01' ? 'N/A' : (earningsData.qpCallDate || ''),
      previewDate: earningsData.previewDate || '',
      callbackDate: earningsData.callbackDate || '',
      tradeRec: earningsData.tradeRec || '',
@@ -7116,13 +7126,32 @@ This email and any files transmitted with it may contain privileged or confident
          />
        </td>
        <td className="px-2 py-4 whitespace-nowrap" style={{ width: '70px' }}>
-         <input
-           type="date"
-           value={editData.qpCallDate}
-           onChange={(e) => setEditData({...editData, qpCallDate: e.target.value})}
-           className="text-xs border border-gray-300 rounded px-1 py-1 w-full max-w-16"
-           style={{ fontSize: '10px', padding: '2px 1px' }}
-         />
+         <div className="flex flex-col space-y-1">
+           <select
+             value={editData.qpCallDate === 'N/A' ? 'N/A' : 'date'}
+             onChange={(e) => {
+               if (e.target.value === 'N/A') {
+                 setEditData({...editData, qpCallDate: 'N/A'});
+               } else {
+                 setEditData({...editData, qpCallDate: editData.qpCallDate === 'N/A' ? '' : editData.qpCallDate});
+               }
+             }}
+             className="text-xs border border-gray-300 rounded px-1 py-1 w-full"
+             style={{ fontSize: '10px', padding: '1px' }}
+           >
+             <option value="date">Date</option>
+             <option value="N/A">N/A</option>
+           </select>
+           {editData.qpCallDate !== 'N/A' && (
+             <input
+               type="date"
+               value={editData.qpCallDate === 'N/A' ? '' : editData.qpCallDate}
+               onChange={(e) => setEditData({...editData, qpCallDate: e.target.value})}
+               className="text-xs border border-gray-300 rounded px-1 py-1 w-full"
+               style={{ fontSize: '10px', padding: '2px 1px' }}
+             />
+           )}
+         </div>
        </td>
        <td className="px-2 py-4 whitespace-nowrap" style={{ width: '70px' }}>
          <input
