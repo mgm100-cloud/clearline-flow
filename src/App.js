@@ -8498,10 +8498,10 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, 
           ) : (
             <>
               <span className="text-gray-900">{todo.ticker}</span>
-              {(userRole === 'readwrite' || userRole === 'admin') && onNavigateToInputWithData && (
+              {(userRole === 'readwrite' || userRole === 'admin') && onNavigateToInputWithData && todo.ticker.length <= 6 && (
                 <button
                   onClick={() => onNavigateToInputWithData(todo.ticker, todo.analyst)}
-                  className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 hover:text-blue-800 transition-colors"
+                  className="px-2 py-1 text-xs border border-blue-300 text-blue-600 rounded hover:border-blue-400 hover:text-blue-700 hover:bg-blue-50 transition-colors"
                   title="Add this ticker to Idea Database"
                 >
                   Add
