@@ -77,6 +77,7 @@ async function fetchLateQPTickers() {
     .from('earnings_tracking')
     .select(`
       id,
+      ticker_id,
       quarter_end_date,
       qp_call_date,
       cyq,
