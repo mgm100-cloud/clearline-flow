@@ -1297,6 +1297,7 @@ const ClearlineFlow = () => {
   const [tickers, setTickers] = useState([]);
   const [analysts, setAnalysts] = useState(['LT', 'GA', 'DP', 'MS', 'DO', 'MM']);
   const [selectedAnalyst, _setSelectedAnalyst] = useState(() => getStoredValue('selectedAnalyst', 'LT'));
+  const [prefilledFormData, setPrefilledFormData] = useState(null);
   
   // Persistent state setters that also save to localStorage
   const setActiveTab = useCallback((value) => {
@@ -2718,6 +2719,16 @@ const ClearlineFlow = () => {
     }
   };
 
+  // Navigate to Input Page with pre-filled ticker and analyst data
+  const navigateToInputWithData = (ticker, analyst) => {
+    setPreviousTab(activeTab);
+    setPrefilledFormData({
+      ticker: ticker || '',
+      analyst: analyst || ''
+    });
+    setActiveTab('input');
+  };
+
   // Show loading while checking auth state
   if (authLoading) {
     return (
@@ -2960,7 +2971,13 @@ const ClearlineFlow = () => {
       {/* Main Content */}
       <main className={`${activeTab === 'database-detailed' ? 'py-6' : 'max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8'}`}>
         {activeTab === 'input' && (userDivision === 'Investment' || userDivision === 'Super' || userDivision === '') && (userRole === 'readwrite' || userRole === 'admin') && (
-          <InputPage onAddTicker={addTicker} analysts={analysts} currentUser={currentUser} />
+          <InputPage 
+            onAddTicker={addTicker} 
+            analysts={analysts} 
+            currentUser={currentUser} 
+            prefilledData={prefilledFormData}
+            onPrefilledDataUsed={() => setPrefilledFormData(null)}
+          />
         )}
         {activeTab === 'input' && (userDivision === 'Investment' || userDivision === 'Super' || userDivision === '') && userRole === 'readonly' && (
           <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
@@ -3099,6 +3116,7 @@ const ClearlineFlow = () => {
             currentUser={currentUser}
             tickers={tickers}
             onNavigateToIdeaDetail={navigateToIdeaDetail}
+            onNavigateToInputWithData={navigateToInputWithData}
           />
         )}
         {activeTab === 'idea-detail' && (userDivision === 'Investment' || userDivision === 'Super' || userDivision === '') && (
@@ -3125,7 +3143,7 @@ const ClearlineFlow = () => {
 };
   
 // Input Page Component
-const InputPage = ({ onAddTicker, analysts, currentUser }) => {
+const InputPage = ({ onAddTicker, analysts, currentUser, prefilledData, onPrefilledDataUsed }) => {
   const [formData, setFormData] = useState({
     ticker: '',
     name: '',
@@ -3191,6 +3209,27 @@ const InputPage = ({ onAddTicker, analysts, currentUser }) => {
       }
     }
   }, [currentUser, analysts]);
+
+  // Handle pre-filled data from navigation (e.g., from Todo list "Add" button)
+  useEffect(() => {
+    if (prefilledData) {
+      setFormData(prev => ({
+        ...prev,
+        ticker: prefilledData.ticker || prev.ticker,
+        analyst: prefilledData.analyst || prev.analyst
+      }));
+      
+      // Trigger company lookup if ticker is provided
+      if (prefilledData.ticker) {
+        lookupCompanyName(prefilledData.ticker);
+      }
+      
+      // Clear the pre-filled data
+      if (onPrefilledDataUsed) {
+        onPrefilledDataUsed();
+      }
+    }
+  }, [prefilledData, onPrefilledDataUsed]);
 
   // Helper function to format price targets to 2 decimal places
   const formatPriceTarget = (value) => {
@@ -7431,7 +7470,7 @@ This email and any files transmitted with it may contain privileged or confident
 };
 
 // Todo List Page Component
-const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTodo, onUpdateTodo, onDeleteTodo, analysts, userRole, onRefreshTodos, currentUser, tickers, onNavigateToIdeaDetail }) => {
+const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTodo, onUpdateTodo, onDeleteTodo, analysts, userRole, onRefreshTodos, currentUser, tickers, onNavigateToIdeaDetail, onNavigateToInputWithData }) => {
   const [sortField, setSortField] = useState('dateEntered');
   const [sortDirection, setSortDirection] = useState('desc');
   const [showAddForm, setShowAddForm] = useState(false);
@@ -8208,6 +8247,7 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
                     isClosed={false}
                     tickers={tickers}
                     onNavigateToIdeaDetail={onNavigateToIdeaDetail}
+                    onNavigateToInputWithData={onNavigateToInputWithData}
                     analystEmails={analystEmails}
                     currentUser={currentUser}
                   />
@@ -8255,6 +8295,7 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
                     isClosed={true}
                     tickers={tickers}
                     onNavigateToIdeaDetail={onNavigateToIdeaDetail}
+                    onNavigateToInputWithData={onNavigateToInputWithData}
                     analystEmails={analystEmails}
                     currentUser={currentUser}
                   />
@@ -8271,7 +8312,7 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
 };
 
 // Todo Row Component with double-click editing
-const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, formatDate, userRole, hasWriteAccess, isClosed = false, tickers, onNavigateToIdeaDetail, analystEmails = [], currentUser }) => {
+const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, formatDate, userRole, hasWriteAccess, isClosed = false, tickers, onNavigateToIdeaDetail, onNavigateToInputWithData, analystEmails = [], currentUser }) => {
   const [editingField, setEditingField] = useState(null); // 'priority' or 'item'
   const [editValue, setEditValue] = useState('');
   const [isEmailSending, setIsEmailSending] = useState(false);
@@ -8445,17 +8486,30 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, 
   return (
     <tr className={isClosed ? 'bg-white' : ''}>
       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-        {tickerInDatabase ? (
-          <button
-            onClick={handleTickerClick}
-            className="text-blue-600 hover:text-blue-800 underline hover:no-underline font-medium"
-            title="Click to view in Idea Detail"
-          >
-            {todo.ticker}
-          </button>
-        ) : (
-          <span className="text-gray-900">{todo.ticker}</span>
-        )}
+        <div className="flex items-center gap-2">
+          {tickerInDatabase ? (
+            <button
+              onClick={handleTickerClick}
+              className="text-blue-600 hover:text-blue-800 underline hover:no-underline font-medium"
+              title="Click to view in Idea Detail"
+            >
+              {todo.ticker}
+            </button>
+          ) : (
+            <>
+              <span className="text-gray-900">{todo.ticker}</span>
+              {(userRole === 'readwrite' || userRole === 'admin') && onNavigateToInputWithData && (
+                <button
+                  onClick={() => onNavigateToInputWithData(todo.ticker, todo.analyst)}
+                  className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 hover:text-blue-800 transition-colors"
+                  title="Add this ticker to Idea Database"
+                >
+                  Add
+                </button>
+              )}
+            </>
+          )}
+        </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
         {todo.analyst}
