@@ -6213,7 +6213,7 @@ const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarnin
   // State for sorting and filtering
   const [sortField, setSortField] = useState('days');
   const [sortDirection, setSortDirection] = useState('asc');
-  const [daysRange, setDaysRange] = useState({ min: -10, max: 90 });
+  const [daysRange, setDaysRange] = useState({ min: -10, max: 105 });
   const [hideOldEarnings, setHideOldEarnings] = useState(false);
   const [hidePastEarnings, setHidePastEarnings] = useState(false);
 
