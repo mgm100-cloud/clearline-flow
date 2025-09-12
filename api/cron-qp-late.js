@@ -104,7 +104,7 @@ async function fetchLateQPTickers() {
     const who = row.tickers?.analyst || '';
     const quarterEndDate = row.quarter_end_date || null;
     const qpCallDate = row.qp_call_date || null;
-    const qpDrift = row.tickers?.qp_drift || -14; // Default to -14 if not set
+    const qpDrift = row.tickers?.qp_drift ?? -14; // Default to -14 if not set (use nullish coalescing)
 
     // Skip if no ticker info (should already be filtered by Portfolio status)
     if (!ticker) {
