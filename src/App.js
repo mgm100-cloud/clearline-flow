@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Plus, Database, Users, TrendingUp, BarChart3, LogOut, ChevronUp, ChevronDown, RefreshCw, Download, CheckSquare, User, Mail, FileText, Upload } from 'lucide-react';
 import { DatabaseService } from './databaseService';
 import { AuthService } from './services/authService';
@@ -1330,6 +1330,7 @@ const ClearlineFlow = () => {
   // Todo state
   const [todos, setTodos] = useState([]);
   const [selectedTodoAnalyst, _setSelectedTodoAnalyst] = useState(() => getStoredValue('selectedTodoAnalyst', ''));
+  const [activeTodoDivision, _setActiveTodoDivision] = useState(() => getStoredValue('activeTodoDivision', 'Investment'));
   
   // More persistent state setters
   const setSelectedEarningsAnalyst = useCallback((value) => {
@@ -1340,6 +1341,11 @@ const ClearlineFlow = () => {
   const setSelectedTodoAnalyst = useCallback((value) => {
     _setSelectedTodoAnalyst(value);
     setStoredValue('selectedTodoAnalyst', value);
+  }, []);
+  
+  const setActiveTodoDivision = useCallback((value) => {
+    _setActiveTodoDivision(value);
+    setStoredValue('activeTodoDivision', value);
   }, []);
   
   // Data refresh state
@@ -2368,8 +2374,21 @@ const ClearlineFlow = () => {
   // Todo functions
   const addTodo = async (todoData) => {
     try {
+      // Determine division based on creator's division and current tab for Super users
+      let todoDivision;
+      if (userDivision === 'Super') {
+        // For Super users, use the active todo division tab
+        todoDivision = activeTodoDivision;
+      } else if (userDivision === 'Ops') {
+        todoDivision = 'Ops';
+      } else {
+        // Investment, Admin, Marketing default to Investment
+        todoDivision = 'Investment';
+      }
+      
       const newTodo = {
         ...todoData,
+        division: todoDivision,
         dateEntered: new Date().toISOString(),
         isOpen: todoData.isOpen !== undefined ? todoData.isOpen : true
       };
@@ -2384,17 +2403,27 @@ const ClearlineFlow = () => {
     }
   };
 
-  const refreshTodos = async () => {
+  const refreshTodos = useCallback(async () => {
     try {
-      console.log('🔄 Refreshing todos...');
-      const todosData = await DatabaseService.getTodos();
-      console.log('✅ Successfully refreshed todos:', todosData);
+      // Determine which division todos to fetch based on user division and active tab
+      let divisionToFetch;
+      if (userDivision === 'Super') {
+        // For Super users, fetch based on active todo division tab
+        divisionToFetch = activeTodoDivision;
+      } else if (userDivision === 'Ops') {
+        divisionToFetch = 'Ops';
+      } else {
+        // Investment, Admin, Marketing see Investment todos
+        divisionToFetch = 'Investment';
+      }
+      
+      const todosData = await DatabaseService.getTodos(divisionToFetch);
       setTodos(todosData);
     } catch (error) {
       console.error('❌ Error refreshing todos:', error);
       throw error;
     }
-  };
+  }, [userDivision, activeTodoDivision]);
 
   const updateTodo = async (id, updates) => {
     try {
@@ -3117,6 +3146,9 @@ const ClearlineFlow = () => {
             tickers={tickers}
             onNavigateToIdeaDetail={navigateToIdeaDetail}
             onNavigateToInputWithData={navigateToInputWithData}
+            userDivision={userDivision}
+            activeTodoDivision={activeTodoDivision}
+            onSetActiveTodoDivision={setActiveTodoDivision}
           />
         )}
         {activeTab === 'idea-detail' && (userDivision === 'Investment' || userDivision === 'Super' || userDivision === '') && (
@@ -7470,7 +7502,7 @@ This email and any files transmitted with it may contain privileged or confident
 };
 
 // Todo List Page Component
-const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTodo, onUpdateTodo, onDeleteTodo, analysts, userRole, onRefreshTodos, currentUser, tickers, onNavigateToIdeaDetail, onNavigateToInputWithData }) => {
+const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTodo, onUpdateTodo, onDeleteTodo, analysts, userRole, onRefreshTodos, currentUser, tickers, onNavigateToIdeaDetail, onNavigateToInputWithData, userDivision, activeTodoDivision, onSetActiveTodoDivision }) => {
   const [sortField, setSortField] = useState('dateEntered');
   const [sortDirection, setSortDirection] = useState('desc');
   const [showAddForm, setShowAddForm] = useState(false);
@@ -7525,6 +7557,47 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
     loadAnalystEmails();
   }, []);
 
+  // Get filtered analysts based on user division - memoized to prevent infinite loops
+  const filteredAnalysts = useMemo(() => {
+    if (!analystEmails || analystEmails.length === 0) {
+      return analysts; // Fallback to basic analyst codes
+    }
+    
+    // Check if analyst emails have division data
+    const firstEmail = analystEmails[0];
+    if (!firstEmail.hasOwnProperty('division')) {
+      return analysts;
+    }
+    
+    let divisionsToInclude = [];
+    if (userDivision === 'Super') {
+      // Super users see analysts based on the active todo division
+      if (activeTodoDivision === 'Ops') {
+        divisionsToInclude = ['Ops', 'Super'];
+      } else {
+        divisionsToInclude = ['Investment', 'Super'];
+      }
+    } else if (userDivision === 'Ops') {
+      // Ops users see Ops and Super analysts
+      divisionsToInclude = ['Ops', 'Super'];
+    } else {
+      // Investment, Admin, Marketing see Investment and Super analysts
+      divisionsToInclude = ['Investment', 'Super'];
+    }
+    
+    const filtered = analystEmails
+      .filter(email => divisionsToInclude.includes(email.division))
+      .map(email => email.analyst_code)
+      .filter(code => code && code.trim() !== ''); // Filter out empty codes
+    
+    // If no filtered results, fall back to all analysts
+    if (filtered.length === 0) {
+      return analysts;
+    }
+    
+    return filtered;
+  }, [analystEmails, userDivision, activeTodoDivision, analysts]);
+
   // Initial refresh when component is mounted - only run once
   useEffect(() => {
     if (isFirstMount.current) {
@@ -7539,6 +7612,13 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
       initialRefresh();
     }
   }, [onRefreshTodos]);
+
+  // Refresh todos when division changes (for Super users)
+  useEffect(() => {
+    if (!isFirstMount.current && userDivision === 'Super') {
+      onRefreshTodos();
+    }
+  }, [activeTodoDivision, onRefreshTodos, userDivision]);
 
   // Auto-refresh todos every 5 minutes when component is mounted
   useEffect(() => {
@@ -7657,7 +7737,34 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Todo List</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Todo List</h1>
+          {/* Division tabs for Super users */}
+          {userDivision === 'Super' && (
+            <div className="mt-2 flex space-x-1">
+              <button
+                onClick={() => onSetActiveTodoDivision('Investment')}
+                className={`px-3 py-1 text-sm font-medium rounded-md ${
+                  activeTodoDivision === 'Investment'
+                    ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                Investment Todos
+              </button>
+              <button
+                onClick={() => onSetActiveTodoDivision('Ops')}
+                className={`px-3 py-1 text-sm font-medium rounded-md ${
+                  activeTodoDivision === 'Ops'
+                    ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                Ops Todos
+              </button>
+            </div>
+          )}
+        </div>
         
         {/* Primary Action Buttons - Prominent */}
         {(userRole === 'readwrite' || userRole === 'admin') && (
@@ -7980,7 +8087,11 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
                 
                 autoTable(doc, {
                   startY: 55,
-                  head: [['Ticker', 'Analyst', 'Date Entered', 'Days Since', 'Priority', 'Item']],
+                  head: [[
+                    activeTodoDivision === 'Ops' ? 'Title' : 'Ticker', 
+                    activeTodoDivision === 'Ops' ? 'Employee' : 'Analyst', 
+                    'Date Entered', 'Days Since', 'Priority', 'Item'
+                  ]],
                   body: openTableData,
                   styles: { fontSize: 8 },
                   headStyles: { fillColor: [59, 130, 246] }
@@ -8005,7 +8116,11 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
                 
                 autoTable(doc, {
                   startY: startY + 5,
-                  head: [['Ticker', 'Analyst', 'Date Entered', 'Date Closed', 'Priority', 'Item']],
+                  head: [[
+                    activeTodoDivision === 'Ops' ? 'Title' : 'Ticker', 
+                    activeTodoDivision === 'Ops' ? 'Employee' : 'Analyst', 
+                    'Date Entered', 'Date Closed', 'Priority', 'Item'
+                  ]],
                   body: closedTableData,
                   styles: { fontSize: 8 },
                   headStyles: { fillColor: [34, 197, 94] }
@@ -8030,8 +8145,8 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
           onChange={(e) => onSelectTodoAnalyst(e.target.value)}
           className="border border-gray-300 rounded-md px-3 py-2 text-sm"
         >
-          <option value="">All Analysts</option>
-          {analysts.map(analyst => (
+          <option value="">All</option>
+          {filteredAnalysts.map(analyst => (
             <option key={analyst} value={analyst}>{analyst}</option>
           ))}
         </select>
@@ -8054,7 +8169,9 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
             }
           }} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Ticker</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {activeTodoDivision === 'Ops' ? 'Title' : 'Ticker'}
+              </label>
               <input
                 type="text"
                 value={newTodo.ticker}
@@ -8064,15 +8181,19 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Analyst</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {activeTodoDivision === 'Ops' ? 'Employee' : 'Analyst'}
+              </label>
               <select
                 value={newTodo.analyst}
                 onChange={(e) => setNewTodo({...newTodo, analyst: e.target.value})}
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
  page                required
               >
-                <option value="">Select Analyst</option>
-                {analysts.map(analyst => (
+                <option value="">
+                  {activeTodoDivision === 'Ops' ? 'Select Employee' : 'Select Analyst'}
+                </option>
+                {filteredAnalysts.map(analyst => (
                   <option key={analyst} value={analyst}>{analyst}</option>
                 ))}
               </select>
@@ -8143,7 +8264,9 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
             }
           }} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Ticker</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {activeTodoDivision === 'Ops' ? 'Title' : 'Ticker'}
+              </label>
               <input
                 type="text"
                 value={newCompletedTodo.ticker}
@@ -8153,15 +8276,19 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Analyst</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {activeTodoDivision === 'Ops' ? 'Employee' : 'Analyst'}
+              </label>
               <select
                 value={newCompletedTodo.analyst}
                 onChange={(e) => setNewCompletedTodo({...newCompletedTodo, analyst: e.target.value})}
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                 required
               >
-                <option value="">Select Analyst</option>
-                {analysts.map(analyst => (
+                <option value="">
+                  {activeTodoDivision === 'Ops' ? 'Select Employee' : 'Select Analyst'}
+                </option>
+                {filteredAnalysts.map(analyst => (
                   <option key={analyst} value={analyst}>{analyst}</option>
                 ))}
               </select>
@@ -8222,7 +8349,9 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <SortableHeader field="ticker">Ticker</SortableHeader>
+                  <SortableHeader field="ticker">
+                    {activeTodoDivision === 'Ops' ? 'Title' : 'Ticker'}
+                  </SortableHeader>
                   <SortableHeader field="analyst">Analyst</SortableHeader>
                   <SortableHeader field="dateEntered">Date Entered</SortableHeader>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Days Since</th>
@@ -8250,6 +8379,7 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
                     onNavigateToInputWithData={onNavigateToInputWithData}
                     analystEmails={analystEmails}
                     currentUser={currentUser}
+                    activeTodoDivision={activeTodoDivision}
                   />
                 ))}
               </tbody>
@@ -8270,7 +8400,9 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <SortableHeader field="ticker">Ticker</SortableHeader>
+                  <SortableHeader field="ticker">
+                    {activeTodoDivision === 'Ops' ? 'Title' : 'Ticker'}
+                  </SortableHeader>
                   <SortableHeader field="analyst">Analyst</SortableHeader>
                   <SortableHeader field="dateEntered">Date Entered</SortableHeader>
                   <SortableHeader field="dateClosed">Date Closed</SortableHeader>
@@ -8298,6 +8430,7 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
                     onNavigateToInputWithData={onNavigateToInputWithData}
                     analystEmails={analystEmails}
                     currentUser={currentUser}
+                    activeTodoDivision={activeTodoDivision}
                   />
                 ))}
               </tbody>
@@ -8312,7 +8445,7 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
 };
 
 // Todo Row Component with double-click editing
-const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, formatDate, userRole, hasWriteAccess, isClosed = false, tickers, onNavigateToIdeaDetail, onNavigateToInputWithData, analystEmails = [], currentUser }) => {
+const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, formatDate, userRole, hasWriteAccess, isClosed = false, tickers, onNavigateToIdeaDetail, onNavigateToInputWithData, analystEmails = [], currentUser, activeTodoDivision }) => {
   const [editingField, setEditingField] = useState(null); // 'priority' or 'item'
   const [editValue, setEditValue] = useState('');
   const [isEmailSending, setIsEmailSending] = useState(false);
@@ -8498,7 +8631,7 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, 
           ) : (
             <>
               <span className="text-gray-900">{todo.ticker}</span>
-              {(userRole === 'readwrite' || userRole === 'admin') && onNavigateToInputWithData && todo.ticker.length <= 6 && (
+              {(userRole === 'readwrite' || userRole === 'admin') && onNavigateToInputWithData && todo.ticker.length <= 6 && activeTodoDivision !== 'Ops' && (
                 <button
                   onClick={() => onNavigateToInputWithData(todo.ticker, todo.analyst)}
                   className="px-2 py-1 text-xs border border-blue-300 text-blue-600 rounded hover:border-blue-400 hover:text-blue-700 hover:bg-blue-50 transition-colors"

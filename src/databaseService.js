@@ -423,12 +423,19 @@ export const DatabaseService = {
   },
 
   // Todo operations
-  async getTodos() {
+  async getTodos(division = null) {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('todos')
         .select('*')
-        .order('date_entered', { ascending: false })
+        .order('date_entered', { ascending: false });
+      
+      // Filter by division if specified
+      if (division) {
+        query = query.eq('division', division);
+      }
+      
+      const { data, error } = await query;
       
       if (error) throw error
       
@@ -617,40 +624,56 @@ export const DatabaseService = {
     }
   },
 
-  // Get all analysts for email recipients
+  // Get all analysts for email recipients with division data
   async getAnalystEmails() {
     try {
+      // Try to use the database function that includes division data
       const { data, error } = await supabase
-        .from('analysts')
-        .select('full_name, initials, email')
-        .eq('active', true)
-        .order('full_name');
+        .rpc('get_analyst_emails');
       
       if (error) throw error;
       
-      // Transform to match expected format
-      const transformedData = data.map(analyst => ({
-        name: analyst.full_name,
-        email: analyst.email,
-        analyst_code: analyst.initials
-      }));
-      
-      console.log('✅ Fetched analyst emails from analysts table:', transformedData);
-      return transformedData || [];
+      console.log('✅ Fetched analyst emails with division data:', data);
+      return data || [];
     } catch (error) {
-      console.error('Error fetching analyst emails:', error);
+      console.error('Error fetching analyst emails from function, trying direct query:', error);
       
-      // Fallback to hardcoded list based on existing analyst codes
-      const fallbackEmails = [
-        { name: 'Marc Majzner', email: 'mmajzner@clearlinecap.com', analyst_code: 'MM' },
-        { name: 'Luis Torres', email: 'ltorres@clearlinecap.com', analyst_code: 'LT' },
-        { name: 'Greg Anderson', email: 'ganderson@clearlinecap.com', analyst_code: 'GA' },
-        { name: 'David Paul', email: 'dpaul@clearlinecap.com', analyst_code: 'DP' },
-        { name: 'Michael Siegel', email: 'msiegel@clearlinecap.com', analyst_code: 'MS' },
-        { name: 'Dan O\'Brien', email: 'dobrien@clearlinecap.com', analyst_code: 'DO' }
-      ];
-      console.warn('⚠️ Using fallback analyst emails list:', fallbackEmails);
-      return fallbackEmails;
+      // Fallback to direct query from user_profiles
+      try {
+        const { data, error: profileError } = await supabase
+          .from('user_profiles')
+          .select('full_name, email, analyst_code, division')
+          .not('email', 'is', null)
+          .not('full_name', 'is', null)
+          .not('analyst_code', 'is', null)
+          .order('full_name');
+        
+        if (profileError) throw profileError;
+        
+        // Transform to match expected format
+        const transformedData = data.map(profile => ({
+          name: profile.full_name,
+          email: profile.email,
+          analyst_code: profile.analyst_code,
+          division: profile.division
+        }));
+        
+        console.log('✅ Fetched analyst emails from user_profiles:', transformedData);
+        return transformedData || [];
+      } catch (profileError) {
+        console.error('Error fetching from user_profiles:', profileError);
+        
+        // Final fallback to hardcoded list with division data
+        const fallbackEmails = [
+          { name: 'Marc Majzner', email: 'mmajzner@clearlinecap.com', analyst_code: 'MM', division: 'Super' },
+          { name: 'Luke Tzeng', email: 'ltzeng@clearlinecap.com', analyst_code: 'LT', division: 'Investment' },
+          { name: 'Grant Anderson', email: 'ganderson@clearlinecap.com', analyst_code: 'GA', division: 'Investment' },
+          { name: 'Dan Oricchio', email: 'doricchio@clearlinecap.com', analyst_code: 'DO', division: 'Investment' },
+          { name: 'Michael Shen', email: 'mshen@clearlinecap.com', analyst_code: 'MS', division: 'Investment' }
+        ];
+        console.warn('⚠️ Using fallback analyst emails list with divisions:', fallbackEmails);
+        return fallbackEmails;
+      }
     }
   }
 } 
