@@ -8446,7 +8446,7 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
 
 // Todo Row Component with double-click editing
 const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, formatDate, userRole, hasWriteAccess, isClosed = false, tickers, onNavigateToIdeaDetail, onNavigateToInputWithData, analystEmails = [], currentUser, activeTodoDivision }) => {
-  const [editingField, setEditingField] = useState(null); // 'priority' or 'item'
+  const [editingField, setEditingField] = useState(null); // 'ticker', 'priority' or 'item'
   const [editValue, setEditValue] = useState('');
   const [isEmailSending, setIsEmailSending] = useState(false);
 
@@ -8620,25 +8620,46 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, 
     <tr className={isClosed ? 'bg-white' : ''}>
       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
         <div className="flex items-center gap-2">
-          {tickerInDatabase ? (
-            <button
-              onClick={handleTickerClick}
-              className="text-blue-600 hover:text-blue-800 underline hover:no-underline font-medium"
-              title="Click to view in Idea Detail"
-            >
-              {todo.ticker}
-            </button>
+          {editingField === 'ticker' ? (
+            <input
+              type="text"
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              onBlur={handleSaveEdit}
+              onKeyPress={handleKeyPress}
+              className="w-full px-2 py-1 border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              autoFocus
+            />
           ) : (
             <>
-              <span className="text-gray-900">{todo.ticker}</span>
-              {(userRole === 'readwrite' || userRole === 'admin') && onNavigateToInputWithData && todo.ticker.length <= 6 && activeTodoDivision !== 'Ops' && (
+              {tickerInDatabase ? (
                 <button
-                  onClick={() => onNavigateToInputWithData(todo.ticker, todo.analyst)}
-                  className="px-2 py-1 text-xs border border-blue-300 text-blue-600 rounded hover:border-blue-400 hover:text-blue-700 hover:bg-blue-50 transition-colors"
-                  title="Add this ticker to Idea Database"
+                  onClick={handleTickerClick}
+                  onDoubleClick={() => handleDoubleClick('ticker', todo.ticker)}
+                  className="text-blue-600 hover:text-blue-800 underline hover:no-underline font-medium"
+                  title="Click to view in Idea Detail, Double-click to edit"
                 >
-                  Add
+                  {todo.ticker}
                 </button>
+              ) : (
+                <>
+                  <span 
+                    className="text-gray-900 cursor-pointer hover:bg-gray-100 px-1 py-0.5 rounded"
+                    onDoubleClick={() => handleDoubleClick('ticker', todo.ticker)}
+                    title="Double-click to edit"
+                  >
+                    {todo.ticker}
+                  </span>
+                  {(userRole === 'readwrite' || userRole === 'admin') && onNavigateToInputWithData && todo.ticker.length <= 6 && activeTodoDivision !== 'Ops' && (
+                    <button
+                      onClick={() => onNavigateToInputWithData(todo.ticker, todo.analyst)}
+                      className="px-2 py-1 text-xs border border-blue-300 text-blue-600 rounded hover:border-blue-400 hover:text-blue-700 hover:bg-blue-50 transition-colors"
+                      title="Add this ticker to Idea Database"
+                    >
+                      Add
+                    </button>
+                  )}
+                </>
               )}
             </>
           )}
