@@ -9444,9 +9444,14 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdateSelec
                       <option value="Old">Old</option>
                     </>
                   )}
-                  {field === 'analyst' && analysts.map(analyst => (
-                    <option key={analyst} value={analyst}>{analyst}</option>
-                  ))}
+                  {field === 'analyst' && (
+                    <>
+                      <option value="">TBD</option>
+                      {analysts.map(analyst => (
+                        <option key={analyst} value={analyst}>{analyst}</option>
+                      ))}
+                    </>
+                  )}
                   {field === 'valueOrGrowth' && (
                     <>
                       <option value="">Select...</option>
