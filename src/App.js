@@ -1137,22 +1137,89 @@ const QuoteService = {
     }
 
     // Clean symbol for AlphaVantage (primarily US market focused)
-    // Remove common Bloomberg market suffixes since AlphaVantage mainly covers US stocks
+    // Only remove US market suffixes - keep international suffixes intact
     let cleanSymbol = symbol.trim().toUpperCase();
     
-    // Remove Bloomberg market suffixes - AlphaVantage uses clean US symbols
-    const marketSuffixes = [' US', ' UN', ' UR', ' UV', ' UW', ' UQ', ' UP', ' LN', ' LI', ' GR', ' FP', ' IM', ' SM', ' AV', ' SW', ' DC', ' BB', ' TB', ' JP', ' HK', ' AU', ' CN', ' KS'];
-    for (const suffix of marketSuffixes) {
+    // Only remove US market suffixes - AlphaVantage uses clean US symbols for US stocks
+    const usMarketSuffixes = [' US', ' UN', ' UR', ' UV', ' UW', ' UQ', ' UP'];
+    for (const suffix of usMarketSuffixes) {
       if (cleanSymbol.endsWith(suffix)) {
         cleanSymbol = cleanSymbol.replace(suffix, '').trim();
         break;
       }
     }
     
-    // Check if this is likely an international ticker that won't work with AlphaVantage
-    const isInternational = symbol.includes(' ') && !symbol.includes(' US');
+    // Check if this is an international ticker that won't work with AlphaVantage
+    const isInternational = symbol.includes(' ') && !usMarketSuffixes.some(suffix => symbol.includes(suffix));
+    
+    // For international tickers, skip AlphaVantage API call and provide fallback data immediately
     if (isInternational) {
-      console.warn(`⚠️ International ticker detected: ${symbol}. AlphaVantage primarily covers US stocks, attempting with cleaned symbol: ${cleanSymbol}`);
+      console.warn(`⚠️ International ticker detected: ${symbol}. Providing fallback data as AlphaVantage doesn't support international stocks.`);
+      
+      // Determine country and exchange based on market suffix
+      let country = 'Unknown';
+      let exchange = null;
+      let currency = null;
+      
+      if (symbol.includes(' SW')) {
+        country = 'Switzerland';
+        exchange = 'SIX Swiss Exchange';
+        currency = 'CHF';
+      } else if (symbol.includes(' LN')) {
+        country = 'United Kingdom';
+        exchange = 'London Stock Exchange';
+        currency = 'GBP';
+      } else if (symbol.includes(' GR')) {
+        country = 'Germany';
+        exchange = 'Xetra';
+        currency = 'EUR';
+      } else if (symbol.includes(' FP')) {
+        country = 'France';
+        exchange = 'Euronext Paris';
+        currency = 'EUR';
+      } else if (symbol.includes(' HK')) {
+        country = 'Hong Kong';
+        exchange = 'Hong Kong Stock Exchange';
+        currency = 'HKD';
+      } else if (symbol.includes(' JP')) {
+        country = 'Japan';
+        exchange = 'Tokyo Stock Exchange';
+        currency = 'JPY';
+      } else if (symbol.includes(' AU')) {
+        country = 'Australia';
+        exchange = 'ASX';
+        currency = 'AUD';
+      } else if (symbol.includes(' IM')) {
+        country = 'Italy';
+        exchange = 'Borsa Italiana';
+        currency = 'EUR';
+      } else if (symbol.includes(' SM')) {
+        country = 'Spain';
+        exchange = 'Madrid Stock Exchange';
+        currency = 'EUR';
+      }
+      
+      return {
+        symbol: symbol, // Keep the original international symbol with suffix
+        originalSymbol: symbol,
+        cik: null,
+        fiscalYearEnd: '12/31', // Default fiscal year end
+        cyq1Date: '03/31',      // Standard quarterly dates
+        cyq2Date: '06/30',
+        cyq3Date: '09/30',
+        cyq4Date: '12/31',
+        name: null,
+        description: `International stock (${country}) - AlphaVantage not supported`,
+        exchange: exchange,
+        currency: currency,
+        country: country,
+        sector: null,
+        industry: null,
+        marketCapitalization: null,
+        source: 'International-Fallback',
+        isInternational: true,
+        note: `International ticker from ${country} - CIK not available`
+      };
     }
 
     try {
