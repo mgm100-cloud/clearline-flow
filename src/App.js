@@ -66,7 +66,7 @@ const QuoteService = {
     'HM': ':MTA',      // Italy HI-MTF (alternative Italian platform)
     'TE': ':MTA',      // Italy EuroTLX (Italian platform)
     'SM': ':MCE',      // Spain Madrid Stock Exchange
-    'SW': ':SWX',      // Switzerland SIX Swiss Exchange
+    'SW': ':SIX',      // Switzerland SIX Swiss Exchange
     'SS': ':SHH',      // China Shanghai Stock Exchange
     'SZ': ':SHZ',      // China Shenzhen Stock Exchange
     'IN': ':BSE',      // India Bombay Stock Exchange
