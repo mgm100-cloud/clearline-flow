@@ -1296,6 +1296,7 @@ const ClearlineFlow = () => {
   // Data state
   const [tickers, setTickers] = useState([]);
   const [analysts, setAnalysts] = useState(['LT', 'GA', 'DP', 'MS', 'DO', 'MM']);
+  const [analystEmails, setAnalystEmails] = useState([]);
   const [selectedAnalyst, _setSelectedAnalyst] = useState(() => getStoredValue('selectedAnalyst', 'LT'));
   const [prefilledFormData, setPrefilledFormData] = useState(null);
   
@@ -2537,6 +2538,10 @@ const ClearlineFlow = () => {
       const analystsData = await DatabaseService.getAnalysts();
       console.log('✅ Refreshed analysts from Supabase:', analystsData);
       setAnalysts(analystsData);
+
+      // Also refresh analyst emails for division filtering
+      const emailsData = await DatabaseService.getAnalystEmails();
+      setAnalystEmails(emailsData);
     } catch (error) {
       console.error('❌ Error refreshing analysts data:', error);
     }
@@ -2734,6 +2739,32 @@ const ClearlineFlow = () => {
     setSelectedTickerForDetail(ticker);
     // Already on idea-detail tab, no need to change activeTab
   };
+
+  // Helper function to get Investment/Super analysts only
+  const getInvestmentSuperAnalysts = useCallback(() => {
+    if (!analystEmails || analystEmails.length === 0) {
+      return analysts; // Fallback to basic analyst codes
+    }
+    
+    // Check if analyst emails have division data
+    const firstEmail = analystEmails[0];
+    if (!firstEmail.hasOwnProperty('division')) {
+      return analysts;
+    }
+    
+    // Filter to include only Investment and Super divisions
+    const filtered = analystEmails
+      .filter(email => ['Investment', 'Super'].includes(email.division))
+      .map(email => email.analyst_code)
+      .filter(code => code && code.trim() !== ''); // Filter out empty codes
+    
+    // If no filtered results, fall back to all analysts
+    if (filtered.length === 0) {
+      return analysts;
+    }
+    
+    return filtered;
+  }, [analystEmails, analysts]);
 
   // Navigate back based on how user got to idea detail
   const navigateBack = () => {
@@ -3085,7 +3116,7 @@ const ClearlineFlow = () => {
         {activeTab === 'analyst-detail' && (userDivision === 'Investment' || userDivision === 'Super' || userDivision === '') && (
           <AnalystDetailPage 
             tickers={tickers} 
-            analysts={analysts}
+            analysts={getInvestmentSuperAnalysts()}
             selectedAnalyst={selectedAnalyst}
             onSelectAnalyst={setSelectedAnalyst}
             quotes={quotes}
@@ -3098,7 +3129,7 @@ const ClearlineFlow = () => {
         {activeTab === 'team' && (userDivision === 'Investment' || userDivision === 'Super' || userDivision === '') && (
           <TeamOutputPage 
             tickers={tickers} 
-            analysts={analysts}
+            analysts={getInvestmentSuperAnalysts()}
             onNavigateToIdeaDetail={navigateToIdeaDetail}
           />
         )}
@@ -3112,7 +3143,7 @@ const ClearlineFlow = () => {
             onUpdateTicker={updateTicker}
             getEarningsData={getEarningsData}
             onRefreshEarningsData={refreshEarningsData}
-            analysts={analysts}
+            analysts={getInvestmentSuperAnalysts()}
             quotes={quotes}
             onUpdateQuote={updateSingleQuote}
             isLoadingQuotes={isLoadingQuotes}
@@ -5654,7 +5685,11 @@ const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst
     </th>
   );
 
-  const analystTickers = tickers.filter(ticker => ticker.analyst === selectedAnalyst);
+  // Filter tickers to only show those assigned to Investment/Super analysts
+  const filteredTickers = tickers.filter(ticker => 
+    !ticker.analyst || ticker.analyst === '' || analysts.includes(ticker.analyst)
+  );
+  const analystTickers = filteredTickers.filter(ticker => ticker.analyst === selectedAnalyst);
   
   // Group tickers by status and create a flat array with status headers
   const groupedData = [];
@@ -5947,8 +5982,13 @@ const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst
 
 // Team Output Page Component
 const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
+ // Filter tickers to only include those assigned to Investment/Super analysts
+ const filteredTickers = tickers.filter(ticker => 
+   !ticker.analyst || ticker.analyst === '' || analysts.includes(ticker.analyst)
+ );
+
  const getTickersForCell = (analyst, status, lsPosition) => {
-   return tickers.filter(ticker => 
+   return filteredTickers.filter(ticker => 
      ticker.analyst === analyst && 
      ticker.status === status && 
      ticker.lsPosition === lsPosition
@@ -5956,7 +5996,7 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
  };
 
  const getUnassignedTickersForCell = (status, lsPosition) => {
-   return tickers.filter(ticker => 
+   return filteredTickers.filter(ticker => 
      (!ticker.analyst || ticker.analyst === '') && 
      ticker.status === status && 
      ticker.lsPosition === lsPosition &&
@@ -6249,8 +6289,11 @@ const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarnin
   const [hideOldEarnings, setHideOldEarnings] = useState(false);
   const [hidePastEarnings, setHidePastEarnings] = useState(false);
 
-  // Filter tickers to only show Portfolio status
-  let portfolioTickers = tickers.filter(ticker => ticker.status === 'Portfolio');
+  // Filter tickers to only show Portfolio status and Investment/Super analysts
+  let portfolioTickers = tickers.filter(ticker => 
+    ticker.status === 'Portfolio' && 
+    (!ticker.analyst || ticker.analyst === '' || analysts.includes(ticker.analyst))
+  );
   
   // Apply analyst filter if selected and not "All Analysts"
   if (selectedEarningsAnalyst && selectedEarningsAnalyst !== 'All Analysts') {
