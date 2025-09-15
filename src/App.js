@@ -78,7 +78,7 @@ const QuoteService = {
     'SS': ':SHH',      // China Shanghai Stock Exchange
     'SZ': ':SHZ',      // China Shenzhen Stock Exchange
     'IN': ':BSE',      // India Bombay Stock Exchange
-    'KS': ':SEO',      // South Korea Seoul Stock Exchange
+    'KS': ':KRX',      // South Korea Seoul Stock Exchange
     'TB': ':BKK',      // Thailand Bangkok Stock Exchange
     'MK': ':KLS',      // Malaysia Kuala Lumpur Stock Exchange
     'SP': ':SGX',      // Singapore Stock Exchange
