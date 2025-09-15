@@ -69,7 +69,7 @@ const QuoteService = {
     'JT': ':JPX',      // Japan Tokyo Stock Exchange (alternative)
     'HK': ':HKG',      // Hong Kong Stock Exchange
     'AU': ':ASX',      // Australia ASX
-    'FP': ':EPA',      // France Euronext Paris
+    'FP': ':EURONEXT',      // France Euronext Paris
     'IM': ':MTA',      // Italy Borsa Italiana (main market)
     'HM': ':MTA',      // Italy HI-MTF (alternative Italian platform)
     'TE': ':MTA',      // Italy EuroTLX (Italian platform)
