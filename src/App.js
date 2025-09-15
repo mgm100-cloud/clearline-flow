@@ -50,6 +50,14 @@ const calculatePercentChange = (priceTarget, currentPrice) => {
 
 // Quote service for TwelveData integration
 const QuoteService = {
+  // Helper function to convert Swiss prices (divide by 100)
+  convertSwissPrice(price, originalSymbol) {
+    if (originalSymbol && originalSymbol.includes(' SW') && price) {
+      return price / 100;
+    }
+    return price;
+  },
+
   // Bloomberg to TwelveData suffix mapping (TwelveData uses different format)
   bloombergToTwelveDataMap: {
     'LN': ':LSE',      // London Stock Exchange
@@ -139,14 +147,14 @@ const QuoteService = {
         return {
           symbol: convertedSymbol,
           originalSymbol: symbol, // Keep track of original symbol
-          price: parseFloat(data['close']),
-          change: data['change'] ? parseFloat(data['change']) : null,
+          price: this.convertSwissPrice(parseFloat(data['close']), symbol),
+          change: data['change'] ? this.convertSwissPrice(parseFloat(data['change']), symbol) : null,
           changePercent: data['percent_change'] ? parseFloat(data['percent_change']) : null,
           volume: data['volume'] ? parseInt(data['volume']) : null,
-          previousClose: data['previous_close'] ? parseFloat(data['previous_close']) : null,
-          high: data['high'] ? parseFloat(data['high']) : null,
-          low: data['low'] ? parseFloat(data['low']) : null,
-          open: data['open'] ? parseFloat(data['open']) : null,
+          previousClose: data['previous_close'] ? this.convertSwissPrice(parseFloat(data['previous_close']), symbol) : null,
+          high: data['high'] ? this.convertSwissPrice(parseFloat(data['high']), symbol) : null,
+          low: data['low'] ? this.convertSwissPrice(parseFloat(data['low']), symbol) : null,
+          open: data['open'] ? this.convertSwissPrice(parseFloat(data['open']), symbol) : null,
           lastUpdated: data['datetime'],
           source: 'quote',
           isIntraday: true
@@ -196,7 +204,7 @@ const QuoteService = {
         return {
           symbol: convertedSymbol,
           originalSymbol: symbol,
-          price: parseFloat(data['price']),
+          price: this.convertSwissPrice(parseFloat(data['price']), symbol),
           change: null, // Price endpoint doesn't provide change data
           changePercent: null,
           volume: null,
@@ -243,14 +251,14 @@ const QuoteService = {
         return {
           symbol: convertedSymbol,
           originalSymbol: symbol, // Keep track of original symbol
-          price: parseFloat(data['close']),
-          change: data['change'] ? parseFloat(data['change']) : null,
+          price: this.convertSwissPrice(parseFloat(data['close']), symbol),
+          change: data['change'] ? this.convertSwissPrice(parseFloat(data['change']), symbol) : null,
           changePercent: data['percent_change'] ? parseFloat(data['percent_change']) : null,
           volume: data['volume'] ? parseInt(data['volume']) : null,
-          previousClose: data['previous_close'] ? parseFloat(data['previous_close']) : null,
-          high: data['high'] ? parseFloat(data['high']) : null,
-          low: data['low'] ? parseFloat(data['low']) : null,
-          open: data['open'] ? parseFloat(data['open']) : null,
+          previousClose: data['previous_close'] ? this.convertSwissPrice(parseFloat(data['previous_close']), symbol) : null,
+          high: data['high'] ? this.convertSwissPrice(parseFloat(data['high']), symbol) : null,
+          low: data['low'] ? this.convertSwissPrice(parseFloat(data['low']), symbol) : null,
+          open: data['open'] ? this.convertSwissPrice(parseFloat(data['open']), symbol) : null,
           lastUpdated: data['datetime'],
           isIntraday: false
         };
@@ -866,14 +874,14 @@ const QuoteService = {
           quotes[original] = {
             symbol: convSym,
             originalSymbol: original,
-            price: parseFloat(priceVal),
-            change: item.change != null ? parseFloat(item.change) : null,
+            price: this.convertSwissPrice(parseFloat(priceVal), original),
+            change: item.change != null ? this.convertSwissPrice(parseFloat(item.change), original) : null,
             changePercent: item.percent_change != null ? parseFloat(item.percent_change) : null,
             volume: item.volume != null ? parseInt(item.volume) : null,
-            previousClose: item.previous_close != null ? parseFloat(item.previous_close) : null,
-            high: item.high != null ? parseFloat(item.high) : null,
-            low: item.low != null ? parseFloat(item.low) : null,
-            open: item.open != null ? parseFloat(item.open) : null,
+            previousClose: item.previous_close != null ? this.convertSwissPrice(parseFloat(item.previous_close), original) : null,
+            high: item.high != null ? this.convertSwissPrice(parseFloat(item.high), original) : null,
+            low: item.low != null ? this.convertSwissPrice(parseFloat(item.low), original) : null,
+            open: item.open != null ? this.convertSwissPrice(parseFloat(item.open), original) : null,
             lastUpdated: item.datetime || new Date().toISOString(),
             source: 'batch-quote',
             isIntraday: true
