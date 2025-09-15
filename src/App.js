@@ -1178,6 +1178,42 @@ const QuoteService = {
         // For international tickers, provide fallback data instead of failing
         if (isInternational) {
           console.warn(`No AlphaVantage data for international ticker ${symbol}, providing fallback data`);
+          
+          // Determine country and exchange based on market suffix
+          let country = 'Unknown';
+          let exchange = null;
+          let currency = null;
+          
+          if (symbol.includes(' SW')) {
+            country = 'Switzerland';
+            exchange = 'SIX Swiss Exchange';
+            currency = 'CHF';
+          } else if (symbol.includes(' LN')) {
+            country = 'United Kingdom';
+            exchange = 'London Stock Exchange';
+            currency = 'GBP';
+          } else if (symbol.includes(' GR')) {
+            country = 'Germany';
+            exchange = 'Xetra';
+            currency = 'EUR';
+          } else if (symbol.includes(' FP')) {
+            country = 'France';
+            exchange = 'Euronext Paris';
+            currency = 'EUR';
+          } else if (symbol.includes(' HK')) {
+            country = 'Hong Kong';
+            exchange = 'Hong Kong Stock Exchange';
+            currency = 'HKD';
+          } else if (symbol.includes(' JP')) {
+            country = 'Japan';
+            exchange = 'Tokyo Stock Exchange';
+            currency = 'JPY';
+          } else if (symbol.includes(' AU')) {
+            country = 'Australia';
+            exchange = 'ASX';
+            currency = 'AUD';
+          }
+          
           return {
             symbol: cleanSymbol,
             originalSymbol: symbol,
@@ -1188,16 +1224,16 @@ const QuoteService = {
             cyq3Date: '09/30',
             cyq4Date: '12/31',
             name: null,
-            description: 'International stock - AlphaVantage data not available',
-            exchange: null,
-            currency: null,
-            country: 'Unknown',
+            description: `International stock (${country}) - AlphaVantage data not available`,
+            exchange: exchange,
+            currency: currency,
+            country: country,
             sector: null,
             industry: null,
             marketCapitalization: null,
             source: 'AlphaVantage-Fallback',
             isInternational: true,
-            note: 'Fallback data provided for international ticker - CIK not available'
+            note: `Fallback data provided for ${country} ticker - CIK not available`
           };
         }
         throw new Error(`No company overview data available for ${cleanSymbol}`);
@@ -1294,6 +1330,42 @@ const QuoteService = {
       // For international tickers, provide fallback data instead of throwing
       if (isInternational) {
         console.warn(`AlphaVantage failed for international ticker ${symbol}, providing fallback data`);
+        
+        // Determine country and exchange based on market suffix
+        let country = 'Unknown';
+        let exchange = null;
+        let currency = null;
+        
+        if (symbol.includes(' SW')) {
+          country = 'Switzerland';
+          exchange = 'SIX Swiss Exchange';
+          currency = 'CHF';
+        } else if (symbol.includes(' LN')) {
+          country = 'United Kingdom';
+          exchange = 'London Stock Exchange';
+          currency = 'GBP';
+        } else if (symbol.includes(' GR')) {
+          country = 'Germany';
+          exchange = 'Xetra';
+          currency = 'EUR';
+        } else if (symbol.includes(' FP')) {
+          country = 'France';
+          exchange = 'Euronext Paris';
+          currency = 'EUR';
+        } else if (symbol.includes(' HK')) {
+          country = 'Hong Kong';
+          exchange = 'Hong Kong Stock Exchange';
+          currency = 'HKD';
+        } else if (symbol.includes(' JP')) {
+          country = 'Japan';
+          exchange = 'Tokyo Stock Exchange';
+          currency = 'JPY';
+        } else if (symbol.includes(' AU')) {
+          country = 'Australia';
+          exchange = 'ASX';
+          currency = 'AUD';
+        }
+        
         return {
           symbol: cleanSymbol,
           originalSymbol: symbol,
@@ -1304,16 +1376,16 @@ const QuoteService = {
           cyq3Date: '09/30',
           cyq4Date: '12/31',
           name: null,
-          description: 'International stock - AlphaVantage API failed',
-          exchange: null,
-          currency: null,
-          country: 'Unknown',
+          description: `International stock (${country}) - AlphaVantage API failed`,
+          exchange: exchange,
+          currency: currency,
+          country: country,
           sector: null,
           industry: null,
           marketCapitalization: null,
           source: 'AlphaVantage-Error-Fallback',
           isInternational: true,
-          note: `Fallback data provided due to API error: ${error.message}`
+          note: `Fallback data provided for ${country} ticker due to API error: ${error.message}`
         };
       }
       
