@@ -1136,8 +1136,24 @@ const QuoteService = {
       throw new Error('AlphaVantage API key not configured');
     }
 
-    // Clean symbol - remove Bloomberg suffixes for AlphaVantage (uses standard US symbols)
-    const cleanSymbol = symbol.replace(/ US$/, '').trim().toUpperCase();
+    // Clean symbol for AlphaVantage (primarily US market focused)
+    // Remove common Bloomberg market suffixes since AlphaVantage mainly covers US stocks
+    let cleanSymbol = symbol.trim().toUpperCase();
+    
+    // Remove Bloomberg market suffixes - AlphaVantage uses clean US symbols
+    const marketSuffixes = [' US', ' UN', ' UR', ' UV', ' UW', ' UQ', ' UP', ' LN', ' LI', ' GR', ' FP', ' IM', ' SM', ' AV', ' SW', ' DC', ' BB', ' TB', ' JP', ' HK', ' AU', ' CN', ' KS'];
+    for (const suffix of marketSuffixes) {
+      if (cleanSymbol.endsWith(suffix)) {
+        cleanSymbol = cleanSymbol.replace(suffix, '').trim();
+        break;
+      }
+    }
+    
+    // Check if this is likely an international ticker that won't work with AlphaVantage
+    const isInternational = symbol.includes(' ') && !symbol.includes(' US');
+    if (isInternational) {
+      console.warn(`⚠️ International ticker detected: ${symbol}. AlphaVantage primarily covers US stocks, attempting with cleaned symbol: ${cleanSymbol}`);
+    }
 
     try {
       const url = `${ALPHA_VANTAGE_BASE_URL}?function=OVERVIEW&symbol=${cleanSymbol}&apikey=${ALPHA_VANTAGE_API_KEY}`;
@@ -1159,6 +1175,31 @@ const QuoteService = {
 
       // Check if we have a valid response with Symbol field
       if (!data.Symbol) {
+        // For international tickers, provide fallback data instead of failing
+        if (isInternational) {
+          console.warn(`No AlphaVantage data for international ticker ${symbol}, providing fallback data`);
+          return {
+            symbol: cleanSymbol,
+            originalSymbol: symbol,
+            cik: null,
+            fiscalYearEnd: '12/31', // Default fiscal year end
+            cyq1Date: '03/31',      // Standard quarterly dates
+            cyq2Date: '06/30',
+            cyq3Date: '09/30',
+            cyq4Date: '12/31',
+            name: null,
+            description: 'International stock - AlphaVantage data not available',
+            exchange: null,
+            currency: null,
+            country: 'Unknown',
+            sector: null,
+            industry: null,
+            marketCapitalization: null,
+            source: 'AlphaVantage-Fallback',
+            isInternational: true,
+            note: 'Fallback data provided for international ticker - CIK not available'
+          };
+        }
         throw new Error(`No company overview data available for ${cleanSymbol}`);
       }
 
@@ -1249,6 +1290,33 @@ const QuoteService = {
       
     } catch (error) {
       console.error(`Error fetching AlphaVantage overview for ${cleanSymbol}:`, error);
+      
+      // For international tickers, provide fallback data instead of throwing
+      if (isInternational) {
+        console.warn(`AlphaVantage failed for international ticker ${symbol}, providing fallback data`);
+        return {
+          symbol: cleanSymbol,
+          originalSymbol: symbol,
+          cik: null,
+          fiscalYearEnd: '12/31', // Default fiscal year end
+          cyq1Date: '03/31',      // Standard quarterly dates
+          cyq2Date: '06/30',
+          cyq3Date: '09/30',
+          cyq4Date: '12/31',
+          name: null,
+          description: 'International stock - AlphaVantage API failed',
+          exchange: null,
+          currency: null,
+          country: 'Unknown',
+          sector: null,
+          industry: null,
+          marketCapitalization: null,
+          source: 'AlphaVantage-Error-Fallback',
+          isInternational: true,
+          note: `Fallback data provided due to API error: ${error.message}`
+        };
+      }
+      
       throw error;
     }
   }
@@ -2084,7 +2152,7 @@ const ClearlineFlow = () => {
         console.log(`🏛️ Fetching extra info for ${capitalizedTickerData.ticker} from AlphaVantage...`);
         const alphaVantageData = await QuoteService.getCompanyOverviewFromAlphaVantage(capitalizedTickerData.ticker);
         
-        if (alphaVantageData && (alphaVantageData.cik || alphaVantageData.fiscalYearEnd)) {
+        if (alphaVantageData) {
           const extraInfo = {
             tickerId: savedTicker.id,
             ticker: capitalizedTickerData.ticker,
@@ -2097,9 +2165,14 @@ const ClearlineFlow = () => {
           };
           
           await DatabaseService.addTickerExtraInfo(extraInfo);
-          console.log(`✅ Saved extra info for ${capitalizedTickerData.ticker}: CIK=${alphaVantageData.cik}, FiscalYearEnd=${alphaVantageData.fiscalYearEnd}, CYQ1=${alphaVantageData.cyq1Date}, CYQ2=${alphaVantageData.cyq2Date}, CYQ3=${alphaVantageData.cyq3Date}, CYQ4=${alphaVantageData.cyq4Date}`);
+          
+          if (alphaVantageData.source === 'AlphaVantage') {
+            console.log(`✅ Saved AlphaVantage extra info for ${capitalizedTickerData.ticker}: CIK=${alphaVantageData.cik}, FiscalYearEnd=${alphaVantageData.fiscalYearEnd}`);
+          } else {
+            console.log(`✅ Saved fallback extra info for international ticker ${capitalizedTickerData.ticker}: ${alphaVantageData.note || 'No CIK available'}`);
+          }
         } else {
-          console.warn(`⚠️ No CIK or fiscal year-end data found for ${capitalizedTickerData.ticker}`);
+          console.warn(`⚠️ No extra info data returned for ${capitalizedTickerData.ticker}`);
         }
       } catch (error) {
         console.error(`❌ Failed to fetch/save extra info for ${capitalizedTickerData.ticker}:`, error.message);
@@ -2600,7 +2673,7 @@ const ClearlineFlow = () => {
           // Fetch company overview from AlphaVantage
           const alphaVantageData = await QuoteService.getCompanyOverviewFromAlphaVantage(ticker.ticker);
           
-          if (alphaVantageData && (alphaVantageData.cik || alphaVantageData.fiscalYearEnd)) {
+          if (alphaVantageData) {
             const extraInfo = {
               tickerId: ticker.id,
               ticker: ticker.ticker,
@@ -2614,11 +2687,16 @@ const ClearlineFlow = () => {
             
             await DatabaseService.addTickerExtraInfo(extraInfo);
             successful++;
-            console.log(`✅ ${ticker.ticker}: CIK=${alphaVantageData.cik}, FiscalYearEnd=${alphaVantageData.fiscalYearEnd}, CYQ1=${alphaVantageData.cyq1Date}, CYQ2=${alphaVantageData.cyq2Date}, CYQ3=${alphaVantageData.cyq3Date}, CYQ4=${alphaVantageData.cyq4Date}`);
+            
+            if (alphaVantageData.source === 'AlphaVantage') {
+              console.log(`✅ ${ticker.ticker}: CIK=${alphaVantageData.cik}, FiscalYearEnd=${alphaVantageData.fiscalYearEnd}`);
+            } else {
+              console.log(`✅ ${ticker.ticker}: Fallback data (${alphaVantageData.source}) - ${alphaVantageData.note || 'International ticker'}`);
+            }
           } else {
-            console.warn(`⚠️ ${ticker.ticker}: No CIK or fiscal year-end data found`);
+            console.warn(`⚠️ ${ticker.ticker}: No data returned from AlphaVantage`);
             failed++;
-            errors[ticker.ticker] = 'No CIK or fiscal year-end data available';
+            errors[ticker.ticker] = 'No data returned from AlphaVantage';
           }
         } catch (error) {
           console.error(`❌ ${ticker.ticker}: ${error.message}`);
