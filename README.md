@@ -5,6 +5,8 @@ A hedge fund workflow management application built with React, featuring real-ti
 ## Features
 
 - **Investment Idea Management**: Add, track, and manage investment ideas with detailed analysis
+- **Idea Screening**: Filter investment ideas by characteristics (Catalysts, Characteristics, Themes) with AND logic
+- **PDF Export**: Export filtered screening results with summary of selected criteria
 - **Real-time Stock Quotes**: Integration with TwelveData API for live market data
 - **Company Information**: AlphaVantage API integration for CIK and fiscal year-end data
 - **Earnings Tracking**: Monitor upcoming earnings dates and related activities
@@ -30,6 +32,35 @@ REACT_APP_SUPABASE_ANON_KEY=your_supabase_anon_key
 # Password for Read/Write Access (change this to a secure password)
 REACT_APP_READWRITE_PASSWORD=YourSecurePassword123!
 ```
+
+## Database Schema
+
+### Important Field Mappings
+
+The application uses the following database field conventions:
+
+- **Long/Short Position**: Database field is `ls_position` (underscore format)
+  - Values: 'Long' or 'Short'
+  - Displayed as 'L' or 'S' in the UI for space efficiency
+
+### Investment Characteristics
+
+The Idea Screening feature uses boolean fields for investment characteristics:
+
+**Catalysts:**
+- `ma_target_buyer`, `ma_target_valuation`, `ma_target_seller`
+- `big_move_revert`, `activist`, `activist_potential`
+- `insider_trade_signal`, `new_mgmt`, `spin`, `big_acq`
+- `self_help`, `product_cycle`, `regulation`
+
+**Characteristics:**
+- `fraud_risk`, `regulatory_risk`, `cyclical`, `non_cyclical`
+- `high_beta`, `momo`, `rate_exposure`, `strong_dollar`
+- `extreme_valuation`, `crapco`
+
+**Themes:**
+- `ai_winner`, `ai_loser`, `tariff_winner`, `tariff_loser`
+- `trump_winner`, `trump_loser`
 
 ## Authentication
 
