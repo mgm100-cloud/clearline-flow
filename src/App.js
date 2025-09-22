@@ -1771,7 +1771,8 @@ const ClearlineFlow = () => {
         console.log('✅ User data resolved:', refreshedUser);
         
         const role = AuthService.getUserRole(refreshedUser);
-        const division = await AuthService.getUserDivision(refreshedUser);
+        // During auth event, skip DB for division to avoid timeouts; metadata will update on next pass
+        const division = await AuthService.getUserDivision(refreshedUser, true);
         const analystCode = AuthService.getUserAnalystCode(refreshedUser);
         console.log('👤 User role determined:', role);
         console.log('👤 User division:', division);
@@ -1950,7 +1951,8 @@ const ClearlineFlow = () => {
     console.log('✅ User data resolved:', refreshedUser);
     
     const role = AuthService.getUserRole(refreshedUser);
-    const division = await AuthService.getUserDivision(refreshedUser);
+    // On direct login handler, also skip DB for division; the INITIAL_SESSION pass will refresh it
+    const division = await AuthService.getUserDivision(refreshedUser, true);
     const analystCode = AuthService.getUserAnalystCode(refreshedUser);
     console.log('👤 User role determined:', role);
     console.log('👤 User division:', division);

@@ -164,8 +164,8 @@ export const AuthService = {
     return user.user_metadata.analyst_code || ''
   },
 
-  // Get user division from database (always fresh) with metadata fallback
-  async getUserDivision(user, forceRefresh = false) {
+  // Get user division, with option to skip DB fetch (useful during initial auth)
+  async getUserDivision(user, skipDb = false) {
     if (!user) {
       console.warn('⚠️ No user found for division lookup');
       return '';
@@ -174,13 +174,26 @@ export const AuthService = {
     console.log('🔍 Getting user division:', {
       user_metadata: user.user_metadata,
       division: user.user_metadata?.division,
-      forceRefresh,
+      skipDb,
       allKeys: user.user_metadata ? Object.keys(user.user_metadata) : []
     });
     
     // Use metadata/database only; remove hardcoded overrides so refreshed data is honored
     
-    // Always check user_profiles table first for fresh data (unless it's a fallback scenario)
+    // First prefer metadata
+    const metadataDivision = user.user_metadata?.division;
+    if (metadataDivision) {
+      console.log('✅ Found division in user metadata:', metadataDivision);
+      return metadataDivision;
+    }
+
+    // If instructed to skip DB (e.g., during initial auth), do not block or default
+    if (skipDb) {
+      console.log('⏭️ Skipping DB lookup for division during initial auth pass');
+      return '';
+    }
+
+    // Otherwise, check user_profiles table for fresh data
     try {
       console.log('🔍 Checking user_profiles table for fresh division data...');
       
@@ -227,12 +240,7 @@ export const AuthService = {
     
     console.log('🔄 Falling back to metadata and default logic...');
     
-    // Fallback to user_metadata if database query failed
-    const metadataDivision = user.user_metadata?.division;
-    if (metadataDivision) {
-      console.log('✅ Found division in user metadata (fallback):', metadataDivision);
-      return metadataDivision;
-    }
+    // Fallbacks when DB query failed and metadata missing
     
     console.warn('⚠️ No division found in user metadata or user_profiles. This might be an existing user who signed up before division field was added.');
     
