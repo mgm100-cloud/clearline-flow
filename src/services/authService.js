@@ -122,6 +122,36 @@ export const AuthService = {
     }
   },
 
+  // Sync profile data from database to user metadata
+  async syncProfileToMetadata(profileData) {
+    try {
+      const currentUser = await this.getCurrentUser();
+      if (!currentUser) {
+        throw new Error('No current user found');
+      }
+
+      const currentMetadata = currentUser.user_metadata || {};
+      const updatedMetadata = {
+        ...currentMetadata,
+        ...profileData
+      };
+
+      console.log('🔄 Syncing profile data to user metadata:', { profileData, updatedMetadata });
+
+      const { data, error } = await supabase.auth.updateUser({
+        data: updatedMetadata
+      });
+
+      if (error) throw error;
+      
+      console.log('✅ Successfully synced profile data to user metadata');
+      return data;
+    } catch (error) {
+      console.error('Error syncing profile data to user metadata:', error);
+      throw error;
+    }
+  },
+
   // Get user role from metadata
   getUserRole(user) {
     if (!user || !user.user_metadata) return 'readonly'
@@ -134,16 +164,17 @@ export const AuthService = {
     return user.user_metadata.analyst_code || ''
   },
 
-  // Get user division from metadata or database
-  async getUserDivision(user) {
+  // Get user division from database (always fresh) with metadata fallback
+  async getUserDivision(user, forceRefresh = false) {
     if (!user) {
       console.warn('⚠️ No user found for division lookup');
       return '';
     }
     
-    console.log('🔍 Debug user metadata for division:', {
+    console.log('🔍 Getting user division:', {
       user_metadata: user.user_metadata,
       division: user.user_metadata?.division,
+      forceRefresh,
       allKeys: user.user_metadata ? Object.keys(user.user_metadata) : []
     });
     
@@ -154,21 +185,14 @@ export const AuthService = {
       return 'Super';
     }
     
-    // Check user_metadata first
-    const metadataDivision = user.user_metadata?.division;
-    if (metadataDivision) {
-      console.log('✅ Found division in user metadata:', metadataDivision);
-      return metadataDivision;
-    }
-    
-    // If not in metadata, check user_profiles table with timeout
+    // Always check user_profiles table first for fresh data (unless it's a fallback scenario)
     try {
-      console.log('🔍 Division not in metadata, checking user_profiles table...');
+      console.log('🔍 Checking user_profiles table for fresh division data...');
       
       // Add a timeout to prevent hanging
       const queryPromise = supabase
         .from('user_profiles')
-        .select('division')
+        .select('division, analyst_code, role')
         .eq('id', user.id)
         .single();
       
@@ -181,23 +205,39 @@ export const AuthService = {
       if (error) {
         console.warn('⚠️ Error fetching user profile:', error);
         console.warn('This might be because the division column hasnt been added yet.');
-      } else if (data && data.division) {
-        console.log('✅ Found division in user_profiles:', data.division);
+      } else if (data) {
+        console.log('✅ Found user profile data:', data);
         
-        // Sync division to user metadata for future use
-        console.log('🔄 Syncing division to user metadata...');
-        await this.addDivisionToUser(data.division);
-        
-        return data.division;
-      } else {
-        console.log('📝 No division found in user_profiles table, data:', data);
+        // If we have division data from database, use it and sync to metadata
+        if (data.division) {
+          console.log('✅ Found division in user_profiles:', data.division);
+          
+          // Sync all profile data to user metadata for consistency
+          console.log('🔄 Syncing profile data to user metadata...');
+          await this.syncProfileToMetadata({
+            division: data.division,
+            analyst_code: data.analyst_code,
+            role: data.role
+          });
+          
+          return data.division;
+        } else {
+          console.log('📝 No division found in user_profiles table, data:', data);
+        }
       }
     } catch (error) {
       console.error('❌ Error checking user_profiles for division:', error);
       console.error('This is likely because the division column hasnt been added to user_profiles table yet or query timed out.');
     }
     
-    console.log('🔄 Continuing to fallback logic...');
+    console.log('🔄 Falling back to metadata and default logic...');
+    
+    // Fallback to user_metadata if database query failed
+    const metadataDivision = user.user_metadata?.division;
+    if (metadataDivision) {
+      console.log('✅ Found division in user metadata (fallback):', metadataDivision);
+      return metadataDivision;
+    }
     
     console.warn('⚠️ No division found in user metadata or user_profiles. This might be an existing user who signed up before division field was added.');
     
@@ -243,6 +283,57 @@ export const AuthService = {
     } catch (error) {
       console.error('Error resetting password:', error)
       throw error
+    }
+  },
+
+  // Refresh user data from database on login
+  async refreshUserData(user) {
+    try {
+      console.log('🔄 Refreshing user data from database...');
+      
+      // Get fresh data from user_profiles table
+      const { data: profileData, error } = await supabase
+        .from('user_profiles')
+        .select('division, analyst_code, role, full_name')
+        .eq('id', user.id)
+        .single();
+      
+      if (error) {
+        console.warn('⚠️ Error fetching fresh user profile:', error);
+        return user; // Return original user if database query fails
+      }
+      
+      if (profileData) {
+        console.log('✅ Found fresh profile data:', profileData);
+        
+        // Sync all profile data to user metadata
+        const updatedMetadata = {
+          ...user.user_metadata,
+          division: profileData.division || user.user_metadata?.division,
+          analyst_code: profileData.analyst_code || user.user_metadata?.analyst_code,
+          role: profileData.role || user.user_metadata?.role,
+          full_name: profileData.full_name || user.user_metadata?.full_name
+        };
+        
+        console.log('🔄 Updating user metadata with fresh data:', updatedMetadata);
+        
+        const { data: updatedUser, error: updateError } = await supabase.auth.updateUser({
+          data: updatedMetadata
+        });
+        
+        if (updateError) {
+          console.error('❌ Error updating user metadata:', updateError);
+          return user; // Return original user if update fails
+        }
+        
+        console.log('✅ Successfully refreshed user data');
+        return updatedUser.user;
+      }
+      
+      return user;
+    } catch (error) {
+      console.error('❌ Error refreshing user data:', error);
+      return user; // Return original user if anything fails
     }
   },
 

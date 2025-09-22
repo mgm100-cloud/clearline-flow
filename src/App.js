@@ -1641,13 +1641,19 @@ const ClearlineFlow = () => {
         
         if (session && user) {
           console.log('✅ User already authenticated:', user);
-          const role = AuthService.getUserRole(user);
-          const division = await AuthService.getUserDivision(user);
-          const analystCode = AuthService.getUserAnalystCode(user);
+          
+          // Refresh user data from database to ensure we have the latest information
+          console.log('🔄 Refreshing user data from database...');
+          const refreshedUser = await AuthService.refreshUserData(user);
+          console.log('✅ User data refreshed:', refreshedUser);
+          
+          const role = AuthService.getUserRole(refreshedUser);
+          const division = await AuthService.getUserDivision(refreshedUser);
+          const analystCode = AuthService.getUserAnalystCode(refreshedUser);
           console.log('👤 User role determined:', role);
           console.log('👤 User division:', division);
           console.log('👤 User analyst code:', analystCode);
-          console.log('📋 User metadata:', user?.user_metadata);
+          console.log('📋 User metadata:', refreshedUser?.user_metadata);
           
           // Temporary fix for existing users without division
           if (!division && (analystCode || role === 'admin' || role === 'readwrite')) {
@@ -1658,7 +1664,7 @@ const ClearlineFlow = () => {
               console.error('❌ Failed to add division:', error);
             });
           }
-          setCurrentUser(user);
+          setCurrentUser(refreshedUser);
           setUserRole(role);
           setUserDivision(division);
           setIsAuthenticated(true);
@@ -1741,13 +1747,19 @@ const ClearlineFlow = () => {
       if (event === 'SIGNED_IN' && session) {
         const user = session.user;
         console.log('✅ User signed in:', user);
-        const role = AuthService.getUserRole(user);
-        const division = await AuthService.getUserDivision(user);
-        const analystCode = AuthService.getUserAnalystCode(user);
+        
+        // Refresh user data from database to ensure we have the latest information
+        console.log('🔄 Refreshing user data from database...');
+        const refreshedUser = await AuthService.refreshUserData(user);
+        console.log('✅ User data refreshed:', refreshedUser);
+        
+        const role = AuthService.getUserRole(refreshedUser);
+        const division = await AuthService.getUserDivision(refreshedUser);
+        const analystCode = AuthService.getUserAnalystCode(refreshedUser);
         console.log('👤 User role determined:', role);
         console.log('👤 User division:', division);
         console.log('👤 User analyst code:', analystCode);
-        console.log('📋 User metadata:', user?.user_metadata);
+        console.log('📋 User metadata:', refreshedUser?.user_metadata);
         
         // Temporary fix for existing users without division
         if (!division && (analystCode || role === 'admin' || role === 'readwrite')) {
@@ -1758,7 +1770,7 @@ const ClearlineFlow = () => {
             console.error('❌ Failed to add division:', error);
           });
         }
-        setCurrentUser(user);
+        setCurrentUser(refreshedUser);
         setUserRole(role);
         setUserDivision(division);
         setIsAuthenticated(true);
@@ -1907,13 +1919,19 @@ const ClearlineFlow = () => {
   // Handle successful authentication
   const handleAuthSuccess = async (user, session) => {
     console.log('🔑 Authentication successful:', user);
-    const role = AuthService.getUserRole(user);
-    const division = await AuthService.getUserDivision(user);
-    const analystCode = AuthService.getUserAnalystCode(user);
+    
+    // Refresh user data from database to ensure we have the latest information
+    console.log('🔄 Refreshing user data from database...');
+    const refreshedUser = await AuthService.refreshUserData(user);
+    console.log('✅ User data refreshed:', refreshedUser);
+    
+    const role = AuthService.getUserRole(refreshedUser);
+    const division = await AuthService.getUserDivision(refreshedUser);
+    const analystCode = AuthService.getUserAnalystCode(refreshedUser);
     console.log('👤 User role determined:', role);
     console.log('👤 User division:', division);
     console.log('👤 User analyst code:', analystCode);
-    console.log('📋 User metadata:', user?.user_metadata);
+    console.log('📋 User metadata:', refreshedUser?.user_metadata);
     
     // Temporary fix for existing users without division
     if (!division && (analystCode || role === 'admin' || role === 'readwrite')) {
@@ -1924,7 +1942,7 @@ const ClearlineFlow = () => {
         console.error('❌ Failed to add division:', error);
       });
     }
-    setCurrentUser(user);
+    setCurrentUser(refreshedUser);
     setUserRole(role);
     setUserDivision(division);
     setIsAuthenticated(true);
