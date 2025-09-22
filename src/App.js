@@ -11034,12 +11034,12 @@ const IdeaScreeningPage = ({ tickers, quotes }) => {
     if (selectedKeys.length === 0) {
       // Debug: Log the first few tickers to see ls_position values
       if (tickers.length > 0) {
-        console.log('🔍 Debug: First 3 tickers ls_position values:', 
+        console.log('🔍 Debug: First 3 tickers lsPosition values:', 
           tickers.slice(0, 3).map(t => ({ 
             ticker: t.ticker, 
-            ls_position: t.ls_position, 
-            ls_position_type: typeof t.ls_position,
-            ls_position_length: t.ls_position?.length 
+            lsPosition: t.lsPosition, 
+            lsPosition_type: typeof t.lsPosition,
+            lsPosition_length: t.lsPosition?.length 
           }))
         );
       }
@@ -11177,8 +11177,8 @@ const IdeaScreeningPage = ({ tickers, quotes }) => {
       const tableData = filteredTickers.map(ticker => [
         ticker.ticker || '',
         ticker.name || '',
-        (ticker.ls_position?.toString().trim().toLowerCase() === 'long') ? 'L' : 
-        (ticker.ls_position?.toString().trim().toLowerCase() === 'short') ? 'S' : '',
+        (ticker.lsPosition?.toString().trim().toLowerCase() === 'long') ? 'L' : 
+        (ticker.lsPosition?.toString().trim().toLowerCase() === 'short') ? 'S' : '',
         ticker.status || '',
         ticker.analyst || '',
         formatMarketCap(ticker.marketCap),
@@ -11216,8 +11216,8 @@ const IdeaScreeningPage = ({ tickers, quotes }) => {
       const tableData = filteredTickers.map(ticker => [
         ticker.ticker || '',
         ticker.name || '',
-        (ticker.ls_position?.toString().trim().toLowerCase() === 'long') ? 'L' : 
-        (ticker.ls_position?.toString().trim().toLowerCase() === 'short') ? 'S' : '',
+        (ticker.lsPosition?.toString().trim().toLowerCase() === 'long') ? 'L' : 
+        (ticker.lsPosition?.toString().trim().toLowerCase() === 'short') ? 'S' : '',
         ticker.status || '',
         ticker.analyst || '',
         formatMarketCap(ticker.marketCap),
@@ -11396,14 +11396,14 @@ const IdeaScreeningPage = ({ tickers, quotes }) => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            (ticker.ls_position?.toString().trim().toLowerCase() === 'long')
+                            (ticker.lsPosition?.toString().trim().toLowerCase() === 'long')
                               ? 'bg-green-100 text-green-800' 
-                              : (ticker.ls_position?.toString().trim().toLowerCase() === 'short')
+                              : (ticker.lsPosition?.toString().trim().toLowerCase() === 'short')
                               ? 'bg-red-100 text-red-800'
                               : 'bg-gray-100 text-gray-800'
                           }`}>
-                            {(ticker.ls_position?.toString().trim().toLowerCase() === 'long') ? 'L' : 
-                             (ticker.ls_position?.toString().trim().toLowerCase() === 'short') ? 'S' : '-'}
+                            {(ticker.lsPosition?.toString().trim().toLowerCase() === 'long') ? 'L' : 
+                             (ticker.lsPosition?.toString().trim().toLowerCase() === 'short') ? 'S' : '-'}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">

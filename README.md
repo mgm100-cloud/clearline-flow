@@ -39,7 +39,7 @@ REACT_APP_READWRITE_PASSWORD=YourSecurePassword123!
 
 The application uses the following database field conventions:
 
-- **Long/Short Position**: Database field is `ls_position` (underscore format)
+- **Long/Short Position**: Database field is `lsPosition` (camelCase format)
   - Values: 'Long' or 'Short'
   - Displayed as 'L' or 'S' in the UI for space efficiency
 
