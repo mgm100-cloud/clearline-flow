@@ -11559,8 +11559,9 @@ const IdeaScreeningPage = ({ tickers, quotes, onNavigateToIdeaDetail }) => {
                       <tr key={`${ticker.ticker}-${index}`} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                           <button
-                            onClick={() => onNavigateToIdeaDetail(ticker.ticker)}
-                            className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer font-medium"
+                            onClick={() => onNavigateToIdeaDetail(ticker)}
+                            className="text-blue-600 hover:text-blue-800 underline hover:no-underline font-medium"
+                            title="Click to view in Idea Detail"
                           >
                             {ticker.ticker}
                           </button>
