@@ -178,12 +178,7 @@ export const AuthService = {
       allKeys: user.user_metadata ? Object.keys(user.user_metadata) : []
     });
     
-    // TEMPORARY FIX: Set your specific user to Super division immediately
-    if (user.email === 'mmajzner@clearlinecap.com') {
-      console.log('🔧 TEMPORARY FIX: Setting Marc to Super division (skipping all database operations)');
-      console.log('✅ Returning Super division immediately');
-      return 'Super';
-    }
+    // Use metadata/database only; remove hardcoded overrides so refreshed data is honored
     
     // Always check user_profiles table first for fresh data (unless it's a fallback scenario)
     try {
