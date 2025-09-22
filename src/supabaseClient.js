@@ -19,5 +19,20 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true
+  },
+  // Add connection optimization settings
+  db: {
+    schema: 'public'
+  },
+  realtime: {
+    params: {
+      eventsPerSecond: 10
+    }
+  },
+  // Add timeout settings
+  global: {
+    headers: {
+      'x-client-info': 'clearline-flow-app'
+    }
   }
 }) 

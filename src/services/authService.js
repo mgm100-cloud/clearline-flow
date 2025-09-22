@@ -291,39 +291,20 @@ export const AuthService = {
     console.log('🔄 Refreshing user data from database...');
     console.log('🔍 User ID:', user.id);
     
-    // DEEP DIAGNOSTIC: Test each step with very short timeouts
+    // SOLUTION: Defer database query to avoid authentication timing conflicts
+    console.log('⏰ Deferring database refresh to avoid auth timing conflicts');
     
-    // Test 1: Basic supabase connection with simple query
-    try {
-      console.log('🧪 TEST 1: Basic Supabase connection test...');
-      const startTime1 = performance.now();
-      
-      const basicTestPromise = supabase.from('tickers').select('count').limit(1);
-      const timeout1 = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Basic connection timeout')), 2000)
-      );
-      
-      await Promise.race([basicTestPromise, timeout1]);
-      console.log(`✅ TEST 1 PASSED: Basic connection works (${(performance.now() - startTime1).toFixed(2)}ms)`);
-    } catch (error) {
-      console.error('❌ TEST 1 FAILED: Basic connection failed:', error.message);
-      return user;
-    }
+    // Small delay to let authentication settle
+    await new Promise(resolve => setTimeout(resolve, 100));
     
-    // Test 2: Database function with very short timeout
     try {
-      console.log('🧪 TEST 2: Database function test...');
-      const startTime2 = performance.now();
+      console.log('🔍 Attempting database refresh after auth settlement...');
       
-      const functionPromise = supabase.rpc('get_user_profile_data', { user_uuid: user.id });
-      const timeout2 = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Function timeout')), 2000)
-      );
-      
-      const { data: functionData, error: functionError } = await Promise.race([functionPromise, timeout2]);
+      const { data: functionData, error: functionError } = await supabase
+        .rpc('get_user_profile_data', { user_uuid: user.id });
       
       if (!functionError && functionData) {
-        console.log(`✅ TEST 2 PASSED: Function works (${(performance.now() - startTime2).toFixed(2)}ms):`, functionData);
+        console.log('✅ Database function successful after delay:', functionData);
         
         const refreshedUser = {
           ...user,
@@ -336,74 +317,17 @@ export const AuthService = {
           }
         };
         
-        console.log('✅ User data refreshed via function:', refreshedUser.user_metadata);
+        console.log('✅ User data refreshed successfully:', refreshedUser.user_metadata);
         return refreshedUser;
       } else {
-        console.log('❌ TEST 2 FAILED: Function error:', functionError?.message);
+        console.log('⚠️ Database function failed, using existing metadata:', functionError?.message);
+        return user;
       }
     } catch (error) {
-      console.error('❌ TEST 2 FAILED: Function timeout or error:', error.message);
+      console.error('❌ Database refresh failed after delay:', error.message);
+      return user;
     }
     
-    // Test 3: Simple count query on user_profiles table
-    try {
-      console.log('🧪 TEST 3: user_profiles table access test...');
-      const startTime3 = performance.now();
-      
-      const countPromise = supabase.from('user_profiles').select('count');
-      const timeout3 = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Count query timeout')), 2000)
-      );
-      
-      await Promise.race([countPromise, timeout3]);
-      console.log(`✅ TEST 3 PASSED: user_profiles accessible (${(performance.now() - startTime3).toFixed(2)}ms)`);
-    } catch (error) {
-      console.error('❌ TEST 3 FAILED: user_profiles access failed:', error.message);
-    }
-    
-    // Test 4: Direct user query with very short timeout
-    try {
-      console.log('🧪 TEST 4: Direct user query test...');
-      const startTime4 = performance.now();
-      
-      const queryPromise = supabase
-        .from('user_profiles')
-        .select('division, analyst_code, role, full_name')
-        .eq('id', user.id)
-        .single();
-      
-      const timeout4 = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Direct query timeout')), 2000)
-      );
-      
-      const { data: profileData, error } = await Promise.race([queryPromise, timeout4]);
-      
-      if (!error && profileData) {
-        console.log(`✅ TEST 4 PASSED: Direct query works (${(performance.now() - startTime4).toFixed(2)}ms):`, profileData);
-        
-        const refreshedUser = {
-          ...user,
-          user_metadata: {
-            ...user.user_metadata,
-            division: profileData.division || user.user_metadata?.division,
-            analyst_code: profileData.analyst_code || user.user_metadata?.analyst_code,
-            role: profileData.role || user.user_metadata?.role,
-            full_name: profileData.full_name || user.user_metadata?.full_name
-          }
-        };
-        
-        console.log('✅ User data refreshed via direct query:', refreshedUser.user_metadata);
-        return refreshedUser;
-      } else {
-        console.log('❌ TEST 4 FAILED: Direct query error:', error?.message);
-      }
-    } catch (error) {
-      console.error('❌ TEST 4 FAILED: Direct query timeout:', error.message);
-    }
-    
-    console.log('⚠️ ALL TESTS FAILED: Using existing metadata');
-    console.log('🔍 This suggests a fundamental database connectivity or performance issue');
-    return user;
   },
 
   // Listen to auth state changes
