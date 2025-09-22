@@ -304,16 +304,18 @@ export const AuthService = {
         .rpc('get_user_profile_data', { user_uuid: user.id });
       
       if (!functionError && functionData) {
-        console.log('✅ Database function successful after delay:', functionData);
+        // Supabase RPC may return a single row or an array of rows; normalize to object
+        const row = Array.isArray(functionData) ? functionData[0] : functionData;
+        console.log('✅ Database function successful after delay:', row);
         
         const refreshedUser = {
           ...user,
           user_metadata: {
             ...user.user_metadata,
-            division: functionData.division || user.user_metadata?.division,
-            analyst_code: functionData.analyst_code || user.user_metadata?.analyst_code,
-            role: functionData.role || user.user_metadata?.role,
-            full_name: functionData.full_name || user.user_metadata?.full_name
+            division: row?.division || user.user_metadata?.division,
+            analyst_code: row?.analyst_code || user.user_metadata?.analyst_code,
+            role: row?.role || user.user_metadata?.role,
+            full_name: row?.full_name || user.user_metadata?.full_name
           }
         };
         
