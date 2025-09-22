@@ -288,48 +288,77 @@ export const AuthService = {
 
   // Refresh user data from database on login
   async refreshUserData(user, skipMetadataUpdate = false) {
+    console.log('🔄 Refreshing user data from database...');
+    console.log('🔍 User ID:', user.id);
+    
+    // SOLUTION: Use a database function to bypass RLS performance issues
     try {
-      console.log('🔄 Refreshing user data from database...');
-      console.log('🔍 User ID:', user.id);
+      console.log('🔍 Attempting to use database function to bypass RLS...');
       
-      // PERFORMANCE DIAGNOSTIC: Let's measure query performance
       const startTime = performance.now();
       
-      console.log('🔍 Starting user_profiles query...');
-      console.log('🔍 Query details:', {
-        table: 'user_profiles',
-        select: 'division, analyst_code, role, full_name',
-        filter: `id.eq.${user.id}`,
-        operation: 'single()'
-      });
+      // Try using a database function first (if it exists)
+      const { data: functionData, error: functionError } = await supabase
+        .rpc('get_user_profile_data', { user_uuid: user.id });
       
-      const { data: profileData, error } = await supabase
+      const endTime = performance.now();
+      
+      if (!functionError && functionData) {
+        console.log(`✅ Database function successful in ${(endTime - startTime).toFixed(2)}ms:`, functionData);
+        
+        const refreshedUser = {
+          ...user,
+          user_metadata: {
+            ...user.user_metadata,
+            division: functionData.division || user.user_metadata?.division,
+            analyst_code: functionData.analyst_code || user.user_metadata?.analyst_code,
+            role: functionData.role || user.user_metadata?.role,
+            full_name: functionData.full_name || user.user_metadata?.full_name
+          }
+        };
+        
+        console.log('✅ User data refreshed via function:', refreshedUser.user_metadata);
+        return refreshedUser;
+      } else {
+        console.log('⚠️ Database function not available or failed:', functionError?.message);
+      }
+    } catch (funcError) {
+      console.log('⚠️ Database function approach failed:', funcError.message);
+    }
+    
+    // FALLBACK: Direct query with aggressive timeout
+    try {
+      console.log('🔄 Falling back to direct query with timeout...');
+      
+      const startTime = performance.now();
+      
+      const queryPromise = supabase
         .from('user_profiles')
         .select('division, analyst_code, role, full_name')
         .eq('id', user.id)
         .single();
       
+      // Aggressive 3-second timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => {
+          console.error('⏰ Query timed out after 3 seconds - likely RLS performance issue');
+          reject(new Error('Query timeout after 3 seconds'));
+        }, 3000)
+      );
+      
+      const { data: profileData, error } = await Promise.race([queryPromise, timeoutPromise]);
+      
       const endTime = performance.now();
       const queryDuration = endTime - startTime;
       
-      console.log(`⏱️ Query completed in ${queryDuration.toFixed(2)}ms`);
-      
       if (error) {
-        console.error('❌ Database query error:', error);
-        console.error('❌ Error details:', {
-          code: error.code,
-          message: error.message,
-          details: error.details,
-          hint: error.hint
-        });
+        console.error('❌ Direct query failed:', error);
         return user;
       }
       
       if (profileData) {
-        console.log('✅ Query successful! Profile data:', profileData);
-        console.log(`✅ Performance: Query took ${queryDuration.toFixed(2)}ms`);
+        console.log(`✅ Direct query successful in ${queryDuration.toFixed(2)}ms:`, profileData);
         
-        // Create refreshed user object
         const refreshedUser = {
           ...user,
           user_metadata: {
@@ -341,17 +370,16 @@ export const AuthService = {
           }
         };
         
-        console.log('✅ User data refreshed from database:', refreshedUser.user_metadata);
+        console.log('✅ User data refreshed via direct query:', refreshedUser.user_metadata);
         return refreshedUser;
-      } else {
-        console.log('📝 No profile data returned from query');
-        return user;
       }
     } catch (error) {
-      console.error('❌ Unexpected error in refreshUserData:', error);
-      console.error('❌ Stack trace:', error.stack);
-      return user;
+      console.error('❌ Direct query error:', error.message);
     }
+    
+    // FINAL FALLBACK: Return original user
+    console.log('⚠️ All query methods failed, using existing metadata');
+    return user;
   },
 
   // Listen to auth state changes
