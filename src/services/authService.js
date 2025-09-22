@@ -288,18 +288,36 @@ export const AuthService = {
 
   // Refresh user data from database on login
   async refreshUserData(user, skipMetadataUpdate = false) {
+    // TEMPORARY: Skip database refresh to unblock login
+    // TODO: Re-enable once RLS policies are verified
+    console.log('🔄 Skipping database refresh temporarily to unblock login');
+    console.log('📋 Using existing user metadata:', user.user_metadata);
+    return user;
+    
+    /* COMMENTED OUT TEMPORARILY - UNCOMMENT AFTER FIXING RLS ISSUES
     try {
       console.log('🔄 Refreshing user data from database...');
+      console.log('🔍 User ID:', user.id);
       
-      // Get fresh data from user_profiles table
-      const { data: profileData, error } = await supabase
+      // Quick timeout to prevent hanging the login process
+      const queryPromise = supabase
         .from('user_profiles')
         .select('division, analyst_code, role, full_name')
         .eq('id', user.id)
         .single();
       
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Database query timeout after 5 seconds')), 5000)
+      );
+      
+      console.log('🔍 Executing user_profiles query...');
+      const { data: profileData, error } = await Promise.race([queryPromise, timeoutPromise]);
+      
+      console.log('📊 Query completed. Data:', profileData, 'Error:', error);
+      
       if (error) {
         console.warn('⚠️ Error fetching fresh user profile:', error);
+        console.warn('⚠️ Continuing with existing user metadata');
         return user; // Return original user if database query fails
       }
       
@@ -319,15 +337,21 @@ export const AuthService = {
           }
         };
         
-        console.log('✅ Successfully refreshed user data (in-memory only)');
+        console.log('✅ Successfully refreshed user data (in-memory only)', refreshedUser.user_metadata);
         return refreshedUser;
+      } else {
+        console.log('📝 No profile data found in user_profiles table');
+        return user;
       }
-      
-      return user;
     } catch (error) {
       console.error('❌ Error refreshing user data:', error);
+      if (error.message.includes('timeout')) {
+        console.error('❌ Database query timed out - proceeding with existing metadata');
+      }
+      console.log('🔄 Returning original user to continue login process');
       return user; // Return original user if anything fails
     }
+    */
   },
 
   // Listen to auth state changes
