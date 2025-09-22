@@ -1644,10 +1644,13 @@ const ClearlineFlow = () => {
         if (session && user) {
           console.log('✅ User already authenticated:', user);
           
-          // Refresh user data from database to ensure we have the latest information
-          console.log('🔄 Refreshing user data from database...');
-          const refreshedUser = await AuthService.refreshUserData(user);
-          console.log('✅ User data refreshed:', refreshedUser);
+          // Kick off non-blocking refresh of user data; proceed even if it hangs
+          console.log('🔄 Refreshing user data from database (non-blocking)...');
+          const refreshedUser = await Promise.race([
+            AuthService.refreshUserData(user),
+            new Promise(resolve => setTimeout(() => resolve(user), 1500))
+          ]);
+          console.log('✅ User data resolved:', refreshedUser);
           
           const role = AuthService.getUserRole(refreshedUser);
           const division = await AuthService.getUserDivision(refreshedUser);
@@ -1759,10 +1762,13 @@ const ClearlineFlow = () => {
         // Set refresh flag to prevent infinite loops
         isRefreshingRef.current = true;
         
-        // Refresh user data from database to ensure we have the latest information
-        console.log('🔄 Refreshing user data from database...');
-        const refreshedUser = await AuthService.refreshUserData(user);
-        console.log('✅ User data refreshed:', refreshedUser);
+        // Refresh user data (non-blocking with timeout) to avoid auth flow stalls
+        console.log('🔄 Refreshing user data from database (non-blocking)...');
+        const refreshedUser = await Promise.race([
+          AuthService.refreshUserData(user),
+          new Promise(resolve => setTimeout(() => resolve(user), 1500))
+        ]);
+        console.log('✅ User data resolved:', refreshedUser);
         
         const role = AuthService.getUserRole(refreshedUser);
         const division = await AuthService.getUserDivision(refreshedUser);
@@ -1935,10 +1941,13 @@ const ClearlineFlow = () => {
   const handleAuthSuccess = async (user, session) => {
     console.log('🔑 Authentication successful:', user);
     
-    // Refresh user data from database to ensure we have the latest information
-    console.log('🔄 Refreshing user data from database...');
-    const refreshedUser = await AuthService.refreshUserData(user);
-    console.log('✅ User data refreshed:', refreshedUser);
+    // Refresh user data (non-blocking with timeout) to avoid auth flow stalls
+    console.log('🔄 Refreshing user data from database (non-blocking)...');
+    const refreshedUser = await Promise.race([
+      AuthService.refreshUserData(user),
+      new Promise(resolve => setTimeout(() => resolve(user), 1500))
+    ]);
+    console.log('✅ User data resolved:', refreshedUser);
     
     const role = AuthService.getUserRole(refreshedUser);
     const division = await AuthService.getUserDivision(refreshedUser);
