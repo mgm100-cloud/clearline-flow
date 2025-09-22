@@ -11017,7 +11017,7 @@ const IdeaScreeningPage = ({ tickers, quotes }) => {
     }));
   };
 
-  // Filter tickers based on selected characteristics
+  // Filter tickers based on selected characteristics (AND logic - must have ALL selected characteristics)
   const filteredTickers = useMemo(() => {
     const selectedKeys = Object.keys(selectedCharacteristics).filter(
       key => selectedCharacteristics[key]
@@ -11028,7 +11028,7 @@ const IdeaScreeningPage = ({ tickers, quotes }) => {
     }
     
     return tickers.filter(ticker => {
-      return selectedKeys.some(key => ticker[key] === true);
+      return selectedKeys.every(key => ticker[key] === true);
     });
   }, [tickers, selectedCharacteristics]);
 
@@ -11120,6 +11120,119 @@ const IdeaScreeningPage = ({ tickers, quotes }) => {
     }
   };
 
+  // Generate PDF export
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    
+    // Add title
+    doc.setFontSize(16);
+    doc.text('Idea Screening Results', 14, 20);
+    
+    // Add selected characteristics summary
+    const selectedKeys = Object.keys(selectedCharacteristics).filter(
+      key => selectedCharacteristics[key]
+    );
+    
+    if (selectedKeys.length > 0) {
+      // Get characteristic labels
+      const selectedLabels = [];
+      Object.values(characteristicsGroups).forEach(group => {
+        group.items.forEach(item => {
+          if (selectedCharacteristics[item.key]) {
+            selectedLabels.push(item.label);
+          }
+        });
+      });
+      
+      doc.setFontSize(10);
+      const summaryText = `Selected Characteristics: ${selectedLabels.join(', ')}`;
+      const splitSummary = doc.splitTextToSize(summaryText, pageWidth - 28);
+      doc.text(splitSummary, 14, 30);
+      
+      // Calculate starting Y position after summary
+      const summaryHeight = splitSummary.length * 4;
+      const startY = 35 + summaryHeight;
+      
+      // Prepare table data
+      const tableData = filteredTickers.map(ticker => [
+        ticker.ticker || '',
+        ticker.name || '',
+        ticker.ls_position === 'Long' ? 'L' : ticker.ls_position === 'Short' ? 'S' : '',
+        ticker.status || '',
+        ticker.analyst || '',
+        formatMarketCap(ticker.marketCap),
+        formatADV3M(ticker.adv3m),
+        ticker.ptBear ? `$${parseFloat(ticker.ptBear).toFixed(2)}` : '',
+        ticker.ptBase ? `$${parseFloat(ticker.ptBase).toFixed(2)}` : '',
+        ticker.ptBull ? `$${parseFloat(ticker.ptBull).toFixed(2)}` : ''
+      ]);
+      
+      // Add table
+      autoTable(doc, {
+        head: [['Ticker', 'Name', 'L/S', 'Status', 'Analyst', 'Market Cap', 'ADV 3M', 'PT Bear', 'PT Base', 'PT Bull']],
+        body: tableData,
+        startY: startY,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [66, 139, 202] },
+        columnStyles: {
+          0: { cellWidth: 15 }, // Ticker
+          1: { cellWidth: 25 }, // Name
+          2: { cellWidth: 12 }, // L/S
+          3: { cellWidth: 15 }, // Status
+          4: { cellWidth: 15 }, // Analyst
+          5: { cellWidth: 18 }, // Market Cap
+          6: { cellWidth: 15 }, // ADV 3M
+          7: { cellWidth: 15 }, // PT Bear
+          8: { cellWidth: 15 }, // PT Base
+          9: { cellWidth: 15 }  // PT Bull
+        }
+      });
+    } else {
+      doc.setFontSize(10);
+      doc.text('No characteristics selected - showing all tickers', 14, 30);
+      
+      // Prepare table data for all tickers
+      const tableData = filteredTickers.map(ticker => [
+        ticker.ticker || '',
+        ticker.name || '',
+        ticker.ls_position === 'Long' ? 'L' : ticker.ls_position === 'Short' ? 'S' : '',
+        ticker.status || '',
+        ticker.analyst || '',
+        formatMarketCap(ticker.marketCap),
+        formatADV3M(ticker.adv3m),
+        ticker.ptBear ? `$${parseFloat(ticker.ptBear).toFixed(2)}` : '',
+        ticker.ptBase ? `$${parseFloat(ticker.ptBase).toFixed(2)}` : '',
+        ticker.ptBull ? `$${parseFloat(ticker.ptBull).toFixed(2)}` : ''
+      ]);
+      
+      // Add table
+      autoTable(doc, {
+        head: [['Ticker', 'Name', 'L/S', 'Status', 'Analyst', 'Market Cap', 'ADV 3M', 'PT Bear', 'PT Base', 'PT Bull']],
+        body: tableData,
+        startY: 40,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [66, 139, 202] },
+        columnStyles: {
+          0: { cellWidth: 15 }, // Ticker
+          1: { cellWidth: 25 }, // Name
+          2: { cellWidth: 12 }, // L/S
+          3: { cellWidth: 15 }, // Status
+          4: { cellWidth: 15 }, // Analyst
+          5: { cellWidth: 18 }, // Market Cap
+          6: { cellWidth: 15 }, // ADV 3M
+          7: { cellWidth: 15 }, // PT Bear
+          8: { cellWidth: 15 }, // PT Base
+          9: { cellWidth: 15 }  // PT Bull
+        }
+      });
+    }
+    
+    // Save the PDF
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
+    doc.save(`idea-screening-${timestamp}.pdf`);
+  };
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -11127,7 +11240,7 @@ const IdeaScreeningPage = ({ tickers, quotes }) => {
         <div className="px-4 py-5 sm:p-6">
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Idea Screening</h1>
           <p className="text-gray-600">
-            Filter investment ideas by selecting investment characteristics below. Results show all tickers matching any of the selected criteria.
+            Filter investment ideas by selecting investment characteristics below. Results show tickers that have ALL of the selected characteristics.
           </p>
         </div>
       </div>
@@ -11173,18 +11286,29 @@ const IdeaScreeningPage = ({ tickers, quotes }) => {
             <h2 className="text-lg font-semibold text-gray-800">
               Filtered Results ({filteredTickers.length} ideas)
             </h2>
-            {Object.values(selectedCharacteristics).some(v => v) && (
-              <button
-                onClick={() => setSelectedCharacteristics(prev => {
-                  const reset = {};
-                  Object.keys(prev).forEach(key => reset[key] = false);
-                  return reset;
-                })}
-                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-              >
-                Clear All Filters
-              </button>
-            )}
+            <div className="flex items-center space-x-4">
+              {Object.values(selectedCharacteristics).some(v => v) && (
+                <button
+                  onClick={() => setSelectedCharacteristics(prev => {
+                    const reset = {};
+                    Object.keys(prev).forEach(key => reset[key] = false);
+                    return reset;
+                  })}
+                  className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  Clear All Filters
+                </button>
+              )}
+              {filteredTickers.length > 0 && (
+                <button
+                  onClick={exportToPDF}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Export to PDF
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Scrollable Table Container */}
@@ -11251,13 +11375,13 @@ const IdeaScreeningPage = ({ tickers, quotes }) => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            ticker.longShort === 'Long' 
+                            ticker.ls_position === 'Long' 
                               ? 'bg-green-100 text-green-800' 
-                              : ticker.longShort === 'Short'
+                              : ticker.ls_position === 'Short'
                               ? 'bg-red-100 text-red-800'
                               : 'bg-gray-100 text-gray-800'
                           }`}>
-                            {ticker.longShort || '-'}
+                            {ticker.ls_position === 'Long' ? 'L' : ticker.ls_position === 'Short' ? 'S' : '-'}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
