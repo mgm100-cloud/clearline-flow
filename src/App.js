@@ -3388,6 +3388,7 @@ const ClearlineFlow = () => {
           <IdeaScreeningPage 
             tickers={tickers}
             quotes={quotes}
+            onNavigateToIdeaDetail={navigateToIdeaDetail}
           />
         )}
         {activeTab === 'pm-detail' && (userDivision === 'Investment' || userDivision === 'Super' || userDivision === '') && (
@@ -10972,7 +10973,7 @@ const UpdatePortfolioPage = ({ tickers, onUpdateTickers, currentUser, userRole }
 };
 
 // Idea Screening Page Component
-const IdeaScreeningPage = ({ tickers, quotes }) => {
+const IdeaScreeningPage = ({ tickers, quotes, onNavigateToIdeaDetail }) => {
   // Debug: Log first ticker to see structure
   React.useEffect(() => {
     if (tickers && tickers.length > 0) {
@@ -11017,6 +11018,10 @@ const IdeaScreeningPage = ({ tickers, quotes }) => {
     trumpLoser: false
   });
 
+  // Sorting state
+  const [sortField, setSortField] = useState(null);
+  const [sortDirection, setSortDirection] = useState('asc'); // 'asc' or 'desc'
+
   // Toggle characteristic selection
   const toggleCharacteristic = (characteristic) => {
     setSelectedCharacteristics(prev => ({
@@ -11025,12 +11030,53 @@ const IdeaScreeningPage = ({ tickers, quotes }) => {
     }));
   };
 
-  // Filter tickers based on selected characteristics (AND logic - must have ALL selected characteristics)
+  // Handle sorting
+  const handleSort = (field) => {
+    if (sortField === field) {
+      // If clicking the same field, toggle direction
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // If clicking a new field, default to ascending
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  // Helper function to get sort value for a field
+  const getSortValue = (ticker, field) => {
+    switch (field) {
+      case 'ticker':
+        return ticker.ticker || '';
+      case 'name':
+        return ticker.name || '';
+      case 'lsPosition':
+        return ticker.lsPosition || '';
+      case 'status':
+        return ticker.status || '';
+      case 'analyst':
+        return ticker.analyst || '';
+      case 'marketCap':
+        return parseFloat(ticker.marketCap) || 0;
+      case 'adv3m':
+        return parseFloat(ticker.adv3m) || 0;
+      case 'ptBear':
+        return parseFloat(ticker.ptBear) || 0;
+      case 'ptBase':
+        return parseFloat(ticker.ptBase) || 0;
+      case 'ptBull':
+        return parseFloat(ticker.ptBull) || 0;
+      default:
+        return '';
+    }
+  };
+
+  // Filter and sort tickers based on selected characteristics and sorting preferences
   const filteredTickers = useMemo(() => {
     const selectedKeys = Object.keys(selectedCharacteristics).filter(
       key => selectedCharacteristics[key]
     );
     
+    let filtered;
     if (selectedKeys.length === 0) {
       // Debug: Log the first few tickers to see ls_position values
       if (tickers.length > 0) {
@@ -11043,13 +11089,36 @@ const IdeaScreeningPage = ({ tickers, quotes }) => {
           }))
         );
       }
-      return tickers; // Show all tickers if no filters selected
+      filtered = tickers; // Show all tickers if no filters selected
+    } else {
+      filtered = tickers.filter(ticker => {
+        return selectedKeys.every(key => ticker[key] === true);
+      });
     }
     
-    return tickers.filter(ticker => {
-      return selectedKeys.every(key => ticker[key] === true);
-    });
-  }, [tickers, selectedCharacteristics]);
+    // Apply sorting if a sort field is selected
+    if (sortField) {
+      filtered = [...filtered].sort((a, b) => {
+        const aVal = getSortValue(a, sortField);
+        const bVal = getSortValue(b, sortField);
+        
+        // Handle numeric vs string comparison
+        if (typeof aVal === 'number' && typeof bVal === 'number') {
+          return sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
+        } else {
+          const aStr = String(aVal).toLowerCase();
+          const bStr = String(bVal).toLowerCase();
+          if (sortDirection === 'asc') {
+            return aStr.localeCompare(bStr);
+          } else {
+            return bStr.localeCompare(aStr);
+          }
+        }
+      });
+    }
+    
+    return filtered;
+  }, [tickers, selectedCharacteristics, sortField, sortDirection, getSortValue]);
 
   // Investment characteristics definitions
   const characteristicsGroups = {
@@ -11339,35 +11408,135 @@ const IdeaScreeningPage = ({ tickers, quotes }) => {
                 {/* Sticky Header */}
                 <thead className="bg-gray-50 sticky top-0 z-10">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Ticker
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleSort('ticker')}
+                    >
+                      <div className="flex items-center space-x-1">
+                        <span>Ticker</span>
+                        {sortField === 'ticker' && (
+                          <span className="text-gray-400">
+                            {sortDirection === 'asc' ? '↑' : '↓'}
+                          </span>
+                        )}
+                      </div>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Name
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleSort('name')}
+                    >
+                      <div className="flex items-center space-x-1">
+                        <span>Name</span>
+                        {sortField === 'name' && (
+                          <span className="text-gray-400">
+                            {sortDirection === 'asc' ? '↑' : '↓'}
+                          </span>
+                        )}
+                      </div>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      L/S
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleSort('lsPosition')}
+                    >
+                      <div className="flex items-center space-x-1">
+                        <span>L/S</span>
+                        {sortField === 'lsPosition' && (
+                          <span className="text-gray-400">
+                            {sortDirection === 'asc' ? '↑' : '↓'}
+                          </span>
+                        )}
+                      </div>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleSort('status')}
+                    >
+                      <div className="flex items-center space-x-1">
+                        <span>Status</span>
+                        {sortField === 'status' && (
+                          <span className="text-gray-400">
+                            {sortDirection === 'asc' ? '↑' : '↓'}
+                          </span>
+                        )}
+                      </div>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Analyst
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleSort('analyst')}
+                    >
+                      <div className="flex items-center space-x-1">
+                        <span>Analyst</span>
+                        {sortField === 'analyst' && (
+                          <span className="text-gray-400">
+                            {sortDirection === 'asc' ? '↑' : '↓'}
+                          </span>
+                        )}
+                      </div>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Market Cap
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleSort('marketCap')}
+                    >
+                      <div className="flex items-center space-x-1">
+                        <span>Market Cap</span>
+                        {sortField === 'marketCap' && (
+                          <span className="text-gray-400">
+                            {sortDirection === 'asc' ? '↑' : '↓'}
+                          </span>
+                        )}
+                      </div>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      ADV 3M
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleSort('adv3m')}
+                    >
+                      <div className="flex items-center space-x-1">
+                        <span>ADV 3M</span>
+                        {sortField === 'adv3m' && (
+                          <span className="text-gray-400">
+                            {sortDirection === 'asc' ? '↑' : '↓'}
+                          </span>
+                        )}
+                      </div>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      PT Bear
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleSort('ptBear')}
+                    >
+                      <div className="flex items-center space-x-1">
+                        <span>PT Bear</span>
+                        {sortField === 'ptBear' && (
+                          <span className="text-gray-400">
+                            {sortDirection === 'asc' ? '↑' : '↓'}
+                          </span>
+                        )}
+                      </div>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      PT Base
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleSort('ptBase')}
+                    >
+                      <div className="flex items-center space-x-1">
+                        <span>PT Base</span>
+                        {sortField === 'ptBase' && (
+                          <span className="text-gray-400">
+                            {sortDirection === 'asc' ? '↑' : '↓'}
+                          </span>
+                        )}
+                      </div>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      PT Bull
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleSort('ptBull')}
+                    >
+                      <div className="flex items-center space-x-1">
+                        <span>PT Bull</span>
+                        {sortField === 'ptBull' && (
+                          <span className="text-gray-400">
+                            {sortDirection === 'asc' ? '↑' : '↓'}
+                          </span>
+                        )}
+                      </div>
                     </th>
                   </tr>
                 </thead>
@@ -11389,7 +11558,12 @@ const IdeaScreeningPage = ({ tickers, quotes }) => {
                     filteredTickers.map((ticker, index) => (
                       <tr key={`${ticker.ticker}-${index}`} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {ticker.ticker}
+                          <button
+                            onClick={() => onNavigateToIdeaDetail(ticker.ticker)}
+                            className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer font-medium"
+                          >
+                            {ticker.ticker}
+                          </button>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {ticker.name || '-'}
