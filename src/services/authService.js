@@ -287,7 +287,7 @@ export const AuthService = {
   },
 
   // Refresh user data from database on login
-  async refreshUserData(user) {
+  async refreshUserData(user, skipMetadataUpdate = false) {
     try {
       console.log('🔄 Refreshing user data from database...');
       
@@ -306,28 +306,21 @@ export const AuthService = {
       if (profileData) {
         console.log('✅ Found fresh profile data:', profileData);
         
-        // Sync all profile data to user metadata
-        const updatedMetadata = {
-          ...user.user_metadata,
-          division: profileData.division || user.user_metadata?.division,
-          analyst_code: profileData.analyst_code || user.user_metadata?.analyst_code,
-          role: profileData.role || user.user_metadata?.role,
-          full_name: profileData.full_name || user.user_metadata?.full_name
+        // Create a user object with the fresh data without updating Supabase metadata
+        // This prevents infinite loops from auth state changes
+        const refreshedUser = {
+          ...user,
+          user_metadata: {
+            ...user.user_metadata,
+            division: profileData.division || user.user_metadata?.division,
+            analyst_code: profileData.analyst_code || user.user_metadata?.analyst_code,
+            role: profileData.role || user.user_metadata?.role,
+            full_name: profileData.full_name || user.user_metadata?.full_name
+          }
         };
         
-        console.log('🔄 Updating user metadata with fresh data:', updatedMetadata);
-        
-        const { data: updatedUser, error: updateError } = await supabase.auth.updateUser({
-          data: updatedMetadata
-        });
-        
-        if (updateError) {
-          console.error('❌ Error updating user metadata:', updateError);
-          return user; // Return original user if update fails
-        }
-        
-        console.log('✅ Successfully refreshed user data');
-        return updatedUser.user;
+        console.log('✅ Successfully refreshed user data (in-memory only)');
+        return refreshedUser;
       }
       
       return user;

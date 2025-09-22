@@ -1493,6 +1493,8 @@ const ClearlineFlow = () => {
   
   // Reference to prevent re-initialization on tab focus
   const isInitializedRef = useRef(false);
+  // Reference to prevent infinite auth refresh loops
+  const isRefreshingRef = useRef(false);
   
   // Authentication state - using Supabase Auth
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -1742,11 +1744,20 @@ const ClearlineFlow = () => {
         return;
       }
       
+      // Prevent infinite loops during refresh operations
+      if (isRefreshingRef.current) {
+        console.log('🔄 Already refreshing user data - ignoring duplicate auth event');
+        return;
+      }
+      
       console.log('🔄 Auth state changed:', event, session);
       
       if (event === 'SIGNED_IN' && session) {
         const user = session.user;
         console.log('✅ User signed in:', user);
+        
+        // Set refresh flag to prevent infinite loops
+        isRefreshingRef.current = true;
         
         // Refresh user data from database to ensure we have the latest information
         console.log('🔄 Refreshing user data from database...');
@@ -1811,6 +1822,9 @@ const ClearlineFlow = () => {
         } else {
           console.log('🔄 Tab refocus or remount detected - preserving existing state');
         }
+        
+        // Reset refresh flag at the end of SIGNED_IN processing
+        isRefreshingRef.current = false;
       } else if (event === 'SIGNED_OUT') {
         console.log('🚪 User signed out');
         setCurrentUser(null);
@@ -1821,6 +1835,7 @@ const ClearlineFlow = () => {
         setAuthError('');
         // Reset initialization flag and clear localStorage
         isInitializedRef.current = false;
+        isRefreshingRef.current = false;
         // Clear persisted state on logout
         window.localStorage.removeItem('clearlineflow_activeTab');
         window.localStorage.removeItem('clearlineflow_selectedAnalyst');
