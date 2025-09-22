@@ -288,106 +288,11 @@ export const AuthService = {
 
   // Refresh user data from database on login
   async refreshUserData(user, skipMetadataUpdate = false) {
-    // DIAGNOSTIC MODE: Let's investigate the issue step by step
-    console.log('🔍 DIAGNOSTIC: Starting user data refresh investigation...');
-    console.log('🔍 User ID:', user.id);
-    console.log('🔍 User email:', user.email);
-    
-    try {
-      // Test 1: Check if we can connect to Supabase at all
-      console.log('🧪 TEST 1: Testing basic Supabase connection...');
-      const { data: connectionTest, error: connectionError } = await supabase
-        .from('tickers')
-        .select('count')
-        .limit(1);
-      
-      if (connectionError) {
-        console.error('❌ TEST 1 FAILED: Basic Supabase connection failed:', connectionError);
-        return user;
-      } else {
-        console.log('✅ TEST 1 PASSED: Basic Supabase connection works');
-      }
-      
-      // Test 2: Check if user_profiles table exists and is accessible
-      console.log('🧪 TEST 2: Testing user_profiles table access...');
-      const { data: tableTest, error: tableError } = await supabase
-        .from('user_profiles')
-        .select('count')
-        .limit(1);
-      
-      if (tableError) {
-        console.error('❌ TEST 2 FAILED: user_profiles table access failed:', tableError);
-        console.error('This might mean the table doesn\'t exist or RLS is blocking access');
-        return user;
-      } else {
-        console.log('✅ TEST 2 PASSED: user_profiles table is accessible');
-      }
-      
-      // Test 3: Check if our specific user exists
-      console.log('🧪 TEST 3: Checking if user exists in user_profiles...');
-      const { data: userExists, error: userExistsError } = await supabase
-        .from('user_profiles')
-        .select('id')
-        .eq('id', user.id);
-      
-      if (userExistsError) {
-        console.error('❌ TEST 3 FAILED: Error checking if user exists:', userExistsError);
-        return user;
-      } else {
-        console.log('✅ TEST 3 RESULT: User exists check:', userExists);
-        if (!userExists || userExists.length === 0) {
-          console.warn('⚠️ User does not exist in user_profiles table yet');
-          return user;
-        }
-      }
-      
-      // Test 4: Try the actual query with timeout
-      console.log('🧪 TEST 4: Attempting the actual user_profiles query...');
-      const queryPromise = supabase
-        .from('user_profiles')
-        .select('division, analyst_code, role, full_name')
-        .eq('id', user.id)
-        .single();
-      
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Query timeout after 10 seconds')), 10000)
-      );
-      
-      const { data: profileData, error: queryError } = await Promise.race([queryPromise, timeoutPromise]);
-      
-      if (queryError) {
-        console.error('❌ TEST 4 FAILED: Actual query failed:', queryError);
-        return user;
-      } else {
-        console.log('✅ TEST 4 PASSED: Successfully got profile data:', profileData);
-        
-        // Success! Create refreshed user object
-        const refreshedUser = {
-          ...user,
-          user_metadata: {
-            ...user.user_metadata,
-            division: profileData.division || user.user_metadata?.division,
-            analyst_code: profileData.analyst_code || user.user_metadata?.analyst_code,
-            role: profileData.role || user.user_metadata?.role,
-            full_name: profileData.full_name || user.user_metadata?.full_name
-          }
-        };
-        
-        console.log('✅ DIAGNOSTIC SUCCESS: User data refreshed:', refreshedUser.user_metadata);
-        return refreshedUser;
-      }
-      
-    } catch (error) {
-      console.error('❌ DIAGNOSTIC ERROR:', error);
-      return user;
-    }
-    
-    /* COMMENTED OUT TEMPORARILY - UNCOMMENT AFTER FIXING RLS ISSUES
     try {
       console.log('🔄 Refreshing user data from database...');
       console.log('🔍 User ID:', user.id);
       
-      // Quick timeout to prevent hanging the login process
+      // Query user_profiles table with timeout to prevent hanging
       const queryPromise = supabase
         .from('user_profiles')
         .select('division, analyst_code, role, full_name')
@@ -395,13 +300,11 @@ export const AuthService = {
         .single();
       
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Database query timeout after 5 seconds')), 5000)
+        setTimeout(() => reject(new Error('Database query timeout after 8 seconds')), 8000)
       );
       
       console.log('🔍 Executing user_profiles query...');
       const { data: profileData, error } = await Promise.race([queryPromise, timeoutPromise]);
-      
-      console.log('📊 Query completed. Data:', profileData, 'Error:', error);
       
       if (error) {
         console.warn('⚠️ Error fetching fresh user profile:', error);
@@ -425,7 +328,7 @@ export const AuthService = {
           }
         };
         
-        console.log('✅ Successfully refreshed user data (in-memory only)', refreshedUser.user_metadata);
+        console.log('✅ Successfully refreshed user data from database:', refreshedUser.user_metadata);
         return refreshedUser;
       } else {
         console.log('📝 No profile data found in user_profiles table');
@@ -439,7 +342,6 @@ export const AuthService = {
       console.log('🔄 Returning original user to continue login process');
       return user; // Return original user if anything fails
     }
-    */
   },
 
   // Listen to auth state changes
