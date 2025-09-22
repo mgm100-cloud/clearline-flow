@@ -3202,6 +3202,18 @@ const ClearlineFlow = () => {
                   Idea Database Detailed
                 </button>
                 <button
+                  onClick={() => handleTabSwitch('idea-screening')}
+                  disabled={isTabSwitching}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'idea-screening'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  } ${isTabSwitching ? 'cursor-not-allowed opacity-50' : ''}`}
+                >
+                  <CheckSquare className="inline h-4 w-4 mr-1" />
+                  Idea Screening
+                </button>
+                <button
                   onClick={() => handleTabSwitch('pm-detail')}
                   disabled={isTabSwitching}
                   className={`py-4 px-1 border-b-2 font-medium text-sm ${
@@ -3370,6 +3382,12 @@ const ClearlineFlow = () => {
             formatMarketCap={formatMarketCap}
             formatVolumeDollars={formatVolumeDollars}
             onNavigateToIdeaDetail={navigateToIdeaDetail}
+          />
+        )}
+        {activeTab === 'idea-screening' && (userDivision === 'Investment' || userDivision === 'Super' || userDivision === '') && (
+          <IdeaScreeningPage 
+            tickers={tickers}
+            quotes={quotes}
           />
         )}
         {activeTab === 'pm-detail' && (userDivision === 'Investment' || userDivision === 'Super' || userDivision === '') && (
@@ -10946,6 +10964,339 @@ const UpdatePortfolioPage = ({ tickers, onUpdateTickers, currentUser, userRole }
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Idea Screening Page Component
+const IdeaScreeningPage = ({ tickers, quotes }) => {
+  // State for selected investment characteristics
+  const [selectedCharacteristics, setSelectedCharacteristics] = useState({
+    // Catalysts
+    maTargetBuyer: false,
+    maTargetValuation: false,
+    maTargetSeller: false,
+    bigMoveRevert: false,
+    activist: false,
+    activistPotential: false,
+    insiderTradeSignal: false,
+    newMgmt: false,
+    spin: false,
+    bigAcq: false,
+    selfHelp: false,
+    productCycle: false,
+    regulation: false,
+    // Characteristics
+    fraudRisk: false,
+    regulatoryRisk: false,
+    cyclical: false,
+    nonCyclical: false,
+    highBeta: false,
+    momo: false,
+    rateExposure: false,
+    strongDollar: false,
+    extremeValuation: false,
+    crapco: false,
+    // Themes
+    aiWinner: false,
+    aiLoser: false,
+    tariffWinner: false,
+    tariffLoser: false,
+    trumpWinner: false,
+    trumpLoser: false
+  });
+
+  // Toggle characteristic selection
+  const toggleCharacteristic = (characteristic) => {
+    setSelectedCharacteristics(prev => ({
+      ...prev,
+      [characteristic]: !prev[characteristic]
+    }));
+  };
+
+  // Filter tickers based on selected characteristics
+  const filteredTickers = useMemo(() => {
+    const selectedKeys = Object.keys(selectedCharacteristics).filter(
+      key => selectedCharacteristics[key]
+    );
+    
+    if (selectedKeys.length === 0) {
+      return tickers; // Show all tickers if no filters selected
+    }
+    
+    return tickers.filter(ticker => {
+      return selectedKeys.some(key => ticker[key] === true);
+    });
+  }, [tickers, selectedCharacteristics]);
+
+  // Investment characteristics definitions
+  const characteristicsGroups = {
+    catalysts: {
+      title: 'Catalysts',
+      bgColor: 'bg-blue-50',
+      borderColor: 'border-blue-200',
+      titleColor: 'text-blue-800',
+      borderBottomColor: 'border-blue-300',
+      items: [
+        { key: 'maTargetBuyer', label: 'M&A Target - Buyer' },
+        { key: 'maTargetValuation', label: 'M&A Target - Valuation' },
+        { key: 'maTargetSeller', label: 'M&A Target - Seller' },
+        { key: 'bigMoveRevert', label: 'Big Move Revert' },
+        { key: 'activist', label: 'Activist' },
+        { key: 'activistPotential', label: 'Activist Potential' },
+        { key: 'insiderTradeSignal', label: 'Insider Trade Signal' },
+        { key: 'newMgmt', label: 'New Management' },
+        { key: 'spin', label: 'Spin' },
+        { key: 'bigAcq', label: 'Big Acquisition' },
+        { key: 'selfHelp', label: 'Self-Help' },
+        { key: 'productCycle', label: 'Product Cycle' },
+        { key: 'regulation', label: 'Regulation' }
+      ]
+    },
+    characteristics: {
+      title: 'Characteristics',
+      bgColor: 'bg-green-50',
+      borderColor: 'border-green-200',
+      titleColor: 'text-green-800',
+      borderBottomColor: 'border-green-300',
+      items: [
+        { key: 'fraudRisk', label: 'Fraud Risk' },
+        { key: 'regulatoryRisk', label: 'Regulatory Risk' },
+        { key: 'cyclical', label: 'Cyclical' },
+        { key: 'nonCyclical', label: 'Non-Cyclical' },
+        { key: 'highBeta', label: 'High Beta' },
+        { key: 'momo', label: 'Momentum' },
+        { key: 'rateExposure', label: 'Rate Exposure' },
+        { key: 'strongDollar', label: 'Strong Dollar' },
+        { key: 'extremeValuation', label: 'Extreme Valuation' },
+        { key: 'crapco', label: 'Crapco' }
+      ]
+    },
+    themes: {
+      title: 'Theme',
+      bgColor: 'bg-purple-50',
+      borderColor: 'border-purple-200',
+      titleColor: 'text-purple-800',
+      borderBottomColor: 'border-purple-300',
+      items: [
+        { key: 'aiWinner', label: 'AI Winner' },
+        { key: 'aiLoser', label: 'AI Loser' },
+        { key: 'tariffWinner', label: 'Tariff Winner' },
+        { key: 'tariffLoser', label: 'Tariff Loser' },
+        { key: 'trumpWinner', label: 'Trump Winner' },
+        { key: 'trumpLoser', label: 'Trump Loser' }
+      ]
+    }
+  };
+
+  // Format market cap
+  const formatMarketCap = (marketCap) => {
+    if (!marketCap || marketCap === 0) return '-';
+    const numValue = parseFloat(marketCap);
+    if (numValue >= 1e9) {
+      return `$${(numValue / 1e9).toFixed(1)}B`;
+    } else if (numValue >= 1e6) {
+      return `$${(numValue / 1e6).toFixed(1)}M`;
+    } else {
+      return `$${numValue.toFixed(0)}`;
+    }
+  };
+
+  // Format ADV 3M
+  const formatADV3M = (adv3m) => {
+    if (!adv3m || adv3m === 0) return '-';
+    const numValue = parseFloat(adv3m);
+    if (numValue >= 1e9) {
+      return `$${(numValue / 1e9).toFixed(1)}B`;
+    } else if (numValue >= 1e6) {
+      return `$${(numValue / 1e6).toFixed(1)}M`;
+    } else if (numValue >= 1e3) {
+      return `$${(numValue / 1e3).toFixed(1)}K`;
+    } else {
+      return `$${numValue.toFixed(0)}`;
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Page Header */}
+      <div className="bg-white shadow rounded-lg">
+        <div className="px-4 py-5 sm:p-6">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Idea Screening</h1>
+          <p className="text-gray-600">
+            Filter investment ideas by selecting investment characteristics below. Results show all tickers matching any of the selected criteria.
+          </p>
+        </div>
+      </div>
+
+      {/* Investment Characteristics Filter Section */}
+      <div className="bg-white shadow rounded-lg">
+        <div className="px-4 py-5 sm:p-6">
+          <h2 className="text-lg font-semibold text-gray-800 mb-4">Investment Characteristics</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Object.entries(characteristicsGroups).map(([groupKey, group]) => (
+              <div key={groupKey} className={`${group.bgColor} ${group.borderColor} border rounded-lg p-4`}>
+                <h6 className={`text-base font-semibold ${group.titleColor} mb-3 ${group.borderBottomColor} border-b pb-2`}>
+                  {group.title}
+                </h6>
+                <div className="grid grid-cols-1 gap-3">
+                  {group.items.map(({ key, label }) => (
+                    <div key={key} className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedCharacteristics[key]}
+                        onChange={() => toggleCharacteristic(key)}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
+                      />
+                      <label 
+                        className="ml-2 text-sm text-gray-700 cursor-pointer"
+                        onClick={() => toggleCharacteristic(key)}
+                      >
+                        {label}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Results Section */}
+      <div className="bg-white shadow rounded-lg">
+        <div className="px-4 py-5 sm:p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-800">
+              Filtered Results ({filteredTickers.length} ideas)
+            </h2>
+            {Object.values(selectedCharacteristics).some(v => v) && (
+              <button
+                onClick={() => setSelectedCharacteristics(prev => {
+                  const reset = {};
+                  Object.keys(prev).forEach(key => reset[key] = false);
+                  return reset;
+                })}
+                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+              >
+                Clear All Filters
+              </button>
+            )}
+          </div>
+
+          {/* Scrollable Table Container */}
+          <div className="overflow-hidden border border-gray-200 rounded-lg">
+            <div className="max-h-96 overflow-y-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                {/* Sticky Header */}
+                <thead className="bg-gray-50 sticky top-0 z-10">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Ticker
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Name
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      L/S
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Analyst
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Market Cap
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      ADV 3M
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      PT Bear
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      PT Base
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      PT Bull
+                    </th>
+                  </tr>
+                </thead>
+                
+                {/* Table Body */}
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredTickers.length === 0 ? (
+                    <tr>
+                      <td colSpan="10" className="px-6 py-12 text-center">
+                        <div className="text-gray-500">
+                          {Object.values(selectedCharacteristics).some(v => v) 
+                            ? "No tickers match the selected criteria" 
+                            : "Select investment characteristics above to filter ideas"
+                          }
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredTickers.map((ticker, index) => (
+                      <tr key={`${ticker.ticker}-${index}`} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {ticker.ticker}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {ticker.name || '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            ticker.longShort === 'Long' 
+                              ? 'bg-green-100 text-green-800' 
+                              : ticker.longShort === 'Short'
+                              ? 'bg-red-100 text-red-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {ticker.longShort || '-'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            ticker.status === 'Portfolio' 
+                              ? 'bg-blue-100 text-blue-800'
+                              : ticker.status === 'Watchlist'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : ticker.status === 'Old'
+                              ? 'bg-gray-100 text-gray-800'
+                              : 'bg-green-100 text-green-800'
+                          }`}>
+                            {ticker.status || '-'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {ticker.analyst || '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {formatMarketCap(ticker.marketCap)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {formatADV3M(ticker.adv3m)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {ticker.ptBear ? `$${parseFloat(ticker.ptBear).toFixed(2)}` : '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {ticker.ptBase ? `$${parseFloat(ticker.ptBase).toFixed(2)}` : '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {ticker.ptBull ? `$${parseFloat(ticker.ptBull).toFixed(2)}` : '-'}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
