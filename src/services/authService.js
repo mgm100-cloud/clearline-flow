@@ -292,31 +292,44 @@ export const AuthService = {
       console.log('🔄 Refreshing user data from database...');
       console.log('🔍 User ID:', user.id);
       
-      // Query user_profiles table with timeout to prevent hanging
-      const queryPromise = supabase
+      // PERFORMANCE DIAGNOSTIC: Let's measure query performance
+      const startTime = performance.now();
+      
+      console.log('🔍 Starting user_profiles query...');
+      console.log('🔍 Query details:', {
+        table: 'user_profiles',
+        select: 'division, analyst_code, role, full_name',
+        filter: `id.eq.${user.id}`,
+        operation: 'single()'
+      });
+      
+      const { data: profileData, error } = await supabase
         .from('user_profiles')
         .select('division, analyst_code, role, full_name')
         .eq('id', user.id)
         .single();
       
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Database query timeout after 8 seconds')), 8000)
-      );
+      const endTime = performance.now();
+      const queryDuration = endTime - startTime;
       
-      console.log('🔍 Executing user_profiles query...');
-      const { data: profileData, error } = await Promise.race([queryPromise, timeoutPromise]);
+      console.log(`⏱️ Query completed in ${queryDuration.toFixed(2)}ms`);
       
       if (error) {
-        console.warn('⚠️ Error fetching fresh user profile:', error);
-        console.warn('⚠️ Continuing with existing user metadata');
-        return user; // Return original user if database query fails
+        console.error('❌ Database query error:', error);
+        console.error('❌ Error details:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        });
+        return user;
       }
       
       if (profileData) {
-        console.log('✅ Found fresh profile data:', profileData);
+        console.log('✅ Query successful! Profile data:', profileData);
+        console.log(`✅ Performance: Query took ${queryDuration.toFixed(2)}ms`);
         
-        // Create a user object with the fresh data without updating Supabase metadata
-        // This prevents infinite loops from auth state changes
+        // Create refreshed user object
         const refreshedUser = {
           ...user,
           user_metadata: {
@@ -328,19 +341,16 @@ export const AuthService = {
           }
         };
         
-        console.log('✅ Successfully refreshed user data from database:', refreshedUser.user_metadata);
+        console.log('✅ User data refreshed from database:', refreshedUser.user_metadata);
         return refreshedUser;
       } else {
-        console.log('📝 No profile data found in user_profiles table');
+        console.log('📝 No profile data returned from query');
         return user;
       }
     } catch (error) {
-      console.error('❌ Error refreshing user data:', error);
-      if (error.message.includes('timeout')) {
-        console.error('❌ Database query timed out - proceeding with existing metadata');
-      }
-      console.log('🔄 Returning original user to continue login process');
-      return user; // Return original user if anything fails
+      console.error('❌ Unexpected error in refreshUserData:', error);
+      console.error('❌ Stack trace:', error.stack);
+      return user;
     }
   },
 
