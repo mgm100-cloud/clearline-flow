@@ -6479,10 +6479,10 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
          const paddingVal = typeof padding === 'number' ? padding : (padding.left || 3);
          
          // Use tight line spacing for wrapped lines
-         const lineHeight = fontSize * 0.45;  // Compressed spacing
-         const textPos = data.cell.textPos;
-         let startX = textPos ? textPos.x : (x + paddingVal);
-         let startY = textPos ? textPos.y : (y + paddingVal + fontSize);
+         const lineHeight = fontSize * 0.38;  // More compressed spacing
+         // Always start from top of cell, ignore textPos which may be vertically centered
+         let startX = x + paddingVal;
+         let startY = y + paddingVal + fontSize * 0.8;  // Top-aligned
          
          doc.setFontSize(fontSize);
          doc.setTextColor(0, 0, 0);
