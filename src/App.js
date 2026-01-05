@@ -6502,12 +6502,14 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
              }
              doc.rect(x, y, width, height, 'F');
              
-             // Text wrapping parameters
-             const padding = 3;
-             const lineHeight = 10;
-             const maxWidth = width - (padding * 2);
+             // Text wrapping parameters - compact spacing
+             const padding = 2;
+             const lineHeight = 4; // Tight line spacing
+             const fontSize = 8;
              let currentX = x + padding;
-             let currentY = y + padding + 6; // Start position for first line
+             let currentY = y + padding + 3; // Start position for first line
+             
+             doc.setFontSize(fontSize);
              
              cellData.tickers.forEach((ticker, idx) => {
                let tickerText = ticker.ticker;
@@ -6520,7 +6522,7 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
                } else {
                  doc.setFont('helvetica', 'normal');
                }
-               doc.setFontSize(8);
+               doc.setFontSize(fontSize);
                doc.setTextColor(0, 0, 0);
                
                const tickerWidth = doc.getTextWidth(tickerText);
@@ -6533,26 +6535,23 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
                  currentY += lineHeight;
                }
                
-               // Only draw if within cell bounds
-               if (currentY < y + height - padding) {
-                 // Draw the ticker text
-                 doc.text(tickerText, currentX, currentY);
-                 
-                 // Draw underline for ranked tickers
-                 if (ticker.rank) {
-                   doc.setDrawColor(0, 0, 0);
-                   doc.setLineWidth(0.3);
-                   doc.line(currentX, currentY + 1, currentX + tickerWidth, currentY + 1);
-                 }
-                 
-                 currentX += tickerWidth;
-                 
-                 // Draw separator (comma) without underline
-                 if (separator) {
-                   doc.setFont('helvetica', 'normal');
-                   doc.text(separator, currentX, currentY);
-                   currentX += separatorWidth;
-                 }
+               // Draw the ticker text (don't skip - let it overflow if needed)
+               doc.text(tickerText, currentX, currentY);
+               
+               // Draw underline for ranked tickers
+               if (ticker.rank) {
+                 doc.setDrawColor(0, 0, 0);
+                 doc.setLineWidth(0.3);
+                 doc.line(currentX, currentY + 0.5, currentX + tickerWidth, currentY + 0.5);
+               }
+               
+               currentX += tickerWidth;
+               
+               // Draw separator (comma) without underline
+               if (separator) {
+                 doc.setFont('helvetica', 'normal');
+                 doc.text(separator, currentX, currentY);
+                 currentX += separatorWidth;
                }
              });
              
