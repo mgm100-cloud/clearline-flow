@@ -6465,16 +6465,23 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
        willDrawCell: function(data) {
          // For ticker cells, hide autoTable's text so we can draw custom formatted text
          if (data.section === 'body' && data.column.index > 0) {
-           const cellData = tableData[data.row.index][data.column.index];
-           if (cellData && cellData.tickers && cellData.tickers.length > 0) {
-             data.cell.customText = data.cell.text;
-             data.cell.text = [];
+           // Add bounds checking
+           if (tableData && tableData[data.row.index] && tableData[data.row.index][data.column.index]) {
+             const cellData = tableData[data.row.index][data.column.index];
+             if (cellData && cellData.tickers && cellData.tickers.length > 0) {
+               data.cell.customText = data.cell.text;
+               data.cell.text = [];
+             }
            }
          }
        },
        didDrawCell: function(data) {
          // Draw custom formatted text (bold Priority A, underline ranked)
          if (data.section === 'body' && data.column.index > 0 && data.cell.customText) {
+           // Add bounds checking
+           if (!tableData || !tableData[data.row.index] || !tableData[data.row.index][data.column.index]) {
+             return;
+           }
            const cellData = tableData[data.row.index][data.column.index];
            const lines = data.cell.customText;
            const { x, y, width, height } = data.cell;
