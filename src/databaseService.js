@@ -449,8 +449,30 @@ export const DatabaseService = {
 
   async addTodo(todo) {
     try {
+      // Get the minimum sort_order for this analyst's open todos
+      // New todo will be placed at top (lowest sort_order)
+      let newSortOrder = 1;
+      
+      if (todo.analyst) {
+        const { data: minData } = await supabase
+          .from('todos')
+          .select('sort_order')
+          .eq('analyst', todo.analyst)
+          .eq('is_open', true)
+          .order('sort_order', { ascending: true })
+          .limit(1);
+        
+        if (minData && minData.length > 0 && minData[0].sort_order != null) {
+          // Set new sort_order to be less than current minimum (so it appears first)
+          newSortOrder = minData[0].sort_order - 1;
+        }
+      }
+
       // Convert camelCase to snake_case for database
       const dbTodo = convertToDbFormat(todo);
+      
+      // Set sort_order so new todo appears at top of list
+      dbTodo.sort_order = newSortOrder;
       
       const { data, error } = await supabase
         .from('todos')
