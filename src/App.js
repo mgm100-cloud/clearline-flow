@@ -6482,7 +6482,7 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
          const paddingVal = typeof padding === 'number' ? padding : (padding.left || 3);
          
          // Use tight line spacing for wrapped lines
-         const lineHeight = fontSize * 0.40;
+         const lineHeight = fontSize * 0.42;
          // Always start from top of cell
          let startX = x + paddingVal;
          let startY = y + paddingVal + fontSize * 0.35;  // Top-aligned, closer to top
