@@ -6373,201 +6373,163 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
      doc.setFontSize(10);
      doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
      
-     // Prepare data for the PDF table
+     // Prepare data structure that includes ticker objects for formatting
      const tableData = [];
-     console.log('Analysts:', analysts);
-     
+
      // Add analyst rows
      analysts.forEach(analyst => {
        const row = [analyst];
-       
-       // Helper to format ticker with rank suffix for display text
-       const formatTickerForPDF = (t) => {
-         let text = t.ticker;
-         if (t.rank) text = `${text}-${t.rank}`;
-         return text;
-       };
-       
-       // Store ticker data for each cell to enable custom rendering
-       // Format: { text: 'display text', tickers: [array of ticker objects] }
-       const formatCellData = (tickerList) => {
-         if (tickerList.length === 0) return { text: '-', tickers: [] };
-         return {
-           text: tickerList.map(formatTickerForPDF).join(', '),
-           tickers: tickerList
-         };
-       };
-       
+
        // Current-Long
        const currentLong = getTickersForCell(analyst, 'Current', 'Long');
-       row.push(formatCellData(currentLong));
-       
-       // Current-Short  
+       row.push({ tickers: currentLong });
+
+       // Current-Short
        const currentShort = getTickersForCell(analyst, 'Current', 'Short');
-       row.push(formatCellData(currentShort));
-       
+       row.push({ tickers: currentShort });
+
        // OnDeck-Long
        const onDeckLong = getTickersForCell(analyst, 'On-Deck', 'Long');
-       row.push(formatCellData(onDeckLong));
-       
+       row.push({ tickers: onDeckLong });
+
        // OnDeck-Short
        const onDeckShort = getTickersForCell(analyst, 'On-Deck', 'Short');
-       row.push(formatCellData(onDeckShort));
-       
+       row.push({ tickers: onDeckShort });
+
        // Portfolio-Long
        const portfolioLong = getTickersForCell(analyst, 'Portfolio', 'Long');
-       row.push(formatCellData(portfolioLong));
-       
+       row.push({ tickers: portfolioLong });
+
        // Portfolio-Short
        const portfolioShort = getTickersForCell(analyst, 'Portfolio', 'Short');
-       row.push(formatCellData(portfolioShort));
-       
+       row.push({ tickers: portfolioShort });
+
        tableData.push(row);
      });
-     
+
      // Add "To Assign" row
      const toAssignRow = ['To Assign'];
-     const formatCellDataToAssign = (tickerList) => {
-       if (tickerList.length === 0) return { text: '-', tickers: [] };
-       const formatTicker = (t) => {
-         let text = t.ticker;
-         if (t.rank) text = `${text}-${t.rank}`;
-         return text;
-       };
-       return {
-         text: tickerList.map(formatTicker).join(', '),
-         tickers: tickerList
-       };
-     };
-     toAssignRow.push(formatCellDataToAssign(getUnassignedTickersForCell('Current', 'Long')));
-     toAssignRow.push(formatCellDataToAssign(getUnassignedTickersForCell('Current', 'Short')));
-     toAssignRow.push(formatCellDataToAssign(getUnassignedTickersForCell('On-Deck', 'Long')));
-     toAssignRow.push(formatCellDataToAssign(getUnassignedTickersForCell('On-Deck', 'Short')));
-     toAssignRow.push(formatCellDataToAssign(getUnassignedTickersForCell('Portfolio', 'Long')));
-     toAssignRow.push(formatCellDataToAssign(getUnassignedTickersForCell('Portfolio', 'Short')));
+     toAssignRow.push({ tickers: getUnassignedTickersForCell('Current', 'Long') });
+     toAssignRow.push({ tickers: getUnassignedTickersForCell('Current', 'Short') });
+     toAssignRow.push({ tickers: getUnassignedTickersForCell('On-Deck', 'Long') });
+     toAssignRow.push({ tickers: getUnassignedTickersForCell('On-Deck', 'Short') });
+     toAssignRow.push({ tickers: getUnassignedTickersForCell('Portfolio', 'Long') });
+     toAssignRow.push({ tickers: getUnassignedTickersForCell('Portfolio', 'Short') });
      tableData.push(toAssignRow);
-     
-     console.log('Table data:', tableData);
-     
-     // Convert cell data objects to display strings for the table
-     // Keep original data for custom rendering
-     const displayTableData = tableData.map(row => 
-       row.map(cell => typeof cell === 'object' && cell.text !== undefined ? cell.text : cell)
+
+     // Convert to display text for autoTable
+     const displayTableData = tableData.map(row =>
+       row.map(cell => {
+         if (typeof cell === 'string') return cell;
+         if (cell.tickers.length === 0) return '-';
+         return cell.tickers.map(t => {
+           let txt = t.ticker;
+           if (t.rank) txt += `-${t.rank}`;
+           return txt;
+         }).join(', ');
+       })
      );
      
-     // Create the PDF table using the correct autoTable syntax
+     // Create the PDF table
      autoTable(doc, {
-       head: [['Analyst', 'Current-Long', 'Current-Short', 'OnDeck-Long', 'OnDeck-Short', 'Portfolio-Long', 'Portfolio-Short']],
+       head: [['Analyst', 'Cur-Long', 'Cur-Short', 'Deck-Long', 'Deck-Short', 'Port-Long', 'Port-Short']],
        body: displayTableData,
        startY: 40,
        styles: {
          fontSize: 8,
-         cellPadding: { top: 3, right: 3, bottom: 7, left: 3 }, // Extra bottom padding for one more line
+         cellPadding: 3,
        },
        headStyles: {
-         fillColor: [75, 85, 99], // Gray color
+         fillColor: [75, 85, 99],
          textColor: 255,
          fontStyle: 'bold'
        },
        alternateRowStyles: {
-         fillColor: [248, 250, 252] // Light gray
+         fillColor: [248, 250, 252]
        },
        columnStyles: {
-         0: { cellWidth: 30 }, // Analyst column
-         1: { cellWidth: 35 }, // Current-Long
-         2: { cellWidth: 35 }, // Current-Short
-         3: { cellWidth: 35 }, // OnDeck-Long
-         4: { cellWidth: 35 }, // OnDeck-Short
-         5: { cellWidth: 35 }, // Portfolio-Long
-         6: { cellWidth: 35 }  // Portfolio-Short
+         0: { cellWidth: 30 },
+         1: { cellWidth: 40 },
+         2: { cellWidth: 40 },
+         3: { cellWidth: 40 },
+         4: { cellWidth: 40 },
+         5: { cellWidth: 40 },
+         6: { cellWidth: 40 }
        },
        didParseCell: function(data) {
          // Highlight "To Assign" row
          if (data.row.index === analysts.length) {
-           data.cell.styles.fillColor = [254, 226, 226]; // Light red background
+           data.cell.styles.fillColor = [254, 226, 226];
          }
        },
-      willDrawCell: function(data) {
-        // Let autoTable do wrapping + page splitting, but hide its text for ticker cells.
-        // We'll re-draw the already-wrapped text lines with bold/underline in didDrawCell.
-        if (data.section !== 'body' || data.column.index <= 0) return;
+       willDrawCell: function(data) {
+         // For ticker cells, hide autoTable's text so we can draw custom formatted text
+         if (data.section === 'body' && data.column.index > 0) {
+           const cellData = tableData[data.row.index][data.column.index];
+           if (cellData && cellData.tickers && cellData.tickers.length > 0) {
+             data.cell.customText = data.cell.text;
+             data.cell.text = [];
+           }
+         }
+       },
+       didDrawCell: function(data) {
+         // Draw custom formatted text (bold Priority A, underline ranked)
+         if (data.section === 'body' && data.column.index > 0 && data.cell.customText) {
+           const cellData = tableData[data.row.index][data.column.index];
+           const lines = data.cell.customText;
+           const { x, y, width, height } = data.cell;
+           const padding = data.cell.styles.cellPadding;
+           const fontSize = data.cell.styles.fontSize;
 
-        const rowData = tableData[data.row.index];
-        const cellData = rowData ? rowData[data.column.index] : null;
-        if (!cellData || typeof cellData !== 'object' || !cellData.tickers || cellData.tickers.length === 0) return;
+           doc.setFontSize(fontSize);
+           doc.setTextColor(0, 0, 0);
 
-        const fill = data.cell.styles && data.cell.styles.fillColor;
-        // If fillColor isn't set (white), use white so the text becomes invisible.
-        data.cell.styles.textColor = Array.isArray(fill) ? fill : [255, 255, 255];
-      },
-      didDrawCell: function(data) {
-        // Draw per-ticker formatting on top of autoTable's layout:
-        // - Priority A -> bold
-        // - Ranked -> underline
-        // This relies on autoTable's wrapped `data.cell.text` lines, so page breaks work correctly.
-        if (data.section !== 'body' || data.column.index <= 0) return;
+           let currentY = y + padding.top + (fontSize / 72 * 25);
+           const lineHeight = fontSize * 1.15;
 
-        const rowData = tableData[data.row.index];
-        const cellData = rowData ? rowData[data.column.index] : null;
-        if (!cellData || typeof cellData !== 'object' || !cellData.tickers || cellData.tickers.length === 0) return;
+           lines.forEach(line => {
+             let currentX = x + padding.left;
+             const parts = line.split(/(, )/g);
 
-        const styleByToken = new Map();
-        cellData.tickers.forEach((t) => {
-          let token = t.ticker;
-          if (t.rank) token = `${token}-${t.rank}`;
-          styleByToken.set(token, { bold: t.priority === 'A', underline: t.rank != null });
-        });
+             parts.forEach(part => {
+               if (part === ', ') {
+                 doc.setFont('helvetica', 'normal');
+                 doc.text(part, currentX, currentY);
+                 currentX += doc.getTextWidth(part);
+               } else {
+                 // Find matching ticker for formatting
+                 const ticker = cellData.tickers.find(t => {
+                   let txt = t.ticker;
+                   if (t.rank) txt += `-${t.rank}`;
+                   return txt === part;
+                 });
 
-        const fontSize = (data.cell.styles && data.cell.styles.fontSize) || 8;
-        doc.setFontSize(fontSize);
-        doc.setTextColor(0, 0, 0);
+                 if (ticker) {
+                   const isBold = ticker.priority === 'A';
+                   const isUnderline = !!ticker.rank;
 
-        const textLines = Array.isArray(data.cell.text) ? data.cell.text : [];
-        if (textLines.length === 0) return;
+                   doc.setFont('helvetica', isBold ? 'bold' : 'normal');
+                   doc.text(part, currentX, currentY);
 
-        const textPos = data.cell.textPos || {};
-        const startX = typeof textPos.x === 'number' ? textPos.x : (data.cell.x + 3);
-        const startY = typeof textPos.y === 'number' ? textPos.y : (data.cell.y + 3 + fontSize);
-        const lineHeightFactor = typeof doc.getLineHeightFactor === 'function' ? doc.getLineHeightFactor() : 1.15;
-        const lineHeight = fontSize * lineHeightFactor;
-
-        for (let i = 0; i < textLines.length; i++) {
-          const line = (textLines[i] || '').trim();
-          if (!line || line === '-') continue;
-
-          let x = startX;
-          const y = startY + (i * lineHeight);
-
-          const parts = line.split(', ');
-          for (let p = 0; p < parts.length; p++) {
-            const token = parts[p].trim();
-            if (!token) continue;
-
-            const style = styleByToken.get(token);
-
-            doc.setFont('helvetica', style && style.bold ? 'bold' : 'normal');
-            const tokenWidth = doc.getTextWidth(token);
-            doc.text(token, x, y);
-
-            if (style && style.underline) {
-              doc.setDrawColor(0, 0, 0);
-              doc.setLineWidth(0.3);
-              doc.line(x, y + 1, x + tokenWidth, y + 1);
-            }
-
-            x += tokenWidth;
-
-            if (p < parts.length - 1) {
-              const sep = ', ';
-              doc.setFont('helvetica', 'normal');
-              doc.text(sep, x, y);
-              x += doc.getTextWidth(sep);
-            }
-          }
-        }
-
-        doc.setFont('helvetica', 'normal');
-      },
+                   if (isUnderline) {
+                     const textWidth = doc.getTextWidth(part);
+                     doc.setDrawColor(0, 0, 0);
+                     doc.setLineWidth(0.2);
+                     doc.line(currentX, currentY + 0.5, currentX + textWidth, currentY + 0.5);
+                   }
+                   currentX += doc.getTextWidth(part);
+                 } else {
+                   doc.setFont('helvetica', 'normal');
+                   doc.text(part, currentX, currentY);
+                   currentX += doc.getTextWidth(part);
+                 }
+               }
+             });
+             currentY += lineHeight;
+           });
+           doc.setFont('helvetica', 'normal');
+         }
+       }
      });
      
      // Save the PDF
