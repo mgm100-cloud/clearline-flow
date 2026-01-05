@@ -6382,65 +6382,85 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
        const row = [analyst];
        
        // Helper to format ticker with rank suffix and brackets for ranked tickers
-       // Priority A tickers will be marked with * for bolding in PDF
        const formatTickerForPDF = (t) => {
          let text = t.ticker;
          if (t.rank) text = `${text}-${t.rank}`;
          if (t.rank) text = `[${text}]`; // Brackets indicate ranked tickers
-         if (t.priority === 'A') text = `*${text}*`; // Asterisks indicate Priority A (bold)
          return text;
+       };
+       
+       // Store ticker data for each cell to enable custom rendering
+       // Format: { text: 'display text', tickers: [array of ticker objects] }
+       const formatCellData = (tickerList) => {
+         if (tickerList.length === 0) return { text: '-', tickers: [] };
+         return {
+           text: tickerList.map(formatTickerForPDF).join(', '),
+           tickers: tickerList
+         };
        };
        
        // Current-Long
        const currentLong = getTickersForCell(analyst, 'Current', 'Long');
-       row.push(currentLong.map(formatTickerForPDF).join(', ') || '-');
+       row.push(formatCellData(currentLong));
        
        // Current-Short  
        const currentShort = getTickersForCell(analyst, 'Current', 'Short');
-       row.push(currentShort.map(formatTickerForPDF).join(', ') || '-');
+       row.push(formatCellData(currentShort));
        
        // OnDeck-Long
        const onDeckLong = getTickersForCell(analyst, 'On-Deck', 'Long');
-       row.push(onDeckLong.map(formatTickerForPDF).join(', ') || '-');
+       row.push(formatCellData(onDeckLong));
        
        // OnDeck-Short
        const onDeckShort = getTickersForCell(analyst, 'On-Deck', 'Short');
-       row.push(onDeckShort.map(formatTickerForPDF).join(', ') || '-');
+       row.push(formatCellData(onDeckShort));
        
        // Portfolio-Long
        const portfolioLong = getTickersForCell(analyst, 'Portfolio', 'Long');
-       row.push(portfolioLong.map(formatTickerForPDF).join(', ') || '-');
+       row.push(formatCellData(portfolioLong));
        
        // Portfolio-Short
        const portfolioShort = getTickersForCell(analyst, 'Portfolio', 'Short');
-       row.push(portfolioShort.map(formatTickerForPDF).join(', ') || '-');
+       row.push(formatCellData(portfolioShort));
        
        tableData.push(row);
      });
      
      // Add "To Assign" row
      const toAssignRow = ['To Assign'];
-     const formatTickerForPDFToAssign = (t) => {
-       let text = t.ticker;
-       if (t.rank) text = `${text}-${t.rank}`;
-       if (t.rank) text = `[${text}]`; // Brackets indicate ranked tickers
-       if (t.priority === 'A') text = `*${text}*`; // Asterisks indicate Priority A (bold)
-       return text;
+     const formatCellDataToAssign = (tickerList) => {
+       if (tickerList.length === 0) return { text: '-', tickers: [] };
+       const formatTicker = (t) => {
+         let text = t.ticker;
+         if (t.rank) text = `${text}-${t.rank}`;
+         if (t.rank) text = `[${text}]`;
+         return text;
+       };
+       return {
+         text: tickerList.map(formatTicker).join(', '),
+         tickers: tickerList
+       };
      };
-     toAssignRow.push(getUnassignedTickersForCell('Current', 'Long').map(formatTickerForPDFToAssign).join(', ') || '-');
-     toAssignRow.push(getUnassignedTickersForCell('Current', 'Short').map(formatTickerForPDFToAssign).join(', ') || '-');
-     toAssignRow.push(getUnassignedTickersForCell('On-Deck', 'Long').map(formatTickerForPDFToAssign).join(', ') || '-');
-     toAssignRow.push(getUnassignedTickersForCell('On-Deck', 'Short').map(formatTickerForPDFToAssign).join(', ') || '-');
-     toAssignRow.push(getUnassignedTickersForCell('Portfolio', 'Long').map(formatTickerForPDFToAssign).join(', ') || '-');
-     toAssignRow.push(getUnassignedTickersForCell('Portfolio', 'Short').map(formatTickerForPDFToAssign).join(', ') || '-');
+     toAssignRow.push(formatCellDataToAssign(getUnassignedTickersForCell('Current', 'Long')));
+     toAssignRow.push(formatCellDataToAssign(getUnassignedTickersForCell('Current', 'Short')));
+     toAssignRow.push(formatCellDataToAssign(getUnassignedTickersForCell('On-Deck', 'Long')));
+     toAssignRow.push(formatCellDataToAssign(getUnassignedTickersForCell('On-Deck', 'Short')));
+     toAssignRow.push(formatCellDataToAssign(getUnassignedTickersForCell('Portfolio', 'Long')));
+     toAssignRow.push(formatCellDataToAssign(getUnassignedTickersForCell('Portfolio', 'Short')));
      tableData.push(toAssignRow);
      
      console.log('Table data:', tableData);
      
+     // Convert cell data objects to display strings for the table
+     // Keep original data for custom rendering
+     const displayTableData = tableData.map(row => 
+       row.map(cell => typeof cell === 'object' && cell.text !== undefined ? cell.text : cell)
+     );
+     
      // Create the PDF table using the correct autoTable syntax
      autoTable(doc, {
        head: [['Analyst', 'Current-Long', 'Current-Short', 'OnDeck-Long', 'OnDeck-Short', 'Portfolio-Long', 'Portfolio-Short']],
-       body: tableData,
+       body: displayTableData,
        startY: 40,
        styles: {
          fontSize: 8,
@@ -6467,7 +6487,48 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
          // Highlight "To Assign" row
          if (data.row.index === analysts.length) {
            data.cell.styles.fillColor = [254, 226, 226]; // Light red background
-           data.cell.styles.fontStyle = 'bold';
+         }
+       },
+       didDrawCell: function(data) {
+         // Custom render cells with mixed bold/normal text for Priority A tickers
+         if (data.section === 'body' && data.column.index > 0) {
+           const rowData = tableData[data.row.index];
+           const cellData = rowData[data.column.index];
+           
+           if (cellData && typeof cellData === 'object' && cellData.tickers && cellData.tickers.length > 0) {
+             // Clear the cell content area
+             const { x, y, width, height } = data.cell;
+             doc.setFillColor(data.row.index % 2 === 0 ? 255 : 248, data.row.index % 2 === 0 ? 255 : 250, data.row.index % 2 === 0 ? 255 : 252);
+             if (data.row.index === analysts.length) {
+               doc.setFillColor(254, 226, 226); // To Assign row
+             }
+             doc.rect(x, y, width, height, 'F');
+             
+             // Draw each ticker with appropriate styling
+             let currentX = x + 3;
+             const textY = y + height / 2 + 2;
+             
+             cellData.tickers.forEach((ticker, idx) => {
+               let tickerText = ticker.ticker;
+               if (ticker.rank) tickerText = `[${tickerText}-${ticker.rank}]`;
+               if (idx < cellData.tickers.length - 1) tickerText += ', ';
+               
+               // Set bold for Priority A
+               if (ticker.priority === 'A') {
+                 doc.setFont('helvetica', 'bold');
+               } else {
+                 doc.setFont('helvetica', 'normal');
+               }
+               doc.setFontSize(8);
+               doc.setTextColor(0, 0, 0);
+               
+               doc.text(tickerText, currentX, textY);
+               currentX += doc.getTextWidth(tickerText);
+             });
+             
+             // Reset font
+             doc.setFont('helvetica', 'normal');
+           }
          }
        }
      });
