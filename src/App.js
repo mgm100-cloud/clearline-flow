@@ -8133,8 +8133,22 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
     !todo.isOpen && todo.dateClosed && new Date(todo.dateClosed) >= sevenDaysAgo
   );
 
-  // Sort function
+  // Drag and drop state
+  const [draggedTodoId, setDraggedTodoId] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  // Sort function - when analyst is selected, use sortOrder for custom ranking
   const sortTodos = (todosToSort) => {
+    // When an analyst is selected, always sort by sortOrder (custom ranking)
+    if (selectedTodoAnalyst) {
+      return [...todosToSort].sort((a, b) => {
+        const aOrder = a.sortOrder ?? 999999;
+        const bOrder = b.sortOrder ?? 999999;
+        return aOrder - bOrder;
+      });
+    }
+    
+    // When no analyst is selected, use the standard sorting
     if (!sortField) return todosToSort;
     
     return [...todosToSort].sort((a, b) => {
@@ -8164,6 +8178,76 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
         return aVal < bVal ? 1 : -1;
       }
     });
+  };
+
+  // Handle drag start
+  const handleDragStart = (e, todoId) => {
+    if (!selectedTodoAnalyst) return; // Only allow dragging when filtered by analyst
+    setDraggedTodoId(todoId);
+    setIsDragging(true);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', todoId);
+  };
+
+  // Handle drag over
+  const handleDragOver = (e, todoId) => {
+    if (!selectedTodoAnalyst || !draggedTodoId) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  // Handle drop - reorder todos
+  const handleDrop = async (e, targetTodoId) => {
+    e.preventDefault();
+    if (!selectedTodoAnalyst || !draggedTodoId || draggedTodoId === targetTodoId) {
+      setDraggedTodoId(null);
+      setIsDragging(false);
+      return;
+    }
+
+    // Get the sorted open todos for this analyst
+    const sortedTodos = sortTodos(openTodos);
+    const draggedIndex = sortedTodos.findIndex(t => t.id === draggedTodoId);
+    const targetIndex = sortedTodos.findIndex(t => t.id === targetTodoId);
+
+    if (draggedIndex === -1 || targetIndex === -1) {
+      setDraggedTodoId(null);
+      setIsDragging(false);
+      return;
+    }
+
+    // Create new order
+    const reorderedTodos = [...sortedTodos];
+    const [draggedTodo] = reorderedTodos.splice(draggedIndex, 1);
+    reorderedTodos.splice(targetIndex, 0, draggedTodo);
+
+    // Calculate new sort orders
+    const todoUpdates = reorderedTodos.map((todo, index) => ({
+      id: todo.id,
+      sortOrder: index + 1
+    }));
+
+    try {
+      // Save to database
+      await DatabaseService.updateTodoSortOrders(todoUpdates);
+      
+      // Refresh todos to get updated data
+      if (onRefreshTodos) {
+        await onRefreshTodos();
+      }
+    } catch (error) {
+      console.error('Error reordering todos:', error);
+      alert('Failed to save todo order');
+    }
+
+    setDraggedTodoId(null);
+    setIsDragging(false);
+  };
+
+  // Handle drag end
+  const handleDragEnd = () => {
+    setDraggedTodoId(null);
+    setIsDragging(false);
   };
 
   // Handle sort
@@ -8823,9 +8907,16 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
 
       {/* Open Todos Section */}
       <div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">
-          Open Todos ({openTodos.length})
-        </h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold text-gray-900">
+            Open Todos ({openTodos.length})
+          </h2>
+          {selectedTodoAnalyst && openTodos.length > 1 && (
+            <span className="text-sm text-gray-500 flex items-center">
+              <span className="mr-1">⋮⋮</span> Drag to reorder todos
+            </span>
+          )}
+        </div>
         {openTodos.length === 0 ? (
           <p className="text-gray-500 text-center py-8">No open todos found.</p>
         ) : (
@@ -8864,6 +8955,12 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
                     analystEmails={analystEmails}
                     currentUser={currentUser}
                     activeTodoDivision={activeTodoDivision}
+                    isDraggable={!!selectedTodoAnalyst}
+                    isDragging={draggedTodoId === todo.id}
+                    onDragStart={(e) => handleDragStart(e, todo.id)}
+                    onDragOver={(e) => handleDragOver(e, todo.id)}
+                    onDrop={(e) => handleDrop(e, todo.id)}
+                    onDragEnd={handleDragEnd}
                   />
                 ))}
               </tbody>
@@ -8929,7 +9026,7 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
 };
 
 // Todo Row Component with double-click editing
-const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, formatDate, userRole, hasWriteAccess, isClosed = false, tickers, onNavigateToIdeaDetail, onNavigateToInputWithData, analystEmails = [], currentUser, activeTodoDivision }) => {
+const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, formatDate, userRole, hasWriteAccess, isClosed = false, tickers, onNavigateToIdeaDetail, onNavigateToInputWithData, analystEmails = [], currentUser, activeTodoDivision, isDraggable = false, isDragging = false, onDragStart, onDragOver, onDrop, onDragEnd }) => {
   const [editingField, setEditingField] = useState(null); // 'ticker', 'priority' or 'item'
   const [editValue, setEditValue] = useState('');
   const [isEmailSending, setIsEmailSending] = useState(false);
@@ -9101,9 +9198,19 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, 
   };
 
   return (
-    <tr className={isClosed ? 'bg-white' : ''}>
+    <tr 
+      className={`${isClosed ? 'bg-white' : ''} ${isDraggable ? 'cursor-grab active:cursor-grabbing' : ''} ${isDragging ? 'opacity-50 bg-blue-50' : ''}`}
+      draggable={isDraggable}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      onDragEnd={onDragEnd}
+    >
       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
         <div className="flex items-center gap-2">
+          {isDraggable && (
+            <span className="text-gray-400 mr-1" title="Drag to reorder">⋮⋮</span>
+          )}
           {editingField === 'ticker' ? (
             <input
               type="text"

@@ -503,6 +503,32 @@ export const DatabaseService = {
     }
   },
 
+  // Update sort order for multiple todos (for drag-and-drop reordering)
+  async updateTodoSortOrders(todoUpdates) {
+    try {
+      // todoUpdates is an array of { id, sortOrder } objects
+      const updatePromises = todoUpdates.map(({ id, sortOrder }) => 
+        supabase
+          .from('todos')
+          .update({ sort_order: sortOrder, updated_at: new Date().toISOString() })
+          .eq('id', id)
+      );
+      
+      const results = await Promise.all(updatePromises);
+      
+      // Check for errors
+      const errors = results.filter(r => r.error);
+      if (errors.length > 0) {
+        throw errors[0].error;
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error updating todo sort orders:', error);
+      throw error;
+    }
+  },
+
   // Ticker extra info operations
   async getTickerExtraInfo(tickerId) {
     try {
