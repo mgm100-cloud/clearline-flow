@@ -6487,6 +6487,19 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
            data.cell.styles.fillColor = [254, 226, 226]; // Light red background
          }
        },
+       willDrawCell: function(data) {
+         // For cells with ticker data, prevent autoTable from drawing text
+         // We'll draw it ourselves in didDrawCell with custom styling
+         if (data.section === 'body' && data.column.index > 0) {
+           const rowData = tableData[data.row.index];
+           const cellData = rowData ? rowData[data.column.index] : null;
+           
+           if (cellData && typeof cellData === 'object' && cellData.tickers && cellData.tickers.length > 0) {
+             // Clear the text so autoTable doesn't draw it
+             data.cell.text = [];
+           }
+         }
+       },
        didDrawCell: function(data) {
          // Custom render cells with mixed bold/normal text for Priority A tickers
          if (data.section === 'body' && data.column.index > 0) {
@@ -6495,19 +6508,6 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
            
            if (cellData && typeof cellData === 'object' && cellData.tickers && cellData.tickers.length > 0) {
              const { x, y, width, height } = data.cell;
-             
-             // First, fill background to cover autoTable's default text
-             // Use the appropriate background color based on row
-             let bgColor;
-             if (data.row.index === analysts.length) {
-               bgColor = [254, 226, 226]; // To Assign row - light red
-             } else if (data.row.index % 2 === 1) {
-               bgColor = [248, 250, 252]; // Alternate row - light gray
-             } else {
-               bgColor = [255, 255, 255]; // White
-             }
-             doc.setFillColor(...bgColor);
-             doc.rect(x + 0.5, y + 0.5, width - 1, height - 1, 'F');
              
              // Text wrapping parameters - compact spacing
              const padding = 2;
