@@ -6479,18 +6479,27 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
          const paddingVal = typeof padding === 'number' ? padding : (padding.left || 3);
          
          // Use tight line spacing for wrapped lines
-         const lineHeight = fontSize * 0.38;  // More compressed spacing
-         // Always start from top of cell, ignore textPos which may be vertically centered
+         const lineHeight = fontSize * 0.40;
+         // Always start from top of cell
          let startX = x + paddingVal;
          let startY = y + paddingVal + fontSize * 0.8;  // Top-aligned
          
          doc.setFontSize(fontSize);
          doc.setTextColor(0, 0, 0);
          
+         // Filter out empty lines at the start
+         const filteredLines = lines.filter((line, idx) => {
+           // Keep all non-empty lines, and only keep empty lines if they're not at the start
+           if (!line || line.trim() === '') {
+             return idx > 0 && lines.slice(0, idx).some(l => l && l.trim() !== '');
+           }
+           return true;
+         });
+         
          let currentY = startY;
          
-         lines.forEach((line, lineIdx) => {
-           if (!line) {
+         filteredLines.forEach((line, lineIdx) => {
+           if (!line || line.trim() === '') {
              currentY += lineHeight;
              return;
            }
