@@ -6373,71 +6373,54 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
      doc.setFontSize(10);
      doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
      
-     // Prepare data structure that includes ticker objects for formatting
-     const tableData = [];
-
-     // Add analyst rows
-     analysts.forEach(analyst => {
-       const row = [analyst];
-
-       // Current-Long
-       const currentLong = getTickersForCell(analyst, 'Current', 'Long');
-       row.push({ tickers: currentLong });
-
-       // Current-Short
-       const currentShort = getTickersForCell(analyst, 'Current', 'Short');
-       row.push({ tickers: currentShort });
-
-       // OnDeck-Long
-       const onDeckLong = getTickersForCell(analyst, 'On-Deck', 'Long');
-       row.push({ tickers: onDeckLong });
-
-       // OnDeck-Short
-       const onDeckShort = getTickersForCell(analyst, 'On-Deck', 'Short');
-       row.push({ tickers: onDeckShort });
-
-       // Portfolio-Long
-       const portfolioLong = getTickersForCell(analyst, 'Portfolio', 'Long');
-       row.push({ tickers: portfolioLong });
-
-       // Portfolio-Short
-       const portfolioShort = getTickersForCell(analyst, 'Portfolio', 'Short');
-       row.push({ tickers: portfolioShort });
-
-       tableData.push(row);
-     });
-
-     // Add "To Assign" row
-     const toAssignRow = ['To Assign'];
-     toAssignRow.push({ tickers: getUnassignedTickersForCell('Current', 'Long') });
-     toAssignRow.push({ tickers: getUnassignedTickersForCell('Current', 'Short') });
-     toAssignRow.push({ tickers: getUnassignedTickersForCell('On-Deck', 'Long') });
-     toAssignRow.push({ tickers: getUnassignedTickersForCell('On-Deck', 'Short') });
-     toAssignRow.push({ tickers: getUnassignedTickersForCell('Portfolio', 'Long') });
-     toAssignRow.push({ tickers: getUnassignedTickersForCell('Portfolio', 'Short') });
-     tableData.push(toAssignRow);
-
-     // Convert to display text for autoTable
-     const displayTableData = tableData.map(row =>
-       row.map(cell => {
-         if (typeof cell === 'string') return cell;
-         if (cell.tickers.length === 0) return '-';
-         return cell.tickers.map(t => {
-           let txt = t.ticker;
-           if (t.rank) txt += `-${t.rank}`;
-           return txt;
-         }).join(', ');
-       })
-     );
+     // Build ticker lookup for formatting
+     const tickerLookup = {};
      
-     // Create the PDF table
+     // Helper to build cell data
+     const buildCellData = (tickers) => {
+       if (!tickers || tickers.length === 0) return '-';
+       return tickers.map(t => {
+         let txt = t.ticker;
+         if (t.rank) txt += `-${t.rank}`;
+         tickerLookup[txt] = { bold: t.priority === 'A', underline: !!t.rank };
+         return txt;
+       }).join(', ');
+     };
+     
+     // Build display data for autoTable
+     const displayTableData = [];
+     
+     analysts.forEach(analyst => {
+       displayTableData.push([
+         analyst,
+         buildCellData(getTickersForCell(analyst, 'Current', 'Long')),
+         buildCellData(getTickersForCell(analyst, 'Current', 'Short')),
+         buildCellData(getTickersForCell(analyst, 'On-Deck', 'Long')),
+         buildCellData(getTickersForCell(analyst, 'On-Deck', 'Short')),
+         buildCellData(getTickersForCell(analyst, 'Portfolio', 'Long')),
+         buildCellData(getTickersForCell(analyst, 'Portfolio', 'Short'))
+       ]);
+     });
+     
+     // Add "To Assign" row
+     displayTableData.push([
+       'To Assign',
+       buildCellData(getUnassignedTickersForCell('Current', 'Long')),
+       buildCellData(getUnassignedTickersForCell('Current', 'Short')),
+       buildCellData(getUnassignedTickersForCell('On-Deck', 'Long')),
+       buildCellData(getUnassignedTickersForCell('On-Deck', 'Short')),
+       buildCellData(getUnassignedTickersForCell('Portfolio', 'Long')),
+       buildCellData(getUnassignedTickersForCell('Portfolio', 'Short'))
+     ]);
+     
+     // Create the PDF table - let autoTable handle all layout
      autoTable(doc, {
        head: [['Analyst', 'Cur-Long', 'Cur-Short', 'Deck-Long', 'Deck-Short', 'Port-Long', 'Port-Short']],
        body: displayTableData,
        startY: 40,
        styles: {
          fontSize: 8,
-         cellPadding: 3,
+         cellPadding: 3
        },
        headStyles: {
          fillColor: [75, 85, 99],
@@ -6457,102 +6440,97 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
          6: { cellWidth: 40 }
        },
        didParseCell: function(data) {
-         // Highlight "To Assign" row
          if (data.row.index === analysts.length) {
            data.cell.styles.fillColor = [254, 226, 226];
          }
        },
-       willDrawCell: function(data) {
-         // For ticker cells, hide autoTable's text so we can draw custom formatted text
-         if (data.section === 'body' && data.column.index > 0) {
-           // Add bounds checking
-           if (tableData && tableData[data.row.index] && tableData[data.row.index][data.column.index]) {
-             const cellData = tableData[data.row.index][data.column.index];
-             if (cellData && cellData.tickers && cellData.tickers.length > 0) {
-               data.cell.customText = data.cell.text;
-               data.cell.text = [];
-             }
-           }
-         }
-       },
        didDrawCell: function(data) {
-         // Draw custom formatted text (bold Priority A, underline ranked)
-         if (data.section === 'body' && data.column.index > 0 && data.cell.customText) {
-           // Add bounds checking
-           if (!tableData || !tableData[data.row.index] || !tableData[data.row.index][data.column.index]) {
+         // After autoTable draws, add formatting for bold/underline tickers
+         if (data.section !== 'body' || data.column.index === 0) return;
+         
+         const cellText = data.cell.text;
+         if (!cellText || cellText.length === 0) return;
+         if (cellText.length === 1 && cellText[0] === '-') return;
+         
+         // Check if any ticker needs special formatting
+         let needsFormatting = false;
+         cellText.forEach(line => {
+           if (!line || line === '-') return;
+           line.split(/,\s*/).forEach(ticker => {
+             const t = ticker.trim();
+             if (tickerLookup[t] && (tickerLookup[t].bold || tickerLookup[t].underline)) {
+               needsFormatting = true;
+             }
+           });
+         });
+         
+         if (!needsFormatting) return;
+         
+         // Get cell properties
+         const { x, y, width, height } = data.cell;
+         const fillColor = data.cell.styles.fillColor || [255, 255, 255];
+         const fontSize = data.cell.styles.fontSize || 8;
+         const padding = data.cell.styles.cellPadding || 3;
+         const paddingVal = typeof padding === 'number' ? padding : (padding.left || 3);
+         
+         // Cover original text with background
+         doc.setFillColor(fillColor[0], fillColor[1], fillColor[2]);
+         doc.rect(x + 0.3, y + 0.3, width - 0.6, height - 0.6, 'F');
+         
+         // Redraw text with formatting
+         doc.setFontSize(fontSize);
+         doc.setTextColor(0, 0, 0);
+         
+         const lineHeight = fontSize * 1.15;
+         let currentY = y + paddingVal + fontSize * 0.35;
+         
+         cellText.forEach(line => {
+           if (!line) {
+             currentY += lineHeight;
              return;
            }
-           const cellData = tableData[data.row.index][data.column.index];
-           const lines = data.cell.customText;
-           const { x, y, width, height } = data.cell;
-           const padding = data.cell.styles.cellPadding;
-           const fontSize = data.cell.styles.fontSize;
-
-           // Handle padding - it might be a number or object
-           const paddingTop = typeof padding === 'object' ? padding.top : padding;
-           const paddingLeft = typeof padding === 'object' ? padding.left : padding;
-
-           doc.setFontSize(fontSize);
-           doc.setTextColor(0, 0, 0);
-
-           let currentY = y + paddingTop + (fontSize / 72 * 25);
-           const lineHeight = fontSize * 1.15;
-
-           lines.forEach(line => {
-             let currentX = x + paddingLeft;
-             const parts = line.split(/(, )/g);
-
-             parts.forEach(part => {
-               if (!part || part.trim() === '') return; // Skip empty parts
-
-               // Ensure part is a valid string and coordinates are numbers
-               if (typeof part !== 'string' || typeof currentX !== 'number' || typeof currentY !== 'number') {
-                 return;
+           
+           let currentX = x + paddingVal;
+           const parts = line.split(/(,\s*)/);
+           
+           parts.forEach(part => {
+             if (!part) return;
+             
+             const trimmed = part.trim();
+             
+             if (part.match(/^,\s*$/)) {
+               doc.setFont('helvetica', 'normal');
+               doc.text(part, currentX, currentY);
+               currentX += doc.getTextWidth(part);
+             } else if (trimmed && trimmed !== '-') {
+               const style = tickerLookup[trimmed];
+               const isBold = style && style.bold;
+               const isUnderline = style && style.underline;
+               
+               doc.setFont('helvetica', isBold ? 'bold' : 'normal');
+               doc.text(part, currentX, currentY);
+               
+               if (isUnderline) {
+                 const textWidth = doc.getTextWidth(part);
+                 doc.setDrawColor(0, 0, 0);
+                 doc.setLineWidth(0.2);
+                 doc.line(currentX, currentY + 0.8, currentX + textWidth, currentY + 0.8);
                }
-
-               if (part === ', ') {
-                 doc.setFont('helvetica', 'normal');
-                 doc.text(part, currentX, currentY);
-                 currentX += doc.getTextWidth(part);
-               } else {
-                 // Find matching ticker for formatting
-                 const ticker = cellData.tickers.find(t => {
-                   let txt = t.ticker;
-                   if (t.rank) txt += `-${t.rank}`;
-                   return txt === part;
-                 });
-
-                 if (ticker) {
-                   const isBold = ticker.priority === 'A';
-                   const isUnderline = !!ticker.rank;
-
-                   doc.setFont('helvetica', isBold ? 'bold' : 'normal');
-                   doc.text(part, currentX, currentY);
-
-                   if (isUnderline) {
-                     const textWidth = doc.getTextWidth(part);
-                     doc.setDrawColor(0, 0, 0);
-                     doc.setLineWidth(0.2);
-                     doc.line(currentX, currentY + 0.5, currentX + textWidth, currentY + 0.5);
-                   }
-                   currentX += doc.getTextWidth(part);
-                 } else {
-                   doc.setFont('helvetica', 'normal');
-                   doc.text(part, currentX, currentY);
-                   currentX += doc.getTextWidth(part);
-                 }
-               }
-             });
-             currentY += lineHeight;
+               currentX += doc.getTextWidth(part);
+             } else if (part) {
+               doc.setFont('helvetica', 'normal');
+               doc.text(part, currentX, currentY);
+               currentX += doc.getTextWidth(part);
+             }
            });
-           doc.setFont('helvetica', 'normal');
-         }
+           currentY += lineHeight;
+         });
+         
+         doc.setFont('helvetica', 'normal');
        }
      });
-     
-     // Save the PDF
+
      const fileName = `team-output-matrix-${new Date().toISOString().split('T')[0]}.pdf`;
-     console.log('Saving PDF as:', fileName);
      doc.save(fileName);
      console.log('PDF export completed successfully');
    } catch (error) {
