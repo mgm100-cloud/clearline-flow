@@ -6462,7 +6462,7 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
        startY: 40,
        styles: {
          fontSize: 8,
-         cellPadding: 3,
+         cellPadding: { top: 3, right: 3, bottom: 7, left: 3 }, // Extra bottom padding for one more line
        },
        headStyles: {
          fillColor: [75, 85, 99], // Gray color
