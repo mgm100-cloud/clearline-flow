@@ -338,5 +338,28 @@ export const AuthService = {
   // Listen to auth state changes
   onAuthStateChange(callback) {
     return supabase.auth.onAuthStateChange(callback)
+  },
+
+  // Check if an analyst code already exists in the database
+  async checkAnalystCodeExists(analystCode) {
+    if (!analystCode) return false;
+    
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('analyst_code')
+        .eq('analyst_code', analystCode)
+        .limit(1);
+      
+      if (error) {
+        console.error('Error checking analyst code:', error);
+        return false; // On error, allow signup and let DB constraint catch it
+      }
+      
+      return data && data.length > 0;
+    } catch (error) {
+      console.error('Error checking analyst code:', error);
+      return false;
+    }
   }
 } 

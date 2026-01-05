@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Eye, EyeOff, Mail, Lock, User, UserCheck } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Eye, EyeOff, Mail, Lock, User, UserCheck, Tag } from 'lucide-react';
 import { AuthService } from '../services/authService';
 
 const LoginScreen = ({ onAuthSuccess, authError, isLoading }) => {
@@ -10,17 +10,23 @@ const LoginScreen = ({ onAuthSuccess, authError, isLoading }) => {
     confirmPassword: '',
     fullName: '',
     division: '',
-    role: 'readonly'
+    role: 'readonly',
+    analystCode: ''
   });
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [analystCodeError, setAnalystCodeError] = useState('');
+  const [isCheckingAnalystCode, setIsCheckingAnalystCode] = useState(false);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     setError('');
     setSuccess('');
+    if (field === 'analystCode') {
+      setAnalystCodeError('');
+    }
   };
 
   // Helper function to generate initials from full name
@@ -30,6 +36,43 @@ const LoginScreen = ({ onAuthSuccess, authError, isLoading }) => {
     const initials = names.map(name => name.charAt(0).toUpperCase()).join('');
     return initials.slice(0, 2); // Take first 2 initials
   };
+
+  // Check analyst code uniqueness
+  const checkAnalystCodeUniqueness = useCallback(async (code) => {
+    if (!code) {
+      setAnalystCodeError('');
+      return true;
+    }
+    
+    setIsCheckingAnalystCode(true);
+    try {
+      const exists = await AuthService.checkAnalystCodeExists(code);
+      if (exists) {
+        setAnalystCodeError('This employee code is already taken. Please choose a different one.');
+        return false;
+      } else {
+        setAnalystCodeError('');
+        return true;
+      }
+    } catch (error) {
+      console.error('Error checking analyst code:', error);
+      setAnalystCodeError('');
+      return true; // Allow signup on error, DB constraint will catch duplicates
+    } finally {
+      setIsCheckingAnalystCode(false);
+    }
+  }, []);
+
+  // Auto-generate analyst code when name changes
+  useEffect(() => {
+    if (formData.fullName) {
+      const generatedCode = generateInitials(formData.fullName);
+      // Only auto-set if user hasn't manually changed it
+      if (!formData.analystCode || formData.analystCode === generateInitials(formData.fullName.split(' ').slice(0, -1).join(' '))) {
+        setFormData(prev => ({ ...prev, analystCode: generatedCode }));
+      }
+    }
+  }, [formData.fullName]);
 
   const validateForm = () => {
     if (!formData.email) {
@@ -71,6 +114,16 @@ const LoginScreen = ({ onAuthSuccess, authError, isLoading }) => {
           setError('Division is required');
           return false;
         }
+
+        // Validate employee code for all users
+        if (!formData.analystCode) {
+          setError('Employee code is required');
+          return false;
+        }
+        if (analystCodeError) {
+          setError(analystCodeError.replace(/analyst code/gi, 'employee code'));
+          return false;
+        }
       }
     }
 
@@ -109,8 +162,17 @@ const LoginScreen = ({ onAuthSuccess, authError, isLoading }) => {
     setError('');
 
     try {
-      // Generate analyst code from initials if division is Investment or Super
-      const analystCode = (formData.division === 'Investment' || formData.division === 'Super') ? generateInitials(formData.fullName) : '';
+      // Use the user-provided analyst code (required for all users)
+      const analystCode = formData.analystCode.toUpperCase();
+
+      // Final check for analyst code uniqueness before signup
+      const exists = await AuthService.checkAnalystCodeExists(analystCode);
+      if (exists) {
+        setError('This employee code is already taken. Please choose a different one.');
+        setAnalystCodeError('This employee code is already taken.');
+        setIsSubmitting(false);
+        return;
+      }
 
       const { user, session } = await AuthService.signUp(
         formData.email,
@@ -174,10 +236,12 @@ const LoginScreen = ({ onAuthSuccess, authError, isLoading }) => {
       confirmPassword: '',
       fullName: '',
       division: '',
-      role: 'readonly'
+      role: 'readonly',
+      analystCode: ''
     });
     setError('');
     setSuccess('');
+    setAnalystCodeError('');
   };
 
   const switchMode = (newMode) => {
@@ -377,9 +441,38 @@ const LoginScreen = ({ onAuthSuccess, authError, isLoading }) => {
                   </select>
                   <UserCheck className="h-5 w-5 text-gray-400 absolute left-3 top-2.5" />
                 </div>
-                {(formData.division === 'Investment' || formData.division === 'Super') && formData.fullName && (
+              </div>
+
+              {/* Employee Code field - required for all users */}
+              <div>
+                <label htmlFor="employee-code" className="block text-sm font-medium text-gray-700">
+                  Employee Code
+                </label>
+                <div className="mt-1 relative">
+                  <input
+                    id="employee-code"
+                    type="text"
+                    required
+                    value={formData.analystCode}
+                    onChange={(e) => handleInputChange('analystCode', e.target.value.toUpperCase())}
+                    onBlur={() => checkAnalystCodeUniqueness(formData.analystCode)}
+                    className={`appearance-none block w-full px-3 py-2 pl-10 border rounded-md placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
+                      analystCodeError ? 'border-red-300' : 'border-gray-300'
+                    }`}
+                    placeholder="e.g., JD, AB"
+                    maxLength={4}
+                  />
+                  <Tag className="h-5 w-5 text-gray-400 absolute left-3 top-2.5" />
+                  {isCheckingAnalystCode && (
+                    <span className="absolute right-3 top-2.5 text-gray-400 text-sm">Checking...</span>
+                  )}
+                </div>
+                {analystCodeError && (
+                  <p className="mt-1 text-sm text-red-600">{analystCodeError.replace(/analyst code/gi, 'employee code')}</p>
+                )}
+                {!analystCodeError && formData.analystCode && (
                   <p className="mt-1 text-sm text-gray-500">
-                    Analyst code will be: {generateInitials(formData.fullName)}
+                    Your employee code will be: {formData.analystCode.toUpperCase()}
                   </p>
                 )}
               </div>
