@@ -6381,11 +6381,10 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
      analysts.forEach(analyst => {
        const row = [analyst];
        
-       // Helper to format ticker with rank suffix and brackets for ranked tickers
+       // Helper to format ticker with rank suffix (underlined in PDF via custom rendering)
        const formatTickerForPDF = (t) => {
          let text = t.ticker;
          if (t.rank) text = `${text}-${t.rank}`;
-         if (t.rank) text = `[${text}]`; // Brackets indicate ranked tickers
          return text;
        };
        
@@ -6433,7 +6432,6 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
        const formatTicker = (t) => {
          let text = t.ticker;
          if (t.rank) text = `${text}-${t.rank}`;
-         if (t.rank) text = `[${text}]`;
          return text;
        };
        return {
@@ -6510,8 +6508,8 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
              
              cellData.tickers.forEach((ticker, idx) => {
                let tickerText = ticker.ticker;
-               if (ticker.rank) tickerText = `[${tickerText}-${ticker.rank}]`;
-               if (idx < cellData.tickers.length - 1) tickerText += ', ';
+               if (ticker.rank) tickerText = `${tickerText}-${ticker.rank}`;
+               const separator = idx < cellData.tickers.length - 1 ? ', ' : '';
                
                // Set bold for Priority A
                if (ticker.priority === 'A') {
@@ -6522,8 +6520,25 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
                doc.setFontSize(8);
                doc.setTextColor(0, 0, 0);
                
+               // Draw the ticker text
                doc.text(tickerText, currentX, textY);
-               currentX += doc.getTextWidth(tickerText);
+               const tickerWidth = doc.getTextWidth(tickerText);
+               
+               // Draw underline for ranked tickers
+               if (ticker.rank) {
+                 doc.setDrawColor(0, 0, 0);
+                 doc.setLineWidth(0.3);
+                 doc.line(currentX, textY + 1, currentX + tickerWidth, textY + 1);
+               }
+               
+               currentX += tickerWidth;
+               
+               // Draw separator (comma) without underline
+               if (separator) {
+                 doc.setFont('helvetica', 'normal');
+                 doc.text(separator, currentX, textY);
+                 currentX += doc.getTextWidth(separator);
+               }
              });
              
              // Reset font
