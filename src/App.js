@@ -6502,9 +6502,12 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
              }
              doc.rect(x, y, width, height, 'F');
              
-             // Draw each ticker with appropriate styling
-             let currentX = x + 3;
-             const textY = y + height / 2 + 2;
+             // Text wrapping parameters
+             const padding = 3;
+             const lineHeight = 10;
+             const maxWidth = width - (padding * 2);
+             let currentX = x + padding;
+             let currentY = y + padding + 6; // Start position for first line
              
              cellData.tickers.forEach((ticker, idx) => {
                let tickerText = ticker.ticker;
@@ -6520,24 +6523,36 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
                doc.setFontSize(8);
                doc.setTextColor(0, 0, 0);
                
-               // Draw the ticker text
-               doc.text(tickerText, currentX, textY);
                const tickerWidth = doc.getTextWidth(tickerText);
+               const separatorWidth = separator ? doc.getTextWidth(separator) : 0;
+               const totalWidth = tickerWidth + separatorWidth;
                
-               // Draw underline for ranked tickers
-               if (ticker.rank) {
-                 doc.setDrawColor(0, 0, 0);
-                 doc.setLineWidth(0.3);
-                 doc.line(currentX, textY + 1, currentX + tickerWidth, textY + 1);
+               // Check if we need to wrap to next line
+               if (currentX + totalWidth > x + width - padding && currentX > x + padding) {
+                 currentX = x + padding;
+                 currentY += lineHeight;
                }
                
-               currentX += tickerWidth;
-               
-               // Draw separator (comma) without underline
-               if (separator) {
-                 doc.setFont('helvetica', 'normal');
-                 doc.text(separator, currentX, textY);
-                 currentX += doc.getTextWidth(separator);
+               // Only draw if within cell bounds
+               if (currentY < y + height - padding) {
+                 // Draw the ticker text
+                 doc.text(tickerText, currentX, currentY);
+                 
+                 // Draw underline for ranked tickers
+                 if (ticker.rank) {
+                   doc.setDrawColor(0, 0, 0);
+                   doc.setLineWidth(0.3);
+                   doc.line(currentX, currentY + 1, currentX + tickerWidth, currentY + 1);
+                 }
+                 
+                 currentX += tickerWidth;
+                 
+                 // Draw separator (comma) without underline
+                 if (separator) {
+                   doc.setFont('helvetica', 'normal');
+                   doc.text(separator, currentX, currentY);
+                   currentX += separatorWidth;
+                 }
                }
              });
              
