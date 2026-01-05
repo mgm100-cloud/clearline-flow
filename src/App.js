@@ -6468,13 +6468,16 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
          
          // Get cell properties
          const { x, y, width, height } = data.cell;
-         const fillColor = data.cell.styles.fillColor || [255, 255, 255];
+         let fillColor = [255, 255, 255]; // Default white
+         if (data.cell.styles.fillColor && Array.isArray(data.cell.styles.fillColor) && data.cell.styles.fillColor.length >= 3) {
+           fillColor = data.cell.styles.fillColor;
+         }
          const fontSize = data.cell.styles.fontSize || 8;
          const padding = data.cell.styles.cellPadding || 3;
          const paddingVal = typeof padding === 'number' ? padding : (padding.left || 3);
          
          // Cover original text with background
-         doc.setFillColor(fillColor[0], fillColor[1], fillColor[2]);
+         doc.setFillColor(fillColor[0] || 255, fillColor[1] || 255, fillColor[2] || 255);
          doc.rect(x + 0.3, y + 0.3, width - 0.6, height - 0.6, 'F');
          
          // Redraw text with formatting
