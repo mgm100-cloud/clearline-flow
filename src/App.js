@@ -6381,10 +6381,12 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
      analysts.forEach(analyst => {
        const row = [analyst];
        
-       // Helper to format ticker with rank suffix (underlined in PDF via custom rendering)
+       // Helper to format ticker with rank suffix and priority marker
+       // *TICKER = Priority A, TICKER-1 = Ranked
        const formatTickerForPDF = (t) => {
          let text = t.ticker;
          if (t.rank) text = `${text}-${t.rank}`;
+         if (t.priority === 'A') text = `*${text}`;
          return text;
        };
        
@@ -6432,6 +6434,7 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
        const formatTicker = (t) => {
          let text = t.ticker;
          if (t.rank) text = `${text}-${t.rank}`;
+         if (t.priority === 'A') text = `*${text}`;
          return text;
        };
        return {
@@ -6487,86 +6490,6 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
            data.cell.styles.fillColor = [254, 226, 226]; // Light red background
          }
        },
-       willDrawCell: function(data) {
-         // For cells with ticker data, prevent autoTable from drawing text
-         // We'll draw it ourselves in didDrawCell with custom styling
-         if (data.section === 'body' && data.column.index > 0) {
-           const rowData = tableData[data.row.index];
-           const cellData = rowData ? rowData[data.column.index] : null;
-           
-           if (cellData && typeof cellData === 'object' && cellData.tickers && cellData.tickers.length > 0) {
-             // Clear the text so autoTable doesn't draw it
-             data.cell.text = [];
-           }
-         }
-       },
-       didDrawCell: function(data) {
-         // Custom render cells with mixed bold/normal text for Priority A tickers
-         if (data.section === 'body' && data.column.index > 0) {
-           const rowData = tableData[data.row.index];
-           const cellData = rowData ? rowData[data.column.index] : null;
-           
-           if (cellData && typeof cellData === 'object' && cellData.tickers && cellData.tickers.length > 0) {
-             const { x, y, width, height } = data.cell;
-             
-             // Text wrapping parameters - compact spacing
-             const padding = 2;
-             const lineHeight = 4; // Tight line spacing
-             const fontSize = 8;
-             let currentX = x + padding;
-             let currentY = y + padding + 3; // Start position for first line
-             
-             doc.setFontSize(fontSize);
-             
-             cellData.tickers.forEach((ticker, idx) => {
-               let tickerText = ticker.ticker;
-               if (ticker.rank) tickerText = `${tickerText}-${ticker.rank}`;
-               const separator = idx < cellData.tickers.length - 1 ? ', ' : '';
-               
-               // Set bold for Priority A
-               if (ticker.priority === 'A') {
-                 doc.setFont('helvetica', 'bold');
-               } else {
-                 doc.setFont('helvetica', 'normal');
-               }
-               doc.setFontSize(fontSize);
-               doc.setTextColor(0, 0, 0);
-               
-               const tickerWidth = doc.getTextWidth(tickerText);
-               const separatorWidth = separator ? doc.getTextWidth(separator) : 0;
-               const totalWidth = tickerWidth + separatorWidth;
-               
-               // Check if we need to wrap to next line
-               if (currentX + totalWidth > x + width - padding && currentX > x + padding) {
-                 currentX = x + padding;
-                 currentY += lineHeight;
-               }
-               
-               // Draw the ticker text
-               doc.text(tickerText, currentX, currentY);
-               
-               // Draw underline for ranked tickers
-               if (ticker.rank) {
-                 doc.setDrawColor(0, 0, 0);
-                 doc.setLineWidth(0.3);
-                 doc.line(currentX, currentY + 0.5, currentX + tickerWidth, currentY + 0.5);
-               }
-               
-               currentX += tickerWidth;
-               
-               // Draw separator (comma) without underline
-               if (separator) {
-                 doc.setFont('helvetica', 'normal');
-                 doc.text(separator, currentX, currentY);
-                 currentX += separatorWidth;
-               }
-             });
-             
-             // Reset font
-             doc.setFont('helvetica', 'normal');
-           }
-         }
-       }
      });
      
      // Save the PDF
