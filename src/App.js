@@ -6487,27 +6487,35 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
            data.cell.styles.fillColor = [254, 226, 226]; // Light red background
          }
        },
-       willDrawCell: function(data) {
-         // For cells with ticker data, prevent autoTable from drawing text
-         // We'll draw it ourselves in didDrawCell with custom styling
-         if (data.section === 'body' && data.column.index > 0) {
-           const rowData = tableData[data.row.index];
-           const cellData = rowData ? rowData[data.column.index] : null;
-           
-           if (cellData && typeof cellData === 'object' && cellData.tickers && cellData.tickers.length > 0) {
-             // Clear the text so autoTable doesn't draw it
-             data.cell.text = [];
-           }
+       didParseCell: function(data) {
+         // Highlight "To Assign" row
+         if (data.row.index === analysts.length) {
+           data.cell.styles.fillColor = [254, 226, 226]; // Light red background
          }
        },
-       didDrawCell: function(data) {
-         // Custom render cells with mixed bold/normal text for Priority A tickers
+       willDrawCell: function(data) {
+         // For cells with ticker data, we need to draw custom styled text
+         // First, fill the background ourselves to cover autoTable's text
          if (data.section === 'body' && data.column.index > 0) {
            const rowData = tableData[data.row.index];
            const cellData = rowData ? rowData[data.column.index] : null;
            
            if (cellData && typeof cellData === 'object' && cellData.tickers && cellData.tickers.length > 0) {
              const { x, y, width, height } = data.cell;
+             
+             // Get the correct background color
+             let bgColor;
+             if (data.row.index === analysts.length) {
+               bgColor = [254, 226, 226]; // To Assign row - light red
+             } else if (data.row.index % 2 === 1) {
+               bgColor = [248, 250, 252]; // Alternate row - light gray
+             } else {
+               bgColor = [255, 255, 255]; // White
+             }
+             
+             // Fill background to cover autoTable's default text
+             doc.setFillColor(...bgColor);
+             doc.rect(x, y, width, height, 'F');
              
              // Text wrapping parameters - compact spacing
              const padding = 2;
@@ -6564,6 +6572,9 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
              
              // Reset font
              doc.setFont('helvetica', 'normal');
+             
+             // Prevent autoTable from drawing its text on top
+             data.cell.text = [];
            }
          }
        }
