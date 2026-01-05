@@ -8924,14 +8924,14 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <SortableHeader field="ticker">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     {activeTodoDivision === 'Ops' ? 'Title' : 'Ticker'}
-                  </SortableHeader>
-                  <SortableHeader field="analyst">Analyst</SortableHeader>
-                  <SortableHeader field="dateEntered">Date Entered</SortableHeader>
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Analyst</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Entered</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Days Since</th>
-                  <SortableHeader field="priority">Priority</SortableHeader>
-                  <SortableHeader field="item">Item</SortableHeader>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
                   {(userRole === 'readwrite' || userRole === 'admin') && (
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   )}
@@ -8981,14 +8981,14 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <SortableHeader field="ticker">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     {activeTodoDivision === 'Ops' ? 'Title' : 'Ticker'}
-                  </SortableHeader>
-                  <SortableHeader field="analyst">Analyst</SortableHeader>
-                  <SortableHeader field="dateEntered">Date Entered</SortableHeader>
-                  <SortableHeader field="dateClosed">Date Closed</SortableHeader>
-                  <SortableHeader field="priority">Priority</SortableHeader>
-                  <SortableHeader field="item">Item</SortableHeader>
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Analyst</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Entered</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Closed</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
                   {(userRole === 'readwrite' || userRole === 'admin') && (
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   )}
