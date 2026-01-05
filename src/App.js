@@ -6333,6 +6333,7 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
  // Helper function to render clickable ticker
  // Bolded if priority is "A" (especially visible in To Assign row)
  // Displays rank suffix (e.g., MDLN-1) if ticker has a rank
+ // Border if ticker has a rank
  const renderTickerButton = (ticker, bgColorClass, textColorClass) => {
    const handleTickerClick = () => {
      if (onNavigateToIdeaDetail) {
@@ -6341,14 +6342,16 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
    };
 
    const isPriorityA = ticker.priority === 'A';
-   const displayText = ticker.rank ? `${ticker.ticker}-${ticker.rank}` : ticker.ticker;
-   const rankInfo = ticker.rank ? ` (Rank ${ticker.rank})` : '';
+   const hasRank = ticker.rank != null;
+   const displayText = hasRank ? `${ticker.ticker}-${ticker.rank}` : ticker.ticker;
+   const rankInfo = hasRank ? ` (Rank ${ticker.rank})` : '';
+   const borderClass = hasRank ? 'border-2 border-gray-800' : '';
 
    return (
      <button
        key={ticker.id}
        onClick={handleTickerClick}
-       className={`text-xs ${bgColorClass} ${textColorClass} px-2 py-1 rounded hover:opacity-80 cursor-pointer transition-opacity ${isPriorityA ? 'font-bold' : ''}`}
+       className={`text-xs ${bgColorClass} ${textColorClass} px-2 py-1 rounded hover:opacity-80 cursor-pointer transition-opacity ${isPriorityA ? 'font-bold' : ''} ${borderClass}`}
        title={`Click to view in Idea Detail${isPriorityA ? ' (Priority A)' : ''}${rankInfo}`}
      >
        {displayText}
@@ -6378,45 +6381,58 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
      analysts.forEach(analyst => {
        const row = [analyst];
        
-       // Helper to format ticker with rank suffix
-       const formatTickerWithRank = (t) => t.rank ? `${t.ticker}-${t.rank}` : t.ticker;
+       // Helper to format ticker with rank suffix and brackets for ranked tickers
+       // Priority A tickers will be marked with * for bolding in PDF
+       const formatTickerForPDF = (t) => {
+         let text = t.ticker;
+         if (t.rank) text = `${text}-${t.rank}`;
+         if (t.rank) text = `[${text}]`; // Brackets indicate ranked tickers
+         if (t.priority === 'A') text = `*${text}*`; // Asterisks indicate Priority A (bold)
+         return text;
+       };
        
        // Current-Long
        const currentLong = getTickersForCell(analyst, 'Current', 'Long');
-       row.push(currentLong.map(formatTickerWithRank).join(', ') || '-');
+       row.push(currentLong.map(formatTickerForPDF).join(', ') || '-');
        
        // Current-Short  
        const currentShort = getTickersForCell(analyst, 'Current', 'Short');
-       row.push(currentShort.map(formatTickerWithRank).join(', ') || '-');
+       row.push(currentShort.map(formatTickerForPDF).join(', ') || '-');
        
        // OnDeck-Long
        const onDeckLong = getTickersForCell(analyst, 'On-Deck', 'Long');
-       row.push(onDeckLong.map(formatTickerWithRank).join(', ') || '-');
+       row.push(onDeckLong.map(formatTickerForPDF).join(', ') || '-');
        
        // OnDeck-Short
        const onDeckShort = getTickersForCell(analyst, 'On-Deck', 'Short');
-       row.push(onDeckShort.map(formatTickerWithRank).join(', ') || '-');
+       row.push(onDeckShort.map(formatTickerForPDF).join(', ') || '-');
        
        // Portfolio-Long
        const portfolioLong = getTickersForCell(analyst, 'Portfolio', 'Long');
-       row.push(portfolioLong.map(formatTickerWithRank).join(', ') || '-');
+       row.push(portfolioLong.map(formatTickerForPDF).join(', ') || '-');
        
        // Portfolio-Short
        const portfolioShort = getTickersForCell(analyst, 'Portfolio', 'Short');
-       row.push(portfolioShort.map(formatTickerWithRank).join(', ') || '-');
+       row.push(portfolioShort.map(formatTickerForPDF).join(', ') || '-');
        
        tableData.push(row);
      });
      
      // Add "To Assign" row
      const toAssignRow = ['To Assign'];
-     const formatTickerWithRankForToAssign = (t) => t.rank ? `${t.ticker}-${t.rank}` : t.ticker;
-     toAssignRow.push(getUnassignedTickersForCell('Current', 'Long').map(formatTickerWithRankForToAssign).join(', ') || '-');
-     toAssignRow.push(getUnassignedTickersForCell('Current', 'Short').map(formatTickerWithRankForToAssign).join(', ') || '-');
-     toAssignRow.push(getUnassignedTickersForCell('On-Deck', 'Long').map(formatTickerWithRankForToAssign).join(', ') || '-');
-     toAssignRow.push(getUnassignedTickersForCell('On-Deck', 'Short').map(formatTickerWithRankForToAssign).join(', ') || '-');
-     toAssignRow.push(getUnassignedTickersForCell('Portfolio', 'Long').map(formatTickerWithRankForToAssign).join(', ') || '-');
-     toAssignRow.push(getUnassignedTickersForCell('Portfolio', 'Short').map(formatTickerWithRankForToAssign).join(', ') || '-');
+     const formatTickerForPDFToAssign = (t) => {
+       let text = t.ticker;
+       if (t.rank) text = `${text}-${t.rank}`;
+       if (t.rank) text = `[${text}]`; // Brackets indicate ranked tickers
+       if (t.priority === 'A') text = `*${text}*`; // Asterisks indicate Priority A (bold)
+       return text;
+     };
+     toAssignRow.push(getUnassignedTickersForCell('Current', 'Long').map(formatTickerForPDFToAssign).join(', ') || '-');
+     toAssignRow.push(getUnassignedTickersForCell('Current', 'Short').map(formatTickerForPDFToAssign).join(', ') || '-');
+     toAssignRow.push(getUnassignedTickersForCell('On-Deck', 'Long').map(formatTickerForPDFToAssign).join(', ') || '-');
+     toAssignRow.push(getUnassignedTickersForCell('On-Deck', 'Short').map(formatTickerForPDFToAssign).join(', ') || '-');
+     toAssignRow.push(getUnassignedTickersForCell('Portfolio', 'Long').map(formatTickerForPDFToAssign).join(', ') || '-');
+     toAssignRow.push(getUnassignedTickersForCell('Portfolio', 'Short').map(formatTickerForPDFToAssign).join(', ') || '-');
      tableData.push(toAssignRow);
      
      console.log('Table data:', tableData);
@@ -10003,6 +10019,7 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdateSelec
     const currentRank = ticker.rank;
     const analyst = ticker.analyst;
     const displayValue = currentRank ? currentRank.toString() : 'N/A';
+    const isEditing = editingField === 'rank';
     
     const colorMap = {
       1: 'bg-purple-100 text-purple-800',
@@ -10014,8 +10031,16 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdateSelec
     const handleRankChange = async (newRank) => {
       const rankValue = newRank === '' ? null : parseInt(newRank);
       
-      // If setting to null or same value, just update
-      if (rankValue === null || rankValue === currentRank) {
+      // Close the editing state
+      setEditingField(null);
+      
+      // If setting to same value, just close
+      if (rankValue === currentRank) {
+        return;
+      }
+
+      // If setting to null, just update
+      if (rankValue === null) {
         if (onUpdate) {
           await onUpdate(ticker.id, { rank: rankValue });
         }
@@ -10052,11 +10077,13 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdateSelec
         <div className="flex justify-between items-center">
           <dt className="text-sm font-medium text-gray-500 w-1/3">Rank</dt>
           <dd className="text-sm text-gray-900 w-2/3">
-            {onUpdate ? (
+            {isEditing ? (
               <select
                 value={currentRank || ''}
                 onChange={(e) => handleRankChange(e.target.value)}
-                className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onBlur={() => setEditingField(null)}
+                autoFocus
+                className="border border-blue-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">N/A</option>
                 <option value="1">1</option>
@@ -10064,7 +10091,13 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdateSelec
                 <option value="3">3</option>
               </select>
             ) : (
-              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${colorClass}`}>
+              <span
+                onClick={() => onUpdate && setEditingField('rank')}
+                className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${colorClass} ${
+                  onUpdate ? 'cursor-pointer hover:ring-2 hover:ring-blue-300' : ''
+                }`}
+                title={onUpdate ? 'Click to edit' : ''}
+              >
                 {displayValue}
               </span>
             )}
