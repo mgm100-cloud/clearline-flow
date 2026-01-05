@@ -1897,6 +1897,21 @@ const ClearlineFlow = () => {
           setTodos([]);
         }
         
+        // Load analysts from user_profiles (Investment/Super division only)
+        try {
+          console.log('📡 Calling DatabaseService.getAnalysts()...');
+          const analystsData = await DatabaseService.getAnalysts();
+          console.log('✅ Successfully loaded analysts from Supabase:', analystsData);
+          setAnalysts(analystsData);
+          
+          // Also load analyst emails for division filtering
+          const emailsData = await DatabaseService.getAnalystEmails();
+          setAnalystEmails(emailsData);
+        } catch (analystsError) {
+          console.warn('⚠️ Could not load analysts data:', analystsError);
+          // Keep default hardcoded list as fallback
+        }
+        
         // Load quotes for all tickers after data is loaded
         if (tickersData && tickersData.length > 0) {
           console.log('📈 Loading quotes for initial data...');
@@ -2977,6 +2992,10 @@ const ClearlineFlow = () => {
             refreshAnalysts()
           ]);
           break;
+        case 'input':
+          // Refresh analysts to ensure dropdown has latest analyst codes
+          await refreshAnalysts();
+          break;
         case 'todos':
           // Only refresh analysts, let TodoList component handle its own refresh
           await refreshAnalysts();
@@ -2986,6 +3005,8 @@ const ClearlineFlow = () => {
           break;
         case 'settings':
           await refreshAnalysts();
+          break;
+        default:
           break;
       }
     } catch (error) {
