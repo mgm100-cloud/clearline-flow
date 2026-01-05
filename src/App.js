@@ -6481,17 +6481,28 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
            const padding = data.cell.styles.cellPadding;
            const fontSize = data.cell.styles.fontSize;
 
+           // Handle padding - it might be a number or object
+           const paddingTop = typeof padding === 'object' ? padding.top : padding;
+           const paddingLeft = typeof padding === 'object' ? padding.left : padding;
+
            doc.setFontSize(fontSize);
            doc.setTextColor(0, 0, 0);
 
-           let currentY = y + padding.top + (fontSize / 72 * 25);
+           let currentY = y + paddingTop + (fontSize / 72 * 25);
            const lineHeight = fontSize * 1.15;
 
            lines.forEach(line => {
-             let currentX = x + padding.left;
+             let currentX = x + paddingLeft;
              const parts = line.split(/(, )/g);
 
              parts.forEach(part => {
+               if (!part || part.trim() === '') return; // Skip empty parts
+
+               // Ensure part is a valid string and coordinates are numbers
+               if (typeof part !== 'string' || typeof currentX !== 'number' || typeof currentY !== 'number') {
+                 return;
+               }
+
                if (part === ', ') {
                  doc.setFont('helvetica', 'normal');
                  doc.text(part, currentX, currentY);
