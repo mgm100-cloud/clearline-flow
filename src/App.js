@@ -6314,6 +6314,7 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
  };
 
  // Helper function to render clickable ticker
+ // Bolded if priority is "A" (especially visible in To Assign row)
  const renderTickerButton = (ticker, bgColorClass, textColorClass) => {
    const handleTickerClick = () => {
      if (onNavigateToIdeaDetail) {
@@ -6321,12 +6322,14 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
      }
    };
 
+   const isPriorityA = ticker.priority === 'A';
+
    return (
      <button
        key={ticker.id}
        onClick={handleTickerClick}
-       className={`text-xs ${bgColorClass} ${textColorClass} px-2 py-1 rounded hover:opacity-80 cursor-pointer transition-opacity`}
-       title="Click to view in Idea Detail"
+       className={`text-xs ${bgColorClass} ${textColorClass} px-2 py-1 rounded hover:opacity-80 cursor-pointer transition-opacity ${isPriorityA ? 'font-bold' : ''}`}
+       title={`Click to view in Idea Detail${isPriorityA ? ' (Priority A)' : ''}`}
      >
        {ticker.ticker}
      </button>
