@@ -6455,9 +6455,6 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
        row.map(cell => typeof cell === 'object' && cell.text !== undefined ? cell.text : cell)
      );
      
-     // Track drawn cells to avoid duplicates on page breaks
-     const drawnCells = new Set();
-     
      // Create the PDF table using the correct autoTable syntax
      autoTable(doc, {
        head: [['Analyst', 'Current-Long', 'Current-Short', 'OnDeck-Long', 'OnDeck-Short', 'Portfolio-Long', 'Portfolio-Short']],
@@ -6490,95 +6487,87 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
            data.cell.styles.fillColor = [254, 226, 226]; // Light red background
          }
        },
-       willDrawCell: function(data) {
-         // For cells with ticker data, prevent autoTable from drawing text
-         // We'll draw it ourselves in didDrawCell with custom styling
-         if (data.section === 'body' && data.column.index > 0) {
-           const cellKey = `${data.row.index}-${data.column.index}`;
-           // Only clear text if we haven't drawn this cell yet
-           if (!drawnCells.has(cellKey)) {
-             const rowData = tableData[data.row.index];
-             const cellData = rowData ? rowData[data.column.index] : null;
-             
-             if (cellData && typeof cellData === 'object' && cellData.tickers && cellData.tickers.length > 0) {
-               data.cell.text = [];
-             }
-           }
-         }
-       },
-       didDrawCell: function(data) {
-         // Custom render cells with bold for Priority A and underline for ranked
-         if (data.section === 'body' && data.column.index > 0) {
-           const cellKey = `${data.row.index}-${data.column.index}`;
-           
-           // Skip if already drawn (handles page breaks)
-           if (drawnCells.has(cellKey)) return;
-           
-           const rowData = tableData[data.row.index];
-           const cellData = rowData ? rowData[data.column.index] : null;
-           
-           if (cellData && typeof cellData === 'object' && cellData.tickers && cellData.tickers.length > 0) {
-             drawnCells.add(cellKey);
-             
-             const { x, y, width, height } = data.cell;
-             const padding = 3;
-             const lineHeight = 4;
-             const fontSize = 8;
-             let currentX = x + padding;
-             let currentY = y + padding + 3;
-             
-             doc.setFontSize(fontSize);
-             
-             cellData.tickers.forEach((ticker, idx) => {
-               let tickerText = ticker.ticker;
-               if (ticker.rank) tickerText = `${tickerText}-${ticker.rank}`;
-               const separator = idx < cellData.tickers.length - 1 ? ', ' : '';
-               
-               // Set bold for Priority A
-               if (ticker.priority === 'A') {
-                 doc.setFont('helvetica', 'bold');
-               } else {
-                 doc.setFont('helvetica', 'normal');
-               }
-               doc.setFontSize(fontSize);
-               doc.setTextColor(0, 0, 0);
-               
-               const tickerWidth = doc.getTextWidth(tickerText);
-               const separatorWidth = separator ? doc.getTextWidth(separator) : 0;
-               const totalWidth = tickerWidth + separatorWidth;
-               
-               // Check if we need to wrap to next line
-               if (currentX + totalWidth > x + width - padding && currentX > x + padding) {
-                 currentX = x + padding;
-                 currentY += lineHeight;
-               }
-               
-               // Only draw if within cell bounds
-               if (currentY < y + height - 2) {
-                 doc.text(tickerText, currentX, currentY);
-                 
-                 // Draw underline for ranked tickers
-                 if (ticker.rank) {
-                   doc.setDrawColor(0, 0, 0);
-                   doc.setLineWidth(0.3);
-                   doc.line(currentX, currentY + 0.5, currentX + tickerWidth, currentY + 0.5);
-                 }
-               }
-               
-               currentX += tickerWidth;
-               
-               // Draw separator
-               if (separator && currentY < y + height - 2) {
-                 doc.setFont('helvetica', 'normal');
-                 doc.text(separator, currentX, currentY);
-                 currentX += separatorWidth;
-               }
-             });
-             
-             doc.setFont('helvetica', 'normal');
-           }
-         }
-       }
+      willDrawCell: function(data) {
+        // Let autoTable do wrapping + page splitting, but hide its text for ticker cells.
+        // We'll re-draw the already-wrapped text lines with bold/underline in didDrawCell.
+        if (data.section !== 'body' || data.column.index <= 0) return;
+
+        const rowData = tableData[data.row.index];
+        const cellData = rowData ? rowData[data.column.index] : null;
+        if (!cellData || typeof cellData !== 'object' || !cellData.tickers || cellData.tickers.length === 0) return;
+
+        const fill = data.cell.styles && data.cell.styles.fillColor;
+        // If fillColor isn't set (white), use white so the text becomes invisible.
+        data.cell.styles.textColor = Array.isArray(fill) ? fill : [255, 255, 255];
+      },
+      didDrawCell: function(data) {
+        // Draw per-ticker formatting on top of autoTable's layout:
+        // - Priority A -> bold
+        // - Ranked -> underline
+        // This relies on autoTable's wrapped `data.cell.text` lines, so page breaks work correctly.
+        if (data.section !== 'body' || data.column.index <= 0) return;
+
+        const rowData = tableData[data.row.index];
+        const cellData = rowData ? rowData[data.column.index] : null;
+        if (!cellData || typeof cellData !== 'object' || !cellData.tickers || cellData.tickers.length === 0) return;
+
+        const styleByToken = new Map();
+        cellData.tickers.forEach((t) => {
+          let token = t.ticker;
+          if (t.rank) token = `${token}-${t.rank}`;
+          styleByToken.set(token, { bold: t.priority === 'A', underline: t.rank != null });
+        });
+
+        const fontSize = (data.cell.styles && data.cell.styles.fontSize) || 8;
+        doc.setFontSize(fontSize);
+        doc.setTextColor(0, 0, 0);
+
+        const textLines = Array.isArray(data.cell.text) ? data.cell.text : [];
+        if (textLines.length === 0) return;
+
+        const textPos = data.cell.textPos || {};
+        const startX = typeof textPos.x === 'number' ? textPos.x : (data.cell.x + 3);
+        const startY = typeof textPos.y === 'number' ? textPos.y : (data.cell.y + 3 + fontSize);
+        const lineHeightFactor = typeof doc.getLineHeightFactor === 'function' ? doc.getLineHeightFactor() : 1.15;
+        const lineHeight = fontSize * lineHeightFactor;
+
+        for (let i = 0; i < textLines.length; i++) {
+          const line = (textLines[i] || '').trim();
+          if (!line || line === '-') continue;
+
+          let x = startX;
+          const y = startY + (i * lineHeight);
+
+          const parts = line.split(', ');
+          for (let p = 0; p < parts.length; p++) {
+            const token = parts[p].trim();
+            if (!token) continue;
+
+            const style = styleByToken.get(token);
+
+            doc.setFont('helvetica', style && style.bold ? 'bold' : 'normal');
+            const tokenWidth = doc.getTextWidth(token);
+            doc.text(token, x, y);
+
+            if (style && style.underline) {
+              doc.setDrawColor(0, 0, 0);
+              doc.setLineWidth(0.3);
+              doc.line(x, y + 1, x + tokenWidth, y + 1);
+            }
+
+            x += tokenWidth;
+
+            if (p < parts.length - 1) {
+              const sep = ', ';
+              doc.setFont('helvetica', 'normal');
+              doc.text(sep, x, y);
+              x += doc.getTextWidth(sep);
+            }
+          }
+        }
+
+        doc.setFont('helvetica', 'normal');
+      },
      });
      
      // Save the PDF
