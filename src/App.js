@@ -6038,7 +6038,7 @@ const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst
           const sortedTickers = sortData(statusTickers, sortField);
           
           // Add status header row
-          tableData.push([`${status} (${sortedTickers.length})`, '', '', '', '', '', '', '', '', '', '', '']);
+          tableData.push([`${status} (${sortedTickers.length})`, '', '', '', '', '', '', '', '', '', '', '', '']);
           
           // Add ticker data rows
           sortedTickers.forEach(ticker => {
@@ -6050,6 +6050,7 @@ const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst
               ticker.ticker || '-',
               ticker.lsPosition || '-',
               ticker.priority || '-',
+              ticker.rank ? ticker.rank.toString() : '-',
               currentPrice ? `$${parseFloat(currentPrice).toFixed(2)}` : '-',
               ticker.ptBear ? `$${parseFloat(ticker.ptBear).toFixed(2)}` : '-',
               calculatePercentChange(ticker.ptBear, currentPrice) || '-',
@@ -6066,7 +6067,7 @@ const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst
       
       // Create the PDF table
       autoTable(doc, {
-        head: [['Ticker', 'L/S', 'Pri', 'Price', 'Bear', 'Bear %', 'Base', 'Base %', 'Bull', 'Bull %', 'Thesis']],
+        head: [['Ticker', 'L/S', 'Pri', 'Rank', 'Price', 'Bear', 'Bear %', 'Base', 'Base %', 'Bull', 'Bull %', 'Thesis']],
         body: tableData,
         startY: 40,
         styles: {
@@ -6082,14 +6083,15 @@ const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst
           0: { cellWidth: 18 }, // Ticker
           1: { cellWidth: 12 }, // L/S
           2: { cellWidth: 12 }, // Priority
-          3: { cellWidth: 18 }, // Price
-          4: { cellWidth: 18 }, // PT Bear
-          5: { cellWidth: 15 }, // Bear %
-          6: { cellWidth: 18 }, // PT Base
-          7: { cellWidth: 15 }, // Base %
-          8: { cellWidth: 18 }, // PT Bull
-          9: { cellWidth: 15 }, // Bull %
-          10: { cellWidth: 300 }  // Thesis (wider since no analyst column)
+          3: { cellWidth: 12 }, // Rank
+          4: { cellWidth: 18 }, // Price
+          5: { cellWidth: 18 }, // PT Bear
+          6: { cellWidth: 15 }, // Bear %
+          7: { cellWidth: 18 }, // PT Base
+          8: { cellWidth: 15 }, // Base %
+          9: { cellWidth: 18 }, // PT Bull
+          10: { cellWidth: 15 }, // Bull %
+          11: { cellWidth: 280 }  // Thesis (wider since no analyst column)
         },
         didParseCell: function(data) {
           // Highlight status header rows
@@ -6160,6 +6162,7 @@ const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst
                 <SortableHeader field="ticker" style={{ width: '85px' }}>Ticker</SortableHeader>
                 <SortableHeader field="lsPosition" style={{ width: '40px' }}>L/S</SortableHeader>
                 <SortableHeader field="priority" style={{ width: '35px' }}>Pri</SortableHeader>
+                <SortableHeader field="rank" style={{ width: '35px' }}>Rank</SortableHeader>
                 <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '75px' }}>Price</th>
                 <SortableHeader field="ptBear" style={{ width: '60px' }}>Bear</SortableHeader>
                 <SortableHeader field="bearPercent" style={{ width: '45px' }}>%</SortableHeader>
@@ -6175,7 +6178,7 @@ const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst
                 if (item.type === 'header') {
                   return (
                     <tr key={`header-${item.status}`} className="bg-gray-100">
-                      <td colSpan="11" className="px-6 py-3 text-sm font-medium text-gray-900">
+                      <td colSpan="12" className="px-6 py-3 text-sm font-medium text-gray-900">
                         {item.status} ({item.count})
                       </td>
                     </tr>
@@ -6232,6 +6235,20 @@ const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst
                         }`}>
                           {ticker.priority}
                         </span>
+                      </td>
+                      <td className="px-1 py-2 whitespace-nowrap text-center" style={{ width: '35px' }}>
+                        {ticker.rank ? (
+                          <span className={`inline-flex w-6 h-6 items-center justify-center text-xs font-bold rounded-full ${
+                            ticker.rank === 1 ? 'bg-purple-100 text-purple-800' :
+                            ticker.rank === 2 ? 'bg-indigo-100 text-indigo-800' :
+                            ticker.rank === 3 ? 'bg-cyan-100 text-cyan-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {ticker.rank}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
                       </td>
                       <td className="px-2 py-2 whitespace-nowrap text-sm" style={{ width: '75px' }}>
                         <QuoteDisplay 
@@ -6315,6 +6332,7 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
 
  // Helper function to render clickable ticker
  // Bolded if priority is "A" (especially visible in To Assign row)
+ // Displays rank suffix (e.g., MDLN-1) if ticker has a rank
  const renderTickerButton = (ticker, bgColorClass, textColorClass) => {
    const handleTickerClick = () => {
      if (onNavigateToIdeaDetail) {
@@ -6323,15 +6341,17 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
    };
 
    const isPriorityA = ticker.priority === 'A';
+   const displayText = ticker.rank ? `${ticker.ticker}-${ticker.rank}` : ticker.ticker;
+   const rankInfo = ticker.rank ? ` (Rank ${ticker.rank})` : '';
 
    return (
      <button
        key={ticker.id}
        onClick={handleTickerClick}
        className={`text-xs ${bgColorClass} ${textColorClass} px-2 py-1 rounded hover:opacity-80 cursor-pointer transition-opacity ${isPriorityA ? 'font-bold' : ''}`}
-       title={`Click to view in Idea Detail${isPriorityA ? ' (Priority A)' : ''}`}
+       title={`Click to view in Idea Detail${isPriorityA ? ' (Priority A)' : ''}${rankInfo}`}
      >
-       {ticker.ticker}
+       {displayText}
      </button>
    );
  };
@@ -6358,41 +6378,45 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
      analysts.forEach(analyst => {
        const row = [analyst];
        
+       // Helper to format ticker with rank suffix
+       const formatTickerWithRank = (t) => t.rank ? `${t.ticker}-${t.rank}` : t.ticker;
+       
        // Current-Long
        const currentLong = getTickersForCell(analyst, 'Current', 'Long');
-       row.push(currentLong.map(t => t.ticker).join(', ') || '-');
+       row.push(currentLong.map(formatTickerWithRank).join(', ') || '-');
        
        // Current-Short  
        const currentShort = getTickersForCell(analyst, 'Current', 'Short');
-       row.push(currentShort.map(t => t.ticker).join(', ') || '-');
+       row.push(currentShort.map(formatTickerWithRank).join(', ') || '-');
        
        // OnDeck-Long
        const onDeckLong = getTickersForCell(analyst, 'On-Deck', 'Long');
-       row.push(onDeckLong.map(t => t.ticker).join(', ') || '-');
+       row.push(onDeckLong.map(formatTickerWithRank).join(', ') || '-');
        
        // OnDeck-Short
        const onDeckShort = getTickersForCell(analyst, 'On-Deck', 'Short');
-       row.push(onDeckShort.map(t => t.ticker).join(', ') || '-');
+       row.push(onDeckShort.map(formatTickerWithRank).join(', ') || '-');
        
        // Portfolio-Long
        const portfolioLong = getTickersForCell(analyst, 'Portfolio', 'Long');
-       row.push(portfolioLong.map(t => t.ticker).join(', ') || '-');
+       row.push(portfolioLong.map(formatTickerWithRank).join(', ') || '-');
        
        // Portfolio-Short
        const portfolioShort = getTickersForCell(analyst, 'Portfolio', 'Short');
-       row.push(portfolioShort.map(t => t.ticker).join(', ') || '-');
+       row.push(portfolioShort.map(formatTickerWithRank).join(', ') || '-');
        
        tableData.push(row);
      });
      
      // Add "To Assign" row
      const toAssignRow = ['To Assign'];
-     toAssignRow.push(getUnassignedTickersForCell('Current', 'Long').map(t => t.ticker).join(', ') || '-');
-     toAssignRow.push(getUnassignedTickersForCell('Current', 'Short').map(t => t.ticker).join(', ') || '-');
-     toAssignRow.push(getUnassignedTickersForCell('On-Deck', 'Long').map(t => t.ticker).join(', ') || '-');
-     toAssignRow.push(getUnassignedTickersForCell('On-Deck', 'Short').map(t => t.ticker).join(', ') || '-');
-     toAssignRow.push(getUnassignedTickersForCell('Portfolio', 'Long').map(t => t.ticker).join(', ') || '-');
-     toAssignRow.push(getUnassignedTickersForCell('Portfolio', 'Short').map(t => t.ticker).join(', ') || '-');
+     const formatTickerWithRankForToAssign = (t) => t.rank ? `${t.ticker}-${t.rank}` : t.ticker;
+     toAssignRow.push(getUnassignedTickersForCell('Current', 'Long').map(formatTickerWithRankForToAssign).join(', ') || '-');
+     toAssignRow.push(getUnassignedTickersForCell('Current', 'Short').map(formatTickerWithRankForToAssign).join(', ') || '-');
+     toAssignRow.push(getUnassignedTickersForCell('On-Deck', 'Long').map(formatTickerWithRankForToAssign).join(', ') || '-');
+     toAssignRow.push(getUnassignedTickersForCell('On-Deck', 'Short').map(formatTickerWithRankForToAssign).join(', ') || '-');
+     toAssignRow.push(getUnassignedTickersForCell('Portfolio', 'Long').map(formatTickerWithRankForToAssign).join(', ') || '-');
+     toAssignRow.push(getUnassignedTickersForCell('Portfolio', 'Short').map(formatTickerWithRankForToAssign).join(', ') || '-');
      tableData.push(toAssignRow);
      
      console.log('Table data:', tableData);
@@ -9974,6 +9998,82 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdateSelec
     );
   };
 
+  // Render rank field with confirmation prompt for conflicts
+  const renderRankField = () => {
+    const currentRank = ticker.rank;
+    const analyst = ticker.analyst;
+    const displayValue = currentRank ? currentRank.toString() : 'N/A';
+    
+    const colorMap = {
+      1: 'bg-purple-100 text-purple-800',
+      2: 'bg-indigo-100 text-indigo-800',
+      3: 'bg-cyan-100 text-cyan-800'
+    };
+    const colorClass = colorMap[currentRank] || 'bg-gray-100 text-gray-800';
+
+    const handleRankChange = async (newRank) => {
+      const rankValue = newRank === '' ? null : parseInt(newRank);
+      
+      // If setting to null or same value, just update
+      if (rankValue === null || rankValue === currentRank) {
+        if (onUpdate) {
+          await onUpdate(ticker.id, { rank: rankValue });
+        }
+        return;
+      }
+
+      // Check if another ticker by this analyst already has this rank
+      const conflictingTicker = tickers.find(t => 
+        t.id !== ticker.id && 
+        t.analyst === analyst && 
+        t.rank === rankValue
+      );
+
+      if (conflictingTicker) {
+        const confirmed = window.confirm(
+          `Confirm you want to change this to Rank ${rankValue} and remove Rank ${rankValue} from ticker ${conflictingTicker.ticker}?`
+        );
+        
+        if (confirmed && onUpdate) {
+          // Remove rank from conflicting ticker first
+          await onUpdate(conflictingTicker.id, { rank: null });
+          // Then set rank on current ticker
+          await onUpdate(ticker.id, { rank: rankValue });
+        }
+      } else {
+        if (onUpdate) {
+          await onUpdate(ticker.id, { rank: rankValue });
+        }
+      }
+    };
+
+    return (
+      <div className="py-3 border-b border-gray-200">
+        <div className="flex justify-between items-center">
+          <dt className="text-sm font-medium text-gray-500 w-1/3">Rank</dt>
+          <dd className="text-sm text-gray-900 w-2/3">
+            {onUpdate ? (
+              <select
+                value={currentRank || ''}
+                onChange={(e) => handleRankChange(e.target.value)}
+                className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">N/A</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+              </select>
+            ) : (
+              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${colorClass}`}>
+                {displayValue}
+              </span>
+            )}
+          </dd>
+        </div>
+      </div>
+    );
+  };
+
   // Render price target field with percentage calculation
   const renderPriceTargetField = (label, field, value, currentPrice) => {
     const isEditing = editingField === field;
@@ -10125,6 +10225,7 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdateSelec
                 'Old': 'bg-gray-100 text-gray-800'
               })}
               {renderField('Analyst', 'analyst', ticker.analyst, 'select')}
+              {renderRankField()}
               {renderField('Source', 'source', ticker.source)}
               {renderField('Value/Growth', 'valueOrGrowth', ticker.valueOrGrowth, 'select')}
               {renderField('Catalyst Date', 'catalystDate', ticker.catalystDate, 'date')}
