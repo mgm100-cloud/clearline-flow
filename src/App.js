@@ -6478,8 +6478,8 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
          const padding = data.cell.styles.cellPadding || 3;
          const paddingVal = typeof padding === 'number' ? padding : (padding.left || 3);
          
-         // Match autoTable's text positioning
-         const lineHeight = fontSize * 1.15;
+         // Use tight line spacing for wrapped lines
+         const lineHeight = fontSize * 0.45;  // Compressed spacing
          const textPos = data.cell.textPos;
          let startX = textPos ? textPos.x : (x + paddingVal);
          let startY = textPos ? textPos.y : (y + paddingVal + fontSize);
