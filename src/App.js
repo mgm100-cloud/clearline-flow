@@ -6445,50 +6445,27 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
          }
        },
        didDrawCell: function(data) {
-         // After autoTable draws, add formatting for bold/underline tickers
+         // After autoTable draws, add underlines for ranked tickers and overlay bold for Priority A
          if (data.section !== 'body' || data.column.index === 0) return;
          
          const cellText = data.cell.text;
          if (!cellText || cellText.length === 0) return;
          if (cellText.length === 1 && cellText[0] === '-') return;
          
-         // Check if any ticker needs special formatting
-         let needsFormatting = false;
-         cellText.forEach(line => {
-           if (!line || line === '-') return;
-           line.split(/,\s*/).forEach(ticker => {
-             const t = ticker.trim();
-             if (tickerLookup[t] && (tickerLookup[t].bold || tickerLookup[t].underline)) {
-               needsFormatting = true;
-             }
-           });
-         });
-         
-         if (!needsFormatting) return;
-         
          // Get cell properties
-         const { x, y, width, height } = data.cell;
-         let fillColor = [255, 255, 255]; // Default white
-         if (data.cell.styles.fillColor && Array.isArray(data.cell.styles.fillColor) && data.cell.styles.fillColor.length >= 3) {
-           fillColor = data.cell.styles.fillColor;
-         }
+         const { x, y } = data.cell;
          const fontSize = data.cell.styles.fontSize || 8;
          const padding = data.cell.styles.cellPadding || 3;
          const paddingVal = typeof padding === 'number' ? padding : (padding.left || 3);
          
-         // Cover original text with background
-         doc.setFillColor(fillColor[0] || 255, fillColor[1] || 255, fillColor[2] || 255);
-         doc.rect(x + 0.3, y + 0.3, width - 0.6, height - 0.6, 'F');
+         // Use autoTable's line height factor
+         const lineHeight = fontSize * 1.15;
+         let currentY = y + paddingVal + fontSize * 0.8;
          
-         // Redraw text with formatting
          doc.setFontSize(fontSize);
-         doc.setTextColor(0, 0, 0);
-         
-         const lineHeight = fontSize * 1.0;  // Single spacing
-         let currentY = y + paddingVal + fontSize * 0.35;
          
          cellText.forEach(line => {
-           if (!line) {
+           if (!line || line === '-') {
              currentY += lineHeight;
              return;
            }
@@ -6500,36 +6477,32 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
              if (!part) return;
              
              const trimmed = part.trim();
+             doc.setFont('helvetica', 'normal');
+             const partWidth = doc.getTextWidth(part);
              
-             if (part.match(/^,\s*$/)) {
-               doc.setFont('helvetica', 'normal');
-               doc.text(part, currentX, currentY);
-               currentX += doc.getTextWidth(part);
-             } else if (trimmed && trimmed !== '-') {
+             if (trimmed && trimmed !== '-' && !part.match(/^,\s*$/)) {
                const style = tickerLookup[trimmed];
-               const isBold = style && style.bold;
-               const isUnderline = style && style.underline;
                
-               doc.setFont('helvetica', isBold ? 'bold' : 'normal');
-               doc.text(part, currentX, currentY);
-               
-               if (isUnderline) {
-                 const textWidth = doc.getTextWidth(part);
-                 doc.setDrawColor(0, 0, 0);
-                 doc.setLineWidth(0.2);
-                 doc.line(currentX, currentY + 0.8, currentX + textWidth, currentY + 0.8);
+               // If bold, draw bold text on top (will make it appear bold)
+               if (style && style.bold) {
+                 doc.setFont('helvetica', 'bold');
+                 doc.setTextColor(0, 0, 0);
+                 doc.text(part, currentX, currentY);
+                 doc.setFont('helvetica', 'normal');
                }
-               currentX += doc.getTextWidth(part);
-             } else if (part) {
-               doc.setFont('helvetica', 'normal');
-               doc.text(part, currentX, currentY);
-               currentX += doc.getTextWidth(part);
+               
+               // If underline, draw underline
+               if (style && style.underline) {
+                 doc.setDrawColor(0, 0, 0);
+                 doc.setLineWidth(0.3);
+                 doc.line(currentX, currentY + 1, currentX + partWidth, currentY + 1);
+               }
              }
+             
+             currentX += partWidth;
            });
            currentY += lineHeight;
          });
-         
-         doc.setFont('helvetica', 'normal');
        }
      });
 
