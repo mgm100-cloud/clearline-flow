@@ -6487,20 +6487,27 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
            data.cell.styles.fillColor = [254, 226, 226]; // Light red background
          }
        },
+       willDrawCell: function(data) {
+         // For cells with ticker data, prevent autoTable from drawing text
+         // We'll draw it ourselves in didDrawCell with custom styling
+         if (data.section === 'body' && data.column.index > 0) {
+           const rowData = tableData[data.row.index];
+           const cellData = rowData ? rowData[data.column.index] : null;
+           
+           if (cellData && typeof cellData === 'object' && cellData.tickers && cellData.tickers.length > 0) {
+             // Clear the text so autoTable doesn't draw it
+             data.cell.text = [];
+           }
+         }
+       },
        didDrawCell: function(data) {
          // Custom render cells with mixed bold/normal text for Priority A tickers
          if (data.section === 'body' && data.column.index > 0) {
            const rowData = tableData[data.row.index];
-           const cellData = rowData[data.column.index];
+           const cellData = rowData ? rowData[data.column.index] : null;
            
            if (cellData && typeof cellData === 'object' && cellData.tickers && cellData.tickers.length > 0) {
-             // Clear the cell content area
              const { x, y, width, height } = data.cell;
-             doc.setFillColor(data.row.index % 2 === 0 ? 255 : 248, data.row.index % 2 === 0 ? 255 : 250, data.row.index % 2 === 0 ? 255 : 252);
-             if (data.row.index === analysts.length) {
-               doc.setFillColor(254, 226, 226); // To Assign row
-             }
-             doc.rect(x, y, width, height, 'F');
              
              // Text wrapping parameters - compact spacing
              const padding = 2;
@@ -6535,7 +6542,7 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
                  currentY += lineHeight;
                }
                
-               // Draw the ticker text (don't skip - let it overflow if needed)
+               // Draw the ticker text
                doc.text(tickerText, currentX, currentY);
                
                // Draw underline for ranked tickers
