@@ -6484,7 +6484,7 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
          doc.setFontSize(fontSize);
          doc.setTextColor(0, 0, 0);
          
-         const lineHeight = fontSize * 1.15;
+         const lineHeight = fontSize * 1.0;  // Single spacing
          let currentY = y + paddingVal + fontSize * 0.35;
          
          cellText.forEach(line => {
