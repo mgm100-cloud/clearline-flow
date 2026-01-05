@@ -6381,12 +6381,10 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
      analysts.forEach(analyst => {
        const row = [analyst];
        
-       // Helper to format ticker with rank suffix and priority marker
-       // *TICKER = Priority A, TICKER-1 = Ranked
+       // Helper to format ticker with rank suffix for display text
        const formatTickerForPDF = (t) => {
          let text = t.ticker;
          if (t.rank) text = `${text}-${t.rank}`;
-         if (t.priority === 'A') text = `*${text}`;
          return text;
        };
        
@@ -6434,7 +6432,6 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
        const formatTicker = (t) => {
          let text = t.ticker;
          if (t.rank) text = `${text}-${t.rank}`;
-         if (t.priority === 'A') text = `*${text}`;
          return text;
        };
        return {
@@ -6457,6 +6454,9 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
      const displayTableData = tableData.map(row => 
        row.map(cell => typeof cell === 'object' && cell.text !== undefined ? cell.text : cell)
      );
+     
+     // Track drawn cells to avoid duplicates on page breaks
+     const drawnCells = new Set();
      
      // Create the PDF table using the correct autoTable syntax
      autoTable(doc, {
@@ -6490,6 +6490,95 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
            data.cell.styles.fillColor = [254, 226, 226]; // Light red background
          }
        },
+       willDrawCell: function(data) {
+         // For cells with ticker data, prevent autoTable from drawing text
+         // We'll draw it ourselves in didDrawCell with custom styling
+         if (data.section === 'body' && data.column.index > 0) {
+           const cellKey = `${data.row.index}-${data.column.index}`;
+           // Only clear text if we haven't drawn this cell yet
+           if (!drawnCells.has(cellKey)) {
+             const rowData = tableData[data.row.index];
+             const cellData = rowData ? rowData[data.column.index] : null;
+             
+             if (cellData && typeof cellData === 'object' && cellData.tickers && cellData.tickers.length > 0) {
+               data.cell.text = [];
+             }
+           }
+         }
+       },
+       didDrawCell: function(data) {
+         // Custom render cells with bold for Priority A and underline for ranked
+         if (data.section === 'body' && data.column.index > 0) {
+           const cellKey = `${data.row.index}-${data.column.index}`;
+           
+           // Skip if already drawn (handles page breaks)
+           if (drawnCells.has(cellKey)) return;
+           
+           const rowData = tableData[data.row.index];
+           const cellData = rowData ? rowData[data.column.index] : null;
+           
+           if (cellData && typeof cellData === 'object' && cellData.tickers && cellData.tickers.length > 0) {
+             drawnCells.add(cellKey);
+             
+             const { x, y, width, height } = data.cell;
+             const padding = 3;
+             const lineHeight = 4;
+             const fontSize = 8;
+             let currentX = x + padding;
+             let currentY = y + padding + 3;
+             
+             doc.setFontSize(fontSize);
+             
+             cellData.tickers.forEach((ticker, idx) => {
+               let tickerText = ticker.ticker;
+               if (ticker.rank) tickerText = `${tickerText}-${ticker.rank}`;
+               const separator = idx < cellData.tickers.length - 1 ? ', ' : '';
+               
+               // Set bold for Priority A
+               if (ticker.priority === 'A') {
+                 doc.setFont('helvetica', 'bold');
+               } else {
+                 doc.setFont('helvetica', 'normal');
+               }
+               doc.setFontSize(fontSize);
+               doc.setTextColor(0, 0, 0);
+               
+               const tickerWidth = doc.getTextWidth(tickerText);
+               const separatorWidth = separator ? doc.getTextWidth(separator) : 0;
+               const totalWidth = tickerWidth + separatorWidth;
+               
+               // Check if we need to wrap to next line
+               if (currentX + totalWidth > x + width - padding && currentX > x + padding) {
+                 currentX = x + padding;
+                 currentY += lineHeight;
+               }
+               
+               // Only draw if within cell bounds
+               if (currentY < y + height - 2) {
+                 doc.text(tickerText, currentX, currentY);
+                 
+                 // Draw underline for ranked tickers
+                 if (ticker.rank) {
+                   doc.setDrawColor(0, 0, 0);
+                   doc.setLineWidth(0.3);
+                   doc.line(currentX, currentY + 0.5, currentX + tickerWidth, currentY + 0.5);
+                 }
+               }
+               
+               currentX += tickerWidth;
+               
+               // Draw separator
+               if (separator && currentY < y + height - 2) {
+                 doc.setFont('helvetica', 'normal');
+                 doc.text(separator, currentX, currentY);
+                 currentX += separatorWidth;
+               }
+             });
+             
+             doc.setFont('helvetica', 'normal');
+           }
+         }
+       }
      });
      
      // Save the PDF
