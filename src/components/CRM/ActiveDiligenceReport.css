@@ -1,0 +1,398 @@
+/* Active Diligence Report */
+.active-diligence-report {
+  padding: 24px;
+  background: #f8f9fa;
+  min-height: 100vh;
+}
+
+.active-diligence-loading {
+  text-align: center;
+  padding: 60px 20px;
+  font-size: 16px;
+  color: #666;
+}
+
+/* Header */
+.active-diligence-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.active-diligence-header-left h2 {
+  margin: 0 0 8px 0;
+  font-size: 24px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.active-diligence-subtitle {
+  margin: 0;
+  font-size: 14px;
+  color: #666;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.active-diligence-export-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.active-diligence-export-btn:hover {
+  background: #1d4ed8;
+}
+
+/* Stats */
+.active-diligence-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.active-diligence-stat-card {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border-left: 4px solid #e0e0e0;
+}
+
+.active-diligence-stat-card.active-diligence-stat-success {
+  border-left-color: #10b981;
+}
+
+.active-diligence-stat-card.active-diligence-stat-warning {
+  border-left-color: #f59e0b;
+}
+
+.active-diligence-stat-card.active-diligence-stat-info {
+  border-left-color: #3b82f6;
+}
+
+.active-diligence-stat-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 4px;
+}
+
+.active-diligence-stat-label {
+  font-size: 13px;
+  color: #666;
+  font-weight: 500;
+}
+
+/* Content */
+.active-diligence-content {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+/* Table */
+.active-diligence-table {
+  width: 100%;
+}
+
+.active-diligence-table-header {
+  display: grid;
+  grid-template-columns: 40px 2fr 0.8fr 1.2fr 1fr 1fr 0.8fr 1fr 0.8fr;
+  gap: 12px;
+  padding: 12px 20px;
+  background: #f8f9fa;
+  border-bottom: 2px solid #e0e0e0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.active-diligence-table-row {
+  display: grid;
+  grid-template-columns: 40px 2fr 0.8fr 1.2fr 1fr 1fr 0.8fr 1fr 0.8fr;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e0e0e0;
+  align-items: center;
+  transition: background 0.2s;
+}
+
+.active-diligence-table-row:hover {
+  background: #f8f9fa;
+}
+
+.active-diligence-table-row:last-child {
+  border-bottom: none;
+}
+
+.active-diligence-row-contacted {
+  background: #f0fdf4;
+}
+
+.active-diligence-row-contacted:hover {
+  background: #dcfce7;
+}
+
+.active-diligence-row-not-contacted {
+  background: #fef3c7;
+}
+
+.active-diligence-row-not-contacted:hover {
+  background: #fde68a;
+}
+
+/* Columns */
+.active-diligence-col-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.active-diligence-check-icon {
+  color: #10b981;
+}
+
+.active-diligence-warning-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #f59e0b;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.active-diligence-col-firm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.active-diligence-firm-name {
+  font-weight: 500;
+  color: #1a1a1a;
+}
+
+.active-diligence-col-tier,
+.active-diligence-col-category,
+.active-diligence-col-aum,
+.active-diligence-col-investment,
+.active-diligence-col-probability,
+.active-diligence-col-interactions,
+.active-diligence-col-last-activity {
+  font-size: 14px;
+  color: #333;
+}
+
+/* Badges */
+.active-diligence-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.active-diligence-badge-focus {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.active-diligence-badge-pm {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.active-diligence-badge-high {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.active-diligence-badge-medium {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.active-diligence-badge-low {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.active-diligence-tier-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.active-diligence-tier-tier1 {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.active-diligence-tier-tier2 {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.active-diligence-tier-tier3 {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+.active-diligence-interaction-count {
+  color: #10b981;
+  font-weight: 500;
+}
+
+.active-diligence-no-contact {
+  color: #f59e0b;
+  font-weight: 500;
+}
+
+/* Empty State */
+.active-diligence-empty {
+  padding: 40px 20px;
+  text-align: center;
+  color: #999;
+  font-size: 14px;
+}
+
+/* Legend */
+.active-diligence-legend {
+  display: flex;
+  gap: 24px;
+  padding: 16px 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.active-diligence-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #666;
+}
+
+.active-diligence-warning-icon-small {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #f59e0b;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 11px;
+}
+
+/* Responsive */
+@media (max-width: 1400px) {
+  .active-diligence-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .active-diligence-table-header,
+  .active-diligence-table-row {
+    grid-template-columns: 40px 2fr 0.8fr 1fr 0.8fr 1fr 0.8fr;
+    gap: 8px;
+    font-size: 13px;
+  }
+
+  .active-diligence-col-category,
+  .active-diligence-col-investment {
+    display: none;
+  }
+}
+
+@media (max-width: 1024px) {
+  .active-diligence-table-header,
+  .active-diligence-table-row {
+    grid-template-columns: 40px 2fr 0.8fr 1fr 0.8fr;
+    gap: 8px;
+  }
+
+  .active-diligence-col-aum,
+  .active-diligence-col-probability {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .active-diligence-report {
+    padding: 16px;
+  }
+
+  .active-diligence-header {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .active-diligence-export-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .active-diligence-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .active-diligence-table-header {
+    display: none;
+  }
+
+  .active-diligence-table-row {
+    grid-template-columns: 40px 1fr;
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .active-diligence-col-firm {
+    grid-column: 2;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .active-diligence-col-tier,
+  .active-diligence-col-interactions,
+  .active-diligence-col-last-activity {
+    display: none;
+  }
+
+  .active-diligence-legend {
+    flex-direction: column;
+    gap: 12px;
+  }
+}
+

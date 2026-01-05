@@ -1,0 +1,136 @@
+.contacts-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.contacts-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.contacts-toolbar-left,
+.contacts-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.contacts-search {
+  width: 300px;
+  padding: 8px 12px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.contacts-search:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.contacts-filter-btn,
+.contacts-export-btn,
+.contacts-add-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.contacts-filter-btn:hover,
+.contacts-export-btn:hover {
+  background: #f5f5f5;
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
+.contacts-filter-btn.active {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: white;
+}
+
+.contacts-add-btn {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: white;
+}
+
+.contacts-add-btn:hover {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+}
+
+.contacts-filters {
+  display: flex;
+  gap: 16px;
+  padding: 16px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.contacts-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.contacts-filter-group label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #666;
+}
+
+.contacts-filter-group select {
+  padding: 8px 12px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  font-size: 14px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.contacts-filter-group select:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.contact-email {
+  color: #2563eb;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.contact-email:hover {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+.distribution-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  background: #dbeafe;
+  color: #1e40af;
+  border-radius: 4px;
+}
+

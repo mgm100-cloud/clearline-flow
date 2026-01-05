@@ -341,22 +341,20 @@ export const AuthService = {
   },
 
   // Check if an analyst code already exists in the database
+  // Uses a database function that bypasses RLS so unauthenticated users can check during signup
   async checkAnalystCodeExists(analystCode) {
     if (!analystCode) return false;
     
     try {
       const { data, error } = await supabase
-        .from('user_profiles')
-        .select('analyst_code')
-        .eq('analyst_code', analystCode)
-        .limit(1);
+        .rpc('check_analyst_code_exists', { code: analystCode });
       
       if (error) {
         console.error('Error checking analyst code:', error);
         return false; // On error, allow signup and let DB constraint catch it
       }
       
-      return data && data.length > 0;
+      return data === true;
     } catch (error) {
       console.error('Error checking analyst code:', error);
       return false;

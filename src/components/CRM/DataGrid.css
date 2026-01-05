@@ -1,0 +1,217 @@
+.data-grid-container {
+  position: relative;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.data-grid-loading {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.9);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  z-index: 10;
+}
+
+.data-grid-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #e0e0e0;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.data-grid-table-wrapper {
+  overflow-x: auto;
+}
+
+.data-grid-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-grid-th {
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
+  color: #666;
+  background: #f9f9f9;
+  border-bottom: 2px solid #e0e0e0;
+  white-space: nowrap;
+}
+
+.data-grid-th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.data-grid-th.sortable:hover {
+  background: #f0f0f0;
+}
+
+.data-grid-th-content {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.data-grid-sort-icon {
+  display: flex;
+  color: #2563eb;
+}
+
+.data-grid-th.actions {
+  width: 100px;
+  text-align: center;
+}
+
+.data-grid-tr {
+  transition: background 0.15s;
+}
+
+.data-grid-tr:hover {
+  background: #f9f9f9;
+}
+
+.data-grid-td {
+  padding: 12px 16px;
+  font-size: 14px;
+  color: #1a1a1a;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.data-grid-td.actions {
+  text-align: center;
+}
+
+.data-grid-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.data-grid-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  background: transparent;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #666;
+}
+
+.data-grid-action-btn:hover {
+  background: #f5f5f5;
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
+.data-grid-action-btn.delete:hover {
+  border-color: #dc2626;
+  color: #dc2626;
+}
+
+.data-grid-cell-input {
+  width: 100%;
+  padding: 4px 8px;
+  border: 1px solid #2563eb;
+  border-radius: 4px;
+  font-size: 14px;
+  outline: none;
+}
+
+.data-grid-empty {
+  padding: 48px;
+  text-align: center;
+  color: #999;
+  font-size: 14px;
+}
+
+.data-grid-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  border-top: 1px solid #e0e0e0;
+  background: #f9f9f9;
+}
+
+.data-grid-pagination-info {
+  font-size: 14px;
+  color: #666;
+}
+
+.data-grid-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.data-grid-pagination-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background: white;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+  font-size: 14px;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.data-grid-pagination-btn:hover:not(:disabled) {
+  background: #f5f5f5;
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
+.data-grid-pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.data-grid-pagination-pages {
+  display: flex;
+  gap: 4px;
+}
+
+.data-grid-pagination-page {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  background: white;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+  font-size: 14px;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.data-grid-pagination-page:hover {
+  background: #f5f5f5;
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
+.data-grid-pagination-page.active {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: white;
+}
+

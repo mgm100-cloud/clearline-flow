@@ -1,0 +1,15 @@
+// CRM Component Exports
+export { default as CRM } from './CRM'
+export { default as CRMLayout } from './CRMLayout'
+export { default as FirmsTab } from './FirmsTab'
+export { default as ContactsTab } from './ContactsTab'
+export { default as TasksTab } from './TasksTab'
+export { default as FirmDetail } from './FirmDetail'
+export { default as ContactDetail } from './ContactDetail'
+export { default as DataGrid } from './DataGrid'
+export { default as TaskDetailModal } from './TaskDetailModal'
+export { default as DistributionLists } from './DistributionLists'
+export { default as EmailCompose } from './EmailCompose'
+export { default as PipelineReport } from './PipelineReport'
+export { default as ActiveDiligenceReport } from './ActiveDiligenceReport'
+
