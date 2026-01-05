@@ -6472,7 +6472,10 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
          if (data.section !== 'body' || data.column.index === 0) return;
          if (!data.cell.customLines || data.cell.customLines.length === 0) return;
          
-         const lines = data.cell.customLines;
+         // Get non-empty lines only
+         const lines = data.cell.customLines.filter(line => line && line.trim() !== '');
+         if (lines.length === 0) return;
+         
          const { x, y, width, height } = data.cell;
          const fontSize = data.cell.styles.fontSize || 8;
          const padding = data.cell.styles.cellPadding || 3;
@@ -6482,27 +6485,14 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
          const lineHeight = fontSize * 0.40;
          // Always start from top of cell
          let startX = x + paddingVal;
-         let startY = y + paddingVal + fontSize * 0.8;  // Top-aligned
+         let startY = y + paddingVal + fontSize * 0.35;  // Top-aligned, closer to top
          
          doc.setFontSize(fontSize);
          doc.setTextColor(0, 0, 0);
          
-         // Filter out empty lines at the start
-         const filteredLines = lines.filter((line, idx) => {
-           // Keep all non-empty lines, and only keep empty lines if they're not at the start
-           if (!line || line.trim() === '') {
-             return idx > 0 && lines.slice(0, idx).some(l => l && l.trim() !== '');
-           }
-           return true;
-         });
-         
          let currentY = startY;
          
-         filteredLines.forEach((line, lineIdx) => {
-           if (!line || line.trim() === '') {
-             currentY += lineHeight;
-             return;
-           }
+         lines.forEach((line, lineIdx) => {
            
            if (line === '-') {
              doc.setFont('helvetica', 'normal');
