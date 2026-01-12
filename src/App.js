@@ -8418,7 +8418,7 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
                     <!-- Ranked Ideas Section -->
                     <tr>
                       <td style="padding: 15px; background-color: #fff8e1; border-bottom: 2px solid #ffc107;">
-                        <h2 style="margin: 0 0 10px 0; color: #333; font-size: 18px; font-weight: bold;">⭐ Ranked Ideas</h2>`;
+                        <h2 style="margin: 0 0 10px 0; color: #333; font-size: 18px; font-weight: bold;">⭐ Ranked Names - Current Work</h2>`;
                   
                   if (rankedTickers.length > 0) {
                     rankedTickers.forEach((ticker) => {
