@@ -2334,6 +2334,10 @@ const ClearlineFlow = () => {
       }
       
       const stockData = await fetchStockData(capitalizedTickerData.ticker);
+      
+      // Get the analyst code of the user adding this ticker
+      const analystSource = currentUser ? AuthService.getUserAnalystCode(currentUser) : null;
+      
       const newTicker = {
         ...capitalizedTickerData,
         dateIn: new Date().toLocaleDateString('en-US', { 
@@ -2347,6 +2351,7 @@ const ClearlineFlow = () => {
         currentPrice: stockData.price,
         marketCap: stockData.marketCap,
         adv3Month: stockData.adv3Month,
+        analystSource: analystSource, // Record who entered this ticker
         created_at: new Date().toISOString()
       };
       
@@ -10868,6 +10873,9 @@ const UpdatePortfolioPage = ({ tickers, onUpdateTickers, currentUser, userRole }
         if (tickersToAdd.length > 0) {
           setUploadStatus(`Adding ${tickersToAdd.length} missing tickers...`);
           for (const ticker of tickersToAdd) {
+            // Get the analyst code of the user adding this ticker
+            const analystSource = currentUser ? AuthService.getUserAnalystCode(currentUser) : null;
+            
             const newTicker = {
               ticker: ticker,
               name: ticker, // Will need to be updated manually or via API
@@ -10882,7 +10890,8 @@ const UpdatePortfolioPage = ({ tickers, onUpdateTickers, currentUser, userRole }
               priority: 'A', // Default value
               thesis: '', // Required field - empty string instead of null
               analyst: '', // Set empty string for now
-              source: '' // Set empty string for now
+              source: '', // Set empty string for now
+              analystSource: analystSource // Record who entered this ticker
             };
             await DatabaseService.addTicker(newTicker);
             addedCount++;
