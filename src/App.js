@@ -8408,6 +8408,37 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
                       </td>
                     </tr>`;
                 
+                // Add ranked ideas section at the top (only when filtering by a specific analyst)
+                if (selectedTodoAnalyst) {
+                  const rankedTickers = tickers
+                    .filter(t => t.analyst === selectedTodoAnalyst && t.rank !== null && t.rank !== undefined)
+                    .sort((a, b) => a.rank - b.rank);
+                  
+                  emailBody += `
+                    <!-- Ranked Ideas Section -->
+                    <tr>
+                      <td style="padding: 15px; background-color: #fff8e1; border-bottom: 2px solid #ffc107;">
+                        <h2 style="margin: 0 0 10px 0; color: #333; font-size: 18px; font-weight: bold;">⭐ Ranked Ideas</h2>`;
+                  
+                  if (rankedTickers.length > 0) {
+                    rankedTickers.forEach((ticker) => {
+                      emailBody += `
+                        <div style="padding: 8px 0; border-bottom: 1px solid #ffe082;">
+                          <span style="font-weight: bold; font-size: 16px; color: #0066cc; margin-right: 10px;">#${ticker.rank}</span>
+                          <span style="font-weight: bold; font-size: 16px;">${ticker.ticker}</span>
+                          ${ticker.name ? `<span style="color: #666; font-size: 14px;"> - ${ticker.name}</span>` : ''}
+                        </div>`;
+                    });
+                  } else {
+                    emailBody += `
+                        <p style="color: #666; font-size: 14px; margin: 0;">No ideas are currently ranked for this analyst.</p>`;
+                  }
+                  
+                  emailBody += `
+                      </td>
+                    </tr>`;
+                }
+                
                 // Custom sort for email: Priority (high>medium>low), then Days Since (lowest first)
                 const sortTodosForEmail = (todos) => {
                   return [...todos].sort((a, b) => {
