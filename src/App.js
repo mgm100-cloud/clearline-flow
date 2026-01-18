@@ -1961,20 +1961,26 @@ const ClearlineFlow = () => {
     const handlePriceUpdate = (priceData) => {
       // Find the original symbol (with Bloomberg suffix) from the converted symbol
       setTickers(prev => {
+        let hasChanges = false;
         const updated = prev.map(ticker => {
           const tickerSymbol = ticker.ticker.replace(' US', '');
           const convertedSymbol = twelveDataWS.convertBloombergToTwelveData(tickerSymbol);
           
           if (convertedSymbol === priceData.symbol || tickerSymbol === priceData.symbol) {
-            return {
-              ...ticker,
-              currentPrice: priceData.price,
-              lastQuoteUpdate: new Date().toISOString()
-            };
+            // Only update if price actually changed
+            if (ticker.currentPrice !== priceData.price) {
+              hasChanges = true;
+              return {
+                ...ticker,
+                currentPrice: priceData.price,
+                lastQuoteUpdate: new Date().toISOString()
+              };
+            }
           }
           return ticker;
         });
-        return updated;
+        // Only return new array if something actually changed
+        return hasChanges ? updated : prev;
       });
       
       // Also update quotes state for components that use it
@@ -2018,6 +2024,9 @@ const ClearlineFlow = () => {
     };
   }, [isAuthenticated]);
 
+  // Track subscribed symbols to avoid unnecessary resubscription
+  const subscribedSymbolsRef = useRef(new Set());
+  
   // Subscribe to tickers when they change
   useEffect(() => {
     if (!isAuthenticated || !wsInitializedRef.current || tickers.length === 0) return;
@@ -2027,9 +2036,18 @@ const ClearlineFlow = () => {
       .filter(t => t.ticker && t.status !== 'Old') // Only active tickers
       .map(t => t.ticker.replace(' US', ''));
     
-    if (symbols.length > 0) {
+    // Check if the symbols list has actually changed
+    const currentSymbolsSet = new Set(symbols);
+    const previousSymbols = subscribedSymbolsRef.current;
+    
+    // Only update if symbols have changed
+    const hasChanged = currentSymbolsSet.size !== previousSymbols.size ||
+      symbols.some(s => !previousSymbols.has(s));
+    
+    if (hasChanged && symbols.length > 0) {
       console.log(`📊 Subscribing to ${symbols.length} ticker symbols via WebSocket`);
       twelveDataWS.updateSubscriptions(symbols);
+      subscribedSymbolsRef.current = currentSymbolsSet;
     }
   }, [isAuthenticated, tickers]);
 

@@ -140,14 +140,29 @@ class TwelveDataWebSocketService {
 
   // Handle incoming messages
   handleMessage(data) {
+    // Log all incoming messages for debugging
+    console.log('📨 WebSocket message received:', data);
+    
     // Handle different message types
     if (data.event === 'subscribe-status') {
       console.log('📊 Subscription status:', data);
+      if (data.success) {
+        console.log('✅ Successfully subscribed to:', data.success.length, 'symbols');
+      }
+      if (data.fails) {
+        console.warn('❌ Failed to subscribe to:', data.fails);
+      }
       return;
     }
 
     if (data.event === 'unsubscribe-status') {
       console.log('📊 Unsubscription status:', data);
+      return;
+    }
+    
+    // Handle errors
+    if (data.status === 'error' || data.code) {
+      console.error('❌ WebSocket error:', data.message || data);
       return;
     }
 
@@ -156,7 +171,9 @@ class TwelveDataWebSocketService {
       return;
     }
 
-    if (data.event === 'price') {
+    // TwelveData WebSocket sends price updates directly without event wrapper
+    // Check if this is a price update (has symbol and price fields)
+    if (data.symbol && data.price !== undefined) {
       // Price update received
       const priceData = {
         symbol: data.symbol,
@@ -171,13 +188,37 @@ class TwelveDataWebSocketService {
         priceData.price = priceData.price / 100;
       }
 
+      console.log('💰 Price update:', priceData.symbol, priceData.price);
+
+      if (this.onPriceUpdate) {
+        this.onPriceUpdate(priceData);
+      }
+      return;
+    }
+
+    // Handle event-based price updates (fallback)
+    if (data.event === 'price') {
+      const priceData = {
+        symbol: data.symbol,
+        price: parseFloat(data.price),
+        timestamp: data.timestamp,
+        dayVolume: data.day_volume ? parseInt(data.day_volume) : null,
+        exchange: data.exchange
+      };
+
+      if (data.symbol && (data.symbol.endsWith('.SW') || data.symbol.includes(' SW'))) {
+        priceData.price = priceData.price / 100;
+      }
+
+      console.log('💰 Price update (event):', priceData.symbol, priceData.price);
+
       if (this.onPriceUpdate) {
         this.onPriceUpdate(priceData);
       }
     }
   }
 
-  // Subscribe to symbols
+  // Subscribe to symbols (in chunks to avoid limits)
   subscribe(symbols) {
     if (!symbols || symbols.length === 0) return;
 
@@ -186,7 +227,7 @@ class TwelveDataWebSocketService {
 
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       // Queue for later if not connected
-      console.log('📋 Queuing subscriptions for when connected:', convertedSymbols);
+      console.log('📋 Queuing subscriptions for when connected:', convertedSymbols.length, 'symbols');
       this.pendingSubscriptions.push(...symbols);
       
       // Try to connect if not already
@@ -194,16 +235,23 @@ class TwelveDataWebSocketService {
       return;
     }
 
-    // TwelveData subscription message format
-    const subscribeMessage = {
-      action: 'subscribe',
-      params: {
-        symbols: convertedSymbols.join(',')
-      }
-    };
+    // TwelveData has limits - subscribe in chunks of 100
+    const chunkSize = 100;
+    for (let i = 0; i < convertedSymbols.length; i += chunkSize) {
+      const chunk = convertedSymbols.slice(i, i + chunkSize);
+      
+      // TwelveData subscription message format
+      const subscribeMessage = {
+        action: 'subscribe',
+        params: {
+          symbols: chunk.join(',')
+        }
+      };
 
-    console.log('📊 Subscribing to symbols:', convertedSymbols);
-    this.ws.send(JSON.stringify(subscribeMessage));
+      console.log(`📊 Subscribing to symbols chunk ${Math.floor(i/chunkSize) + 1}/${Math.ceil(convertedSymbols.length/chunkSize)}:`, chunk.length, 'symbols');
+      console.log('📤 Sending subscription:', JSON.stringify(subscribeMessage));
+      this.ws.send(JSON.stringify(subscribeMessage));
+    }
 
     // Track subscribed symbols (keep original format for mapping)
     symbols.forEach(s => this.subscribedSymbols.add(s));
