@@ -11109,7 +11109,8 @@ const parseBloombergTicker = (rawTicker) => {
       'AT': 'AU',  // Austria -> Australia format
       'SE': 'SW',  // Sweden transformation
       'CT': 'CN',  // China transformation
-      'KQ': 'KS'   // South Korea transformation
+      'KQ': 'KS', // South Korea transformation
+      'JT': 'JP'   // Japan - standardize to JP
     };
     
     if (usMarketSuffixes.includes(suffix)) {
@@ -11130,7 +11131,8 @@ const parseBloombergTicker = (rawTicker) => {
       'AT': 'AU',
       'SE': 'SW',
       'CT': 'CN',
-      'KQ': 'KS'
+      'KQ': 'KS',
+      'JT': 'JP'   // Japan - standardize to JP
     };
     
     if (usMarketSuffixes.includes(suffix)) {
