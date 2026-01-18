@@ -39,35 +39,42 @@ class TwelveDataWebSocketService {
       'GY': ':FWB',      // Germany Frankfurt (alternative)
       'CN': ':TSX',      // Canada Toronto Stock Exchange
       'CT': ':TSX',      // Canada Toronto Venture Exchange
-      'JP': ':JPX',      // Japan Tokyo Stock Exchange
-      'JT': ':JPX',      // Japan Tokyo Stock Exchange (alternative)
-      'HK': ':HKG',      // Hong Kong Stock Exchange
+      'JP': ':TSE',      // Japan Tokyo Stock Exchange (TSE not JPX for WebSocket)
+      'JT': ':TSE',      // Japan Tokyo Stock Exchange (alternative)
+      'HK': ':HKEX',     // Hong Kong Stock Exchange (HKEX for WebSocket)
       'AU': ':ASX',      // Australia ASX
-      'FP': ':EURONEXT', // France Euronext Paris
-      'IM': ':MTA',      // Italy Borsa Italiana (main market)
-      'HM': ':MTA',      // Italy HI-MTF (alternative Italian platform)
-      'TE': ':MTA',      // Italy EuroTLX (Italian platform)
-      'SM': ':MCE',      // Spain Madrid Stock Exchange
+      'FP': ':EPA',      // France Euronext Paris (EPA for WebSocket)
+      'IM': ':BIT',      // Italy Borsa Italiana (BIT for WebSocket)
+      'HM': ':BIT',      // Italy HI-MTF
+      'TE': ':BIT',      // Italy EuroTLX
+      'SM': ':BME',      // Spain Madrid Stock Exchange (BME for WebSocket)
       'SW': ':SIX',      // Switzerland SIX Swiss Exchange
       'SS': ':SHH',      // China Shanghai Stock Exchange
       'SZ': ':SHZ',      // China Shenzhen Stock Exchange
-      'IN': ':BSE',      // India Bombay Stock Exchange
+      'IN': ':NSE',      // India National Stock Exchange (NSE more common)
       'KS': ':KRX',      // South Korea Seoul Stock Exchange
-      'TB': ':BKK',      // Thailand Bangkok Stock Exchange
-      'MK': ':KLS',      // Malaysia Kuala Lumpur Stock Exchange
+      'TB': ':SET',      // Thailand Bangkok Stock Exchange (SET for WebSocket)
+      'MK': ':KLSE',     // Malaysia Kuala Lumpur Stock Exchange
       'SP': ':SGX',      // Singapore Stock Exchange
-      'TT': ':TWO',      // Taiwan Stock Exchange
+      'TT': ':TWSE',     // Taiwan Stock Exchange
       'NA': ':AMS',      // Netherlands/Amsterdam
     };
     
     // Clean the symbol and convert to uppercase
-    const cleanSymbol = symbol.trim().toUpperCase();
+    let cleanSymbol = symbol.trim().toUpperCase();
+    
+    // Replace slashes with periods (for UK share classes like BT/A -> BT.A)
+    cleanSymbol = cleanSymbol.replace(/\//g, '.');
     
     // Check if symbol has a space-separated suffix (Bloomberg format)
     const parts = cleanSymbol.split(' ');
     
     if (parts.length === 2) {
-      const [ticker, bloombergSuffix] = parts;
+      let [ticker, bloombergSuffix] = parts;
+      
+      // Also clean up the ticker part - replace slashes with periods
+      ticker = ticker.replace(/\//g, '.');
+      
       const twelveDataSuffix = bloombergToTwelveDataMap[bloombergSuffix];
       
       if (twelveDataSuffix !== undefined) {
@@ -81,6 +88,13 @@ class TwelveDataWebSocketService {
     
     // If no Bloomberg suffix detected, return original symbol
     return cleanSymbol;
+  }
+  
+  // Check if a symbol is international (non-US)
+  isInternationalSymbol(symbol) {
+    if (!symbol || typeof symbol !== 'string') return false;
+    // If it contains a colon followed by exchange code, it's international
+    return symbol.includes(':');
   }
 
   // Connect to WebSocket
@@ -168,8 +182,23 @@ class TwelveDataWebSocketService {
       if (data.success) {
         console.log('✅ Successfully subscribed to:', data.success.length, 'symbols');
       }
-      if (data.fails) {
-        console.warn('❌ Failed to subscribe to:', data.fails);
+      if (data.fails && data.fails.length > 0) {
+        // Categorize failures - international vs US
+        const intlFails = data.fails.filter(f => {
+          const sym = typeof f === 'string' ? f : f?.symbol || '';
+          return sym.includes(':'); // International symbols have exchange suffix
+        });
+        const usFails = data.fails.filter(f => {
+          const sym = typeof f === 'string' ? f : f?.symbol || '';
+          return !sym.includes(':');
+        });
+        
+        if (usFails.length > 0) {
+          console.warn('❌ Failed to subscribe to US symbols:', usFails);
+        }
+        if (intlFails.length > 0) {
+          console.log('⚠️ International symbols not available via WebSocket:', intlFails.length, 'symbols');
+        }
       }
       // Notify the app of subscription status
       if (this.onSubscriptionStatus) {
