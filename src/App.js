@@ -1925,14 +1925,8 @@ const ClearlineFlow = () => {
           // Keep default hardcoded list as fallback
         }
         
-        // Load quotes for all tickers after data is loaded
-        if (tickersData && tickersData.length > 0) {
-          console.log('📈 Loading quotes for initial data...');
-          setTimeout(() => {
-            const symbols = tickersData.map(ticker => ticker.ticker.replace(' US', ''));
-            updateQuotes(symbols);
-          }, 1000);
-        }
+        // WebSocket handles real-time quote streaming - no need for initial batch fetch
+        // Quotes will update automatically once WebSocket connects and subscribes
         
       } catch (error) {
         console.error('❌ Error loading data from database:', error);
@@ -1947,14 +1941,7 @@ const ClearlineFlow = () => {
         if (savedTickers) {
           const localTickers = JSON.parse(savedTickers);
           setTickers(localTickers);
-          
-          // Load quotes for localStorage tickers too
-          if (localTickers && localTickers.length > 0) {
-            setTimeout(() => {
-              const symbols = localTickers.map(ticker => ticker.ticker.replace(' US', ''));
-              updateQuotes(symbols);
-            }, 1000);
-          }
+          // WebSocket handles real-time quote streaming - no need for batch fetch
         }
         if (savedEarnings) setEarningsData(JSON.parse(savedEarnings));
       }
@@ -2105,10 +2092,8 @@ const ClearlineFlow = () => {
       }
     }
     
-    // Update all live quotes immediately after login
-    setTimeout(() => {
-      updateQuotes();
-    }, 1000);
+    // WebSocket handles real-time quote streaming after login
+    // No need for batch quote fetch - WebSocket will connect and subscribe automatically
   };
 
   // Handle logout
@@ -2281,18 +2266,8 @@ const ClearlineFlow = () => {
     }
   };
 
-  // Auto-refresh quotes every 5 minutes
-  const updateQuotesCallback = useCallback(() => {
-    updateQuotes();
-  }, [updateQuotes]);
-
-  useEffect(() => {
-    if (!isAuthenticated || tickers.length === 0) return;
-
-    const interval = setInterval(updateQuotesCallback, 5 * 60 * 1000); // 5 minutes
-
-    return () => clearInterval(interval);
-  }, [isAuthenticated, tickers, updateQuotesCallback]);
+  // WebSocket handles real-time quote streaming - no need for polling interval
+  // The updateQuotes function is kept for manual refresh fallback only
 
   // Mock data fetching functions (updated to use real quotes when available)
   const fetchStockData = async (ticker) => {
