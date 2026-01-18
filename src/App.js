@@ -3408,54 +3408,48 @@ const ClearlineFlow = () => {
         </div>
       )}
 
-      {/* WebSocket Failed Symbols Banner - Only show for US symbols (international failures are expected) */}
-      {wsFailedSymbols.length > 0 && (() => {
-        // Separate US failures from international failures
-        const usFails = wsFailedSymbols.filter(item => {
-          const sym = typeof item === 'string' ? item : (item?.symbol || '');
-          return !sym.includes(':'); // US symbols don't have exchange suffix
-        });
-        const intlFails = wsFailedSymbols.filter(item => {
-          const sym = typeof item === 'string' ? item : (item?.symbol || '');
-          return sym.includes(':');
-        });
-        
-        // Only show banner if there are US failures (international failures are expected)
-        if (usFails.length === 0) return null;
-        
-        return (
-          <div className="bg-orange-50 border-l-4 border-orange-400 p-4">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="flex">
-                <div className="ml-3">
-                  <p className="text-sm text-orange-700">
-                    <strong>WebSocket Issues:</strong> {usFails.length} US symbol(s) failed to subscribe
-                    {wsSuccessCount > 0 && <span className="ml-2 text-green-600">({wsSuccessCount} subscribed)</span>}
-                    {intlFails.length > 0 && <span className="ml-2 text-gray-500">({intlFails.length} international symbols not available via WebSocket)</span>}
-                  </p>
-                  <details className="mt-2">
-                    <summary className="cursor-pointer text-xs text-orange-600">Show failed US symbols</summary>
-                    <div className="mt-1 text-xs text-orange-600 max-h-32 overflow-y-auto">
-                      {usFails.map((item, idx) => {
-                        const symbolText = typeof item === 'string' ? item : (item?.symbol || JSON.stringify(item));
-                        return (
-                          <span key={idx} className="inline-block mr-2 mb-1 bg-orange-100 px-1 rounded">{symbolText}</span>
-                        );
-                      })}
-                    </div>
-                  </details>
-                  <button 
-                    onClick={() => setWsFailedSymbols([])} 
-                    className="mt-2 text-xs text-orange-600 hover:text-orange-800 underline"
-                  >
-                    Dismiss
-                  </button>
-                </div>
+      {/* WebSocket Failed Symbols Banner */}
+      {wsFailedSymbols.length > 0 && (
+        <div className="bg-orange-50 border-l-4 border-orange-400 p-4">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex">
+              <div className="ml-3">
+                <p className="text-sm text-orange-700">
+                  <strong>WebSocket Issues:</strong> {wsFailedSymbols.length} symbol(s) failed to subscribe
+                  {wsSuccessCount > 0 && <span className="ml-2 text-green-600">({wsSuccessCount} subscribed)</span>}
+                </p>
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-xs text-orange-600">Show failed symbols</summary>
+                  <div className="mt-1 text-xs text-orange-600 max-h-32 overflow-y-auto">
+                    {wsFailedSymbols.map((item, idx) => {
+                      // Format as symbol:exchange
+                      let symbolText;
+                      if (typeof item === 'string') {
+                        symbolText = item;
+                      } else if (item?.symbol && item?.exchange) {
+                        symbolText = `${item.symbol}:${item.exchange}`;
+                      } else if (item?.symbol) {
+                        symbolText = item.symbol;
+                      } else {
+                        symbolText = JSON.stringify(item);
+                      }
+                      return (
+                        <span key={idx} className="inline-block mr-2 mb-1 bg-orange-100 px-1 rounded">{symbolText}</span>
+                      );
+                    })}
+                  </div>
+                </details>
+                <button 
+                  onClick={() => setWsFailedSymbols([])} 
+                  className="mt-2 text-xs text-orange-600 hover:text-orange-800 underline"
+                >
+                  Dismiss
+                </button>
               </div>
             </div>
           </div>
-        );
-      })()}
+        </div>
+      )}
 
       {/* Navigation */}
       <nav className="bg-white border-b">
