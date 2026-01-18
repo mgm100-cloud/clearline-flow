@@ -425,23 +425,44 @@ export const DatabaseService = {
   // Todo operations
   async getTodos(division = null) {
     try {
-      let query = supabase
-        .from('todos')
-        .select('*')
-        .or('is_deleted.is.null,is_deleted.eq.false') // Exclude soft-deleted todos
-        .order('date_entered', { ascending: false });
+      let allData = [];
+      let from = 0;
+      const pageSize = 1000;
+      let hasMore = true;
       
-      // Filter by division if specified
-      if (division) {
-        query = query.eq('division', division);
+      while (hasMore) {
+        let query = supabase
+          .from('todos')
+          .select('*')
+          .or('is_deleted.is.null,is_deleted.eq.false') // Exclude soft-deleted todos
+          .order('date_entered', { ascending: false })
+          .range(from, from + pageSize - 1);
+        
+        // Filter by division if specified
+        if (division) {
+          query = query.eq('division', division);
+        }
+        
+        const { data, error } = await query;
+        
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+          allData = allData.concat(data);
+          
+          // If we got less than pageSize records, we've reached the end
+          if (data.length < pageSize) {
+            hasMore = false;
+          } else {
+            from += pageSize;
+          }
+        } else {
+          hasMore = false;
+        }
       }
       
-      const { data, error } = await query;
-      
-      if (error) throw error
-      
       // Convert snake_case to camelCase for JavaScript
-      return (data || []).map(convertFromDbFormat);
+      return allData.map(convertFromDbFormat);
     } catch (error) {
       console.error('Error fetching todos:', error)
       throw error
