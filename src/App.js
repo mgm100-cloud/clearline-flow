@@ -1930,14 +1930,15 @@ const ClearlineFlow = () => {
         // Fetch initial quotes via REST API in background (for when market is closed)
         // WebSocket will overwrite with live data when market is open
         // Don't await - let it run in background so UI loads immediately
+        // Include ALL tickers (even Old status) for initial quote - but WebSocket only subscribes to active
         if (tickersData && tickersData.length > 0) {
-          const activeSymbols = tickersData
-            .filter(t => t.status !== 'Old' && t.ticker)
+          const allSymbols = tickersData
+            .filter(t => t.ticker)
             .map(t => t.ticker.replace(' US', ''));
           
-          if (activeSymbols.length > 0) {
+          if (allSymbols.length > 0) {
             // Run in background - don't block UI
-            fetchQuotesInBackground(activeSymbols);
+            fetchQuotesInBackground(allSymbols);
           }
         }
         
@@ -1955,14 +1956,14 @@ const ClearlineFlow = () => {
           const localTickers = JSON.parse(savedTickers);
           setTickers(localTickers);
           
-          // Fetch quotes in background for localStorage tickers too
+          // Fetch quotes in background for localStorage tickers too (including Old status)
           if (localTickers.length > 0) {
-            const activeSymbols = localTickers
-              .filter(t => t.status !== 'Old' && t.ticker)
+            const allSymbols = localTickers
+              .filter(t => t.ticker)
               .map(t => t.ticker.replace(' US', ''));
             
-            if (activeSymbols.length > 0) {
-              fetchQuotesInBackground(activeSymbols);
+            if (allSymbols.length > 0) {
+              fetchQuotesInBackground(allSymbols);
             }
           }
         }
