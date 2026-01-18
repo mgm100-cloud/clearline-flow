@@ -2831,6 +2831,69 @@ const ClearlineFlow = () => {
     }
   };
 
+  // Global auto-refresh every 15 minutes - refreshes all data regardless of active tab
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    
+    const AUTO_REFRESH_INTERVAL = 15 * 60 * 1000; // 15 minutes
+    
+    const autoRefreshAllData = async () => {
+      console.log('⏰ Auto-refresh triggered (15 minute interval)...');
+      
+      try {
+        // Refresh tickers and earnings
+        const tickersData = await DatabaseService.getTickers();
+        console.log('✅ Auto-refreshed tickers:', tickersData.length, 'items');
+        setTickers(tickersData);
+        
+        // Refresh earnings data
+        try {
+          const earningsDataFromDB = await DatabaseService.getEarningsData();
+          setEarningsData(earningsDataFromDB);
+        } catch (earningsError) {
+          console.warn('⚠️ Could not auto-refresh earnings data:', earningsError);
+        }
+        
+        // Refresh todos
+        try {
+          // Determine which division todos to fetch based on user division
+          let divisionToFetch;
+          if (userDivision === 'Super') {
+            divisionToFetch = activeTodoDivision;
+          } else if (userDivision === 'Ops') {
+            divisionToFetch = 'Ops';
+          } else {
+            divisionToFetch = 'Investment';
+          }
+          
+          const todosData = await DatabaseService.getTodos(divisionToFetch);
+          setTodos(todosData);
+        } catch (todosError) {
+          console.warn('⚠️ Could not auto-refresh todos:', todosError);
+        }
+        
+        // Refresh analysts
+        try {
+          const analystsData = await DatabaseService.getAnalysts();
+          setAnalysts(analystsData);
+          const emailsData = await DatabaseService.getAnalystEmails();
+          setAnalystEmails(emailsData);
+        } catch (analystsError) {
+          console.warn('⚠️ Could not auto-refresh analysts:', analystsError);
+        }
+        
+        console.log('✅ Auto-refresh completed successfully');
+        
+      } catch (error) {
+        console.error('❌ Error during auto-refresh:', error);
+      }
+    };
+    
+    const interval = setInterval(autoRefreshAllData, AUTO_REFRESH_INTERVAL);
+    
+    return () => clearInterval(interval);
+  }, [isAuthenticated, userDivision, activeTodoDivision]);
+
   // Backfill tickers_extra_info for existing tickers that don't have entries
   const backfillTickersExtraInfo = async () => {
     // Check authentication using AuthService directly since this might be called from console
@@ -8081,18 +8144,8 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
     }
   }, [activeTodoDivision, onRefreshTodos, userDivision]);
 
-  // Auto-refresh todos every 5 minutes when component is mounted
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      try {
-        await onRefreshTodos();
-      } catch (error) {
-        console.error('Error in auto-refresh:', error);
-      }
-    }, 5 * 60 * 1000); // 5 minutes
-
-    return () => clearInterval(interval);
-  }, [onRefreshTodos]);
+  // Note: Global auto-refresh (15 minutes) is handled at the app level in ClearlineFlow component
+  // This component-level refresh has been removed to avoid duplicate refreshes
 
   // Handle manual refresh
   const handleRefresh = async () => {
