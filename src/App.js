@@ -1927,40 +1927,17 @@ const ClearlineFlow = () => {
           // Keep default hardcoded list as fallback
         }
         
-        // Fetch initial quotes via REST API (for when market is closed)
+        // Fetch initial quotes via REST API in background (for when market is closed)
         // WebSocket will overwrite with live data when market is open
+        // Don't await - let it run in background so UI loads immediately
         if (tickersData && tickersData.length > 0) {
-          console.log('📊 Fetching initial batch quotes via REST API...');
-          try {
-            // Only fetch for active tickers (not Old status)
-            const activeSymbols = tickersData
-              .filter(t => t.status !== 'Old' && t.ticker)
-              .map(t => t.ticker.replace(' US', ''));
-            
-            if (activeSymbols.length > 0) {
-              const { quotes: initialQuotes, errors } = await QuoteService.getBatchQuotes(activeSymbols);
-              console.log(`✅ Initial quotes loaded: ${Object.keys(initialQuotes).length} successful, ${Object.keys(errors).length} errors`);
-              
-              // Update quotes state
-              setQuotes(prev => ({ ...prev, ...initialQuotes }));
-              
-              // Update tickers with current prices
-              setTickers(prev => prev.map(ticker => {
-                const cleanSymbol = ticker.ticker?.replace(' US', '');
-                const quoteData = initialQuotes[cleanSymbol];
-                if (quoteData && quoteData.price) {
-                  return {
-                    ...ticker,
-                    currentPrice: quoteData.price,
-                    lastQuoteUpdate: new Date().toISOString()
-                  };
-                }
-                return ticker;
-              }));
-            }
-          } catch (quotesError) {
-            console.warn('⚠️ Could not fetch initial quotes:', quotesError);
-            // Continue without quotes - WebSocket may provide them later
+          const activeSymbols = tickersData
+            .filter(t => t.status !== 'Old' && t.ticker)
+            .map(t => t.ticker.replace(' US', ''));
+          
+          if (activeSymbols.length > 0) {
+            // Run in background - don't block UI
+            fetchQuotesInBackground(activeSymbols);
           }
         }
         
@@ -1978,19 +1955,14 @@ const ClearlineFlow = () => {
           const localTickers = JSON.parse(savedTickers);
           setTickers(localTickers);
           
-          // Fetch initial quotes for localStorage tickers too
+          // Fetch quotes in background for localStorage tickers too
           if (localTickers.length > 0) {
-            try {
-              const activeSymbols = localTickers
-                .filter(t => t.status !== 'Old' && t.ticker)
-                .map(t => t.ticker.replace(' US', ''));
-              
-              if (activeSymbols.length > 0) {
-                const { quotes: initialQuotes } = await QuoteService.getBatchQuotes(activeSymbols);
-                setQuotes(prev => ({ ...prev, ...initialQuotes }));
-              }
-            } catch (quotesError) {
-              console.warn('⚠️ Could not fetch quotes for localStorage tickers:', quotesError);
+            const activeSymbols = localTickers
+              .filter(t => t.status !== 'Old' && t.ticker)
+              .map(t => t.ticker.replace(' US', ''));
+            
+            if (activeSymbols.length > 0) {
+              fetchQuotesInBackground(activeSymbols);
             }
           }
         }
@@ -2349,6 +2321,89 @@ const ClearlineFlow = () => {
       setIsLoadingQuotes(false);
     }
   };
+
+  // Fetch quotes in background in small batches, updating UI progressively
+  const fetchQuotesInBackground = useCallback(async (symbols) => {
+    if (!symbols || symbols.length === 0) return;
+    
+    console.log(`📊 Starting background quote fetch for ${symbols.length} symbols...`);
+    setIsLoadingQuotes(true);
+    
+    // Process in batches of 20 symbols at a time
+    const batchSize = 20;
+    let totalSuccess = 0;
+    let totalErrors = 0;
+    
+    for (let i = 0; i < symbols.length; i += batchSize) {
+      const batch = symbols.slice(i, i + batchSize);
+      const batchNum = Math.floor(i / batchSize) + 1;
+      const totalBatches = Math.ceil(symbols.length / batchSize);
+      
+      console.log(`📊 Processing batch ${batchNum}/${totalBatches} (${batch.length} symbols)...`);
+      
+      try {
+        // Fetch this batch
+        const batchQuotes = {};
+        const batchErrors = {};
+        
+        // Process batch in parallel (up to 5 at a time to respect rate limits)
+        const parallelLimit = 5;
+        for (let j = 0; j < batch.length; j += parallelLimit) {
+          const parallelBatch = batch.slice(j, j + parallelLimit);
+          
+          await Promise.all(parallelBatch.map(async (symbol) => {
+            try {
+              const quote = await QuoteService.getQuote(symbol);
+              if (quote && quote.price != null) {
+                batchQuotes[symbol] = quote;
+              }
+            } catch (error) {
+              batchErrors[symbol] = error.message;
+            }
+          }));
+          
+          // Small delay between parallel batches to respect rate limits
+          if (j + parallelLimit < batch.length) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+        }
+        
+        // Update UI immediately with this batch's results
+        if (Object.keys(batchQuotes).length > 0) {
+          setQuotes(prev => ({ ...prev, ...batchQuotes }));
+          
+          setTickers(prev => prev.map(ticker => {
+            const cleanSymbol = ticker.ticker?.replace(' US', '');
+            const quoteData = batchQuotes[cleanSymbol];
+            if (quoteData && quoteData.price != null) {
+              return {
+                ...ticker,
+                currentPrice: quoteData.price,
+                lastQuoteUpdate: new Date().toISOString()
+              };
+            }
+            return ticker;
+          }));
+        }
+        
+        totalSuccess += Object.keys(batchQuotes).length;
+        totalErrors += Object.keys(batchErrors).length;
+        
+        console.log(`✅ Batch ${batchNum} complete: ${Object.keys(batchQuotes).length} quotes loaded`);
+        
+        // Small delay between batches
+        if (i + batchSize < symbols.length) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+        
+      } catch (error) {
+        console.warn(`⚠️ Error in batch ${batchNum}:`, error);
+      }
+    }
+    
+    console.log(`✅ Background quote fetch complete: ${totalSuccess} successful, ${totalErrors} errors`);
+    setIsLoadingQuotes(false);
+  }, []);
 
   // WebSocket handles real-time quote streaming - no need for polling interval
   // The updateQuotes function is kept for manual refresh fallback only
