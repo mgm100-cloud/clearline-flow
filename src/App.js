@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Plus, Database, Users, TrendingUp, BarChart3, LogOut, ChevronUp, ChevronDown, RefreshCw, Download, CheckSquare, User, Mail, FileText, Upload } from 'lucide-react';
+import { Plus, Database, Users, TrendingUp, BarChart3, LogOut, ChevronUp, ChevronDown, RefreshCw, Download, CheckSquare, User, Mail, FileText, Upload, Wifi, WifiOff } from 'lucide-react';
 import { DatabaseService } from './databaseService';
 import { AuthService } from './services/authService';
+import { twelveDataWS } from './services/twelveDataWebSocket';
 import LoginScreen from './components/LoginScreen';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -1541,6 +1542,11 @@ const ClearlineFlow = () => {
   const [isLoadingQuotes, setIsLoadingQuotes] = useState(false);
   const [lastQuoteUpdate, setLastQuoteUpdate] = useState(null);
   
+  // WebSocket state for real-time quotes
+  const [wsConnected, setWsConnected] = useState(false);
+  const [wsLastUpdate, setWsLastUpdate] = useState(null);
+  const wsInitializedRef = useRef(false);
+  
   // Earnings tracking state
   const [earningsData, setEarningsData] = useState([]);
   const [selectedEarningsAnalyst, _setSelectedEarningsAnalyst] = useState(() => getStoredValue('selectedEarningsAnalyst', ''));
@@ -1959,6 +1965,86 @@ const ClearlineFlow = () => {
       loadData();
     }
   }, [isAuthenticated]);
+
+  // Initialize WebSocket for real-time price streaming
+  useEffect(() => {
+    if (!isAuthenticated || wsInitializedRef.current) return;
+    
+    // Handler for price updates from WebSocket
+    const handlePriceUpdate = (priceData) => {
+      // Find the original symbol (with Bloomberg suffix) from the converted symbol
+      setTickers(prev => {
+        const updated = prev.map(ticker => {
+          const tickerSymbol = ticker.ticker.replace(' US', '');
+          const convertedSymbol = twelveDataWS.convertBloombergToTwelveData(tickerSymbol);
+          
+          if (convertedSymbol === priceData.symbol || tickerSymbol === priceData.symbol) {
+            return {
+              ...ticker,
+              currentPrice: priceData.price,
+              lastQuoteUpdate: new Date().toISOString()
+            };
+          }
+          return ticker;
+        });
+        return updated;
+      });
+      
+      // Also update quotes state for components that use it
+      setQuotes(prev => {
+        // Find original symbol
+        const originalSymbol = Object.keys(prev).find(key => {
+          const converted = twelveDataWS.convertBloombergToTwelveData(key);
+          return converted === priceData.symbol;
+        }) || priceData.symbol;
+        
+        return {
+          ...prev,
+          [originalSymbol]: {
+            ...prev[originalSymbol],
+            price: priceData.price,
+            volume: priceData.dayVolume,
+            lastUpdated: new Date().toISOString(),
+            source: 'websocket'
+          }
+        };
+      });
+      
+      setWsLastUpdate(new Date());
+    };
+    
+    // Handler for connection status changes
+    const handleConnectionChange = (connected) => {
+      console.log(`🔌 WebSocket connection status: ${connected ? 'Connected' : 'Disconnected'}`);
+      setWsConnected(connected);
+    };
+    
+    // Initialize WebSocket service
+    twelveDataWS.init(TWELVE_DATA_API_KEY, handlePriceUpdate, handleConnectionChange);
+    twelveDataWS.connect();
+    wsInitializedRef.current = true;
+    
+    // Cleanup on unmount
+    return () => {
+      twelveDataWS.disconnect();
+      wsInitializedRef.current = false;
+    };
+  }, [isAuthenticated]);
+
+  // Subscribe to tickers when they change
+  useEffect(() => {
+    if (!isAuthenticated || !wsInitializedRef.current || tickers.length === 0) return;
+    
+    // Get unique symbols to subscribe to
+    const symbols = tickers
+      .filter(t => t.ticker && t.status !== 'Old') // Only active tickers
+      .map(t => t.ticker.replace(' US', ''));
+    
+    if (symbols.length > 0) {
+      console.log(`📊 Subscribing to ${symbols.length} ticker symbols via WebSocket`);
+      twelveDataWS.updateSubscriptions(symbols);
+    }
+  }, [isAuthenticated, tickers]);
 
   // Handle successful authentication
   const handleAuthSuccess = async (user, session) => {
@@ -3249,6 +3335,18 @@ const ClearlineFlow = () => {
               )}
             </div>
             <div className="flex items-center space-x-4">
+              {/* WebSocket Connection Status */}
+              <div className="flex items-center space-x-1" title={wsConnected ? 'Real-time quotes connected' : 'Real-time quotes disconnected'}>
+                {wsConnected ? (
+                  <Wifi className="h-4 w-4 text-green-500" />
+                ) : (
+                  <WifiOff className="h-4 w-4 text-gray-400" />
+                )}
+                <span className={`text-xs ${wsConnected ? 'text-green-600' : 'text-gray-400'}`}>
+                  {wsConnected ? 'Live' : 'Offline'}
+                </span>
+              </div>
+              
               {/* User info */}
               <div className="flex items-center space-x-2 text-sm">
                 <User className="h-4 w-4 text-gray-400" />
