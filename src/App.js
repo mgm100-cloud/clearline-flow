@@ -1547,6 +1547,7 @@ const ClearlineFlow = () => {
   
   // Todo state
   const [todos, setTodos] = useState([]);
+  const [deletedTodos, setDeletedTodos] = useState([]);
   const [selectedTodoAnalyst, _setSelectedTodoAnalyst] = useState(() => getStoredValue('selectedTodoAnalyst', ''));
   const [activeTodoDivision, _setActiveTodoDivision] = useState(() => getStoredValue('activeTodoDivision', 'Investment'));
   
@@ -1892,9 +1893,15 @@ const ClearlineFlow = () => {
           const todosData = await DatabaseService.getTodos();
           console.log('✅ Successfully loaded todos from Supabase:', todosData);
           setTodos(todosData);
+          
+          // Also load deleted todos
+          const deletedTodosData = await DatabaseService.getDeletedTodos();
+          console.log('✅ Successfully loaded deleted todos from Supabase:', deletedTodosData);
+          setDeletedTodos(deletedTodosData);
         } catch (todosError) {
           console.warn('⚠️ Could not load todos data (table may not exist yet):', todosError);
           setTodos([]);
+          setDeletedTodos([]);
         }
         
         // Load analysts from user_profiles (Investment/Super division only)
@@ -2704,6 +2711,10 @@ const ClearlineFlow = () => {
       
       const todosData = await DatabaseService.getTodos(divisionToFetch);
       setTodos(todosData);
+      
+      // Also refresh deleted todos
+      const deletedTodosData = await DatabaseService.getDeletedTodos(divisionToFetch);
+      setDeletedTodos(deletedTodosData);
     } catch (error) {
       console.error('❌ Error refreshing todos:', error);
       throw error;
@@ -2738,13 +2749,53 @@ const ClearlineFlow = () => {
 
   const deleteTodo = async (id) => {
     try {
-      // Delete from Supabase
+      // Soft delete from Supabase
       await DatabaseService.deleteTodo(id);
       
-      // Update local state
+      // Find the todo being deleted and move it to deletedTodos
+      const todoToDelete = todos.find(todo => todo.id === id);
+      if (todoToDelete) {
+        const deletedTodo = { 
+          ...todoToDelete, 
+          isDeleted: true, 
+          deletedAt: new Date().toISOString() 
+        };
+        setDeletedTodos(prev => [deletedTodo, ...prev]);
+      }
+      
+      // Update local state - remove from active todos
       setTodos(prev => prev.filter(todo => todo.id !== id));
     } catch (error) {
       console.error('Error deleting todo:', error);
+      throw error;
+    }
+  };
+
+  const restoreTodo = async (id) => {
+    try {
+      // Restore from Supabase
+      const restoredTodo = await DatabaseService.restoreTodo(id);
+      
+      // Add back to active todos
+      setTodos(prev => [restoredTodo, ...prev]);
+      
+      // Remove from deleted todos
+      setDeletedTodos(prev => prev.filter(todo => todo.id !== id));
+    } catch (error) {
+      console.error('Error restoring todo:', error);
+      throw error;
+    }
+  };
+
+  const permanentlyDeleteTodo = async (id) => {
+    try {
+      // Permanently delete from Supabase
+      await DatabaseService.permanentlyDeleteTodo(id);
+      
+      // Remove from deleted todos
+      setDeletedTodos(prev => prev.filter(todo => todo.id !== id));
+    } catch (error) {
+      console.error('Error permanently deleting todo:', error);
       throw error;
     }
   };
@@ -2868,6 +2919,10 @@ const ClearlineFlow = () => {
           
           const todosData = await DatabaseService.getTodos(divisionToFetch);
           setTodos(todosData);
+          
+          // Also refresh deleted todos
+          const deletedTodosData = await DatabaseService.getDeletedTodos(divisionToFetch);
+          setDeletedTodos(deletedTodosData);
         } catch (todosError) {
           console.warn('⚠️ Could not auto-refresh todos:', todosError);
         }
@@ -3542,11 +3597,14 @@ const ClearlineFlow = () => {
         {activeTab === 'todos' && (
           <TodoListPage 
             todos={todos}
+            deletedTodos={deletedTodos}
             selectedTodoAnalyst={selectedTodoAnalyst}
             onSelectTodoAnalyst={setSelectedTodoAnalyst}
             onAddTodo={addTodo}
             onUpdateTodo={updateTodo}
             onDeleteTodo={deleteTodo}
+            onRestoreTodo={restoreTodo}
+            onPermanentlyDeleteTodo={permanentlyDeleteTodo}
             analysts={analysts}
             userRole={userRole}
             onRefreshTodos={refreshTodos}
@@ -8024,7 +8082,7 @@ This email and any files transmitted with it may contain privileged or confident
 };
 
 // Todo List Page Component
-const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTodo, onUpdateTodo, onDeleteTodo, analysts, userRole, onRefreshTodos, currentUser, tickers, onNavigateToIdeaDetail, onNavigateToInputWithData, userDivision, activeTodoDivision, onSetActiveTodoDivision }) => {
+const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectTodoAnalyst, onAddTodo, onUpdateTodo, onDeleteTodo, onRestoreTodo, onPermanentlyDeleteTodo, analysts, userRole, onRefreshTodos, currentUser, tickers, onNavigateToIdeaDetail, onNavigateToInputWithData, userDivision, activeTodoDivision, onSetActiveTodoDivision }) => {
   const [sortField, setSortField] = useState('dateEntered');
   const [sortDirection, setSortDirection] = useState('desc');
   const [showAddForm, setShowAddForm] = useState(false);
@@ -8190,6 +8248,11 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
   const recentlyClosedTodos = filteredTodos.filter(todo => 
     !todo.isOpen && todo.dateClosed && new Date(todo.dateClosed) >= sevenDaysAgo
   );
+
+  // Filter deleted todos by selected analyst (similar to filteredTodos)
+  const filteredDeletedTodos = selectedTodoAnalyst 
+    ? deletedTodos.filter(todo => todo.analyst === selectedTodoAnalyst)
+    : deletedTodos;
 
   // Drag and drop state
   const [draggedTodoId, setDraggedTodoId] = useState(null);
@@ -9109,6 +9172,87 @@ const TodoListPage = ({ todos, selectedTodoAnalyst, onSelectTodoAnalyst, onAddTo
         )}
       </div>
 
+      {/* Recently Deleted Todos Section */}
+      {filteredDeletedTodos.length > 0 && (
+        <div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">
+            Recently Deleted Todos - Last 30 Days ({filteredDeletedTodos.length})
+          </h2>
+          <div className="bg-white shadow overflow-hidden sm:rounded-md border-l-4 border-red-300">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-red-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    {activeTodoDivision === 'Ops' ? 'Title' : 'Ticker'}
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Analyst</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Entered</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Deleted</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
+                  {(userRole === 'readwrite' || userRole === 'admin') && (
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  )}
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredDeletedTodos.map((todo) => (
+                  <tr key={todo.id} className="bg-red-50 bg-opacity-30">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {todo.ticker}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {todo.analyst}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {formatDate(todo.dateEntered)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {formatDate(todo.deletedAt)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        todo.priority === 'high' ? 'bg-red-100 text-red-800' :
+                        todo.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-green-100 text-green-800'
+                      }`}>
+                        {todo.priority}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-500 max-w-md truncate">
+                      {todo.item}
+                    </td>
+                    {(userRole === 'readwrite' || userRole === 'admin') && (
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => onRestoreTodo(todo.id)}
+                            className="text-green-600 hover:text-green-900 text-xs font-medium border border-green-500 px-2 py-1 rounded bg-green-50 hover:bg-green-100"
+                            title="Restore this todo"
+                          >
+                            Restore
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (window.confirm('Are you sure you want to permanently delete this todo? This cannot be undone.')) {
+                                onPermanentlyDeleteTodo(todo.id);
+                              }
+                            }}
+                            className="text-red-600 hover:text-red-900 text-xs font-medium border border-red-500 px-2 py-1 rounded bg-red-50 hover:bg-red-100"
+                            title="Permanently delete this todo"
+                          >
+                            Delete Forever
+                          </button>
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
     </div>
   );

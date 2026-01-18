@@ -428,6 +428,7 @@ export const DatabaseService = {
       let query = supabase
         .from('todos')
         .select('*')
+        .or('is_deleted.is.null,is_deleted.eq.false') // Exclude soft-deleted todos
         .order('date_entered', { ascending: false });
       
       // Filter by division if specified
@@ -443,6 +444,37 @@ export const DatabaseService = {
       return (data || []).map(convertFromDbFormat);
     } catch (error) {
       console.error('Error fetching todos:', error)
+      throw error
+    }
+  },
+
+  // Get recently deleted todos (last 30 days)
+  async getDeletedTodos(division = null) {
+    try {
+      // Calculate date 30 days ago
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      let query = supabase
+        .from('todos')
+        .select('*')
+        .eq('is_deleted', true)
+        .gte('deleted_at', thirtyDaysAgo.toISOString())
+        .order('deleted_at', { ascending: false });
+      
+      // Filter by division if specified
+      if (division) {
+        query = query.eq('division', division);
+      }
+      
+      const { data, error } = await query;
+      
+      if (error) throw error
+      
+      // Convert snake_case to camelCase for JavaScript
+      return (data || []).map(convertFromDbFormat);
+    } catch (error) {
+      console.error('Error fetching deleted todos:', error)
       throw error
     }
   },
@@ -513,6 +545,26 @@ export const DatabaseService = {
 
   async deleteTodo(id) {
     try {
+      // Soft delete - set is_deleted flag and deleted_at timestamp
+      const { error } = await supabase
+        .from('todos')
+        .update({ 
+          is_deleted: true, 
+          deleted_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+      
+      if (error) throw error
+    } catch (error) {
+      console.error('Error deleting todo:', error)
+      throw error
+    }
+  },
+
+  // Permanently delete a todo (hard delete)
+  async permanentlyDeleteTodo(id) {
+    try {
       const { error } = await supabase
         .from('todos')
         .delete()
@@ -520,7 +572,29 @@ export const DatabaseService = {
       
       if (error) throw error
     } catch (error) {
-      console.error('Error deleting todo:', error)
+      console.error('Error permanently deleting todo:', error)
+      throw error
+    }
+  },
+
+  // Restore a soft-deleted todo
+  async restoreTodo(id) {
+    try {
+      const { data, error } = await supabase
+        .from('todos')
+        .update({ 
+          is_deleted: false, 
+          deleted_at: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select()
+      
+      if (error) throw error
+      
+      return convertFromDbFormat(data[0]);
+    } catch (error) {
+      console.error('Error restoring todo:', error)
       throw error
     }
   },
