@@ -3421,9 +3421,13 @@ const ClearlineFlow = () => {
                 <details className="mt-2">
                   <summary className="cursor-pointer text-xs text-orange-600">Show failed symbols</summary>
                   <div className="mt-1 text-xs text-orange-600 max-h-32 overflow-y-auto">
-                    {wsFailedSymbols.map((symbol, idx) => (
-                      <span key={idx} className="inline-block mr-2 mb-1 bg-orange-100 px-1 rounded">{symbol}</span>
-                    ))}
+                    {wsFailedSymbols.map((item, idx) => {
+                      // Handle both string symbols and objects with symbol property
+                      const symbolText = typeof item === 'string' ? item : (item?.symbol || JSON.stringify(item));
+                      return (
+                        <span key={idx} className="inline-block mr-2 mb-1 bg-orange-100 px-1 rounded">{symbolText}</span>
+                      );
+                    })}
                   </div>
                 </details>
                 <button 
