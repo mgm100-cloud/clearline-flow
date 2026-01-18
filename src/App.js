@@ -9176,7 +9176,7 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
       {filteredDeletedTodos.length > 0 && (
         <div>
           <h2 className="text-xl font-semibold text-gray-900 mb-4">
-            Recently Deleted Todos - Last 30 Days ({filteredDeletedTodos.length})
+            Recently Deleted Todos - Last 7 Days ({filteredDeletedTodos.length})
           </h2>
           <div className="bg-white shadow overflow-hidden sm:rounded-md border-l-4 border-red-300">
             <table className="min-w-full divide-y divide-gray-200">
@@ -9224,26 +9224,13 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                     </td>
                     {(userRole === 'readwrite' || userRole === 'admin') && (
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => onRestoreTodo(todo.id)}
-                            className="text-green-600 hover:text-green-900 text-xs font-medium border border-green-500 px-2 py-1 rounded bg-green-50 hover:bg-green-100"
-                            title="Restore this todo"
-                          >
-                            Restore
-                          </button>
-                          <button
-                            onClick={() => {
-                              if (window.confirm('Are you sure you want to permanently delete this todo? This cannot be undone.')) {
-                                onPermanentlyDeleteTodo(todo.id);
-                              }
-                            }}
-                            className="text-red-600 hover:text-red-900 text-xs font-medium border border-red-500 px-2 py-1 rounded bg-red-50 hover:bg-red-100"
-                            title="Permanently delete this todo"
-                          >
-                            Delete Forever
-                          </button>
-                        </div>
+                        <button
+                          onClick={() => onRestoreTodo(todo.id)}
+                          className="text-green-600 hover:text-green-900 text-xs font-medium border border-green-500 px-2 py-1 rounded bg-green-50 hover:bg-green-100"
+                          title="Restore this todo"
+                        >
+                          Restore
+                        </button>
                       </td>
                     )}
                   </tr>

@@ -448,18 +448,18 @@ export const DatabaseService = {
     }
   },
 
-  // Get recently deleted todos (last 30 days)
+  // Get recently deleted todos (last 7 days)
   async getDeletedTodos(division = null) {
     try {
-      // Calculate date 30 days ago
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      // Calculate date 7 days ago
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       
       let query = supabase
         .from('todos')
         .select('*')
         .eq('is_deleted', true)
-        .gte('deleted_at', thirtyDaysAgo.toISOString())
+        .gte('deleted_at', sevenDaysAgo.toISOString())
         .order('deleted_at', { ascending: false });
       
       // Filter by division if specified
