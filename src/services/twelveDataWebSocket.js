@@ -19,10 +19,11 @@ class TwelveDataWebSocketService {
   }
 
   // Initialize with API key and callbacks
-  init(apiKey, onPriceUpdate, onConnectionChange) {
+  init(apiKey, onPriceUpdate, onConnectionChange, onSubscriptionStatus) {
     this.apiKey = apiKey;
     this.onPriceUpdate = onPriceUpdate;
     this.onConnectionChange = onConnectionChange;
+    this.onSubscriptionStatus = onSubscriptionStatus;
     console.log('🔌 TwelveData WebSocket service initialized');
   }
 
@@ -151,6 +152,13 @@ class TwelveDataWebSocketService {
       }
       if (data.fails) {
         console.warn('❌ Failed to subscribe to:', data.fails);
+      }
+      // Notify the app of subscription status
+      if (this.onSubscriptionStatus) {
+        this.onSubscriptionStatus({
+          success: data.success || [],
+          fails: data.fails || []
+        });
       }
       return;
     }

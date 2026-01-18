@@ -1545,6 +1545,8 @@ const ClearlineFlow = () => {
   // WebSocket state for real-time quotes
   const [wsConnected, setWsConnected] = useState(false);
   const [wsLastUpdate, setWsLastUpdate] = useState(null);
+  const [wsFailedSymbols, setWsFailedSymbols] = useState([]);
+  const [wsSuccessCount, setWsSuccessCount] = useState(0);
   const wsInitializedRef = useRef(false);
   
   // Earnings tracking state
@@ -2010,10 +2012,25 @@ const ClearlineFlow = () => {
     const handleConnectionChange = (connected) => {
       console.log(`🔌 WebSocket connection status: ${connected ? 'Connected' : 'Disconnected'}`);
       setWsConnected(connected);
+      if (!connected) {
+        // Reset subscription status when disconnected
+        setWsFailedSymbols([]);
+        setWsSuccessCount(0);
+      }
+    };
+    
+    // Handler for subscription status
+    const handleSubscriptionStatus = (status) => {
+      if (status.success && status.success.length > 0) {
+        setWsSuccessCount(prev => prev + status.success.length);
+      }
+      if (status.fails && status.fails.length > 0) {
+        setWsFailedSymbols(prev => [...prev, ...status.fails]);
+      }
     };
     
     // Initialize WebSocket service
-    twelveDataWS.init(TWELVE_DATA_API_KEY, handlePriceUpdate, handleConnectionChange);
+    twelveDataWS.init(TWELVE_DATA_API_KEY, handlePriceUpdate, handleConnectionChange, handleSubscriptionStatus);
     twelveDataWS.connect();
     wsInitializedRef.current = true;
     
@@ -3385,6 +3402,36 @@ const ClearlineFlow = () => {
                     ))}
                   </div>
                 </details>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* WebSocket Failed Symbols Banner */}
+      {wsFailedSymbols.length > 0 && (
+        <div className="bg-orange-50 border-l-4 border-orange-400 p-4">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex">
+              <div className="ml-3">
+                <p className="text-sm text-orange-700">
+                  <strong>WebSocket Subscription Issues:</strong> {wsFailedSymbols.length} symbol(s) failed to subscribe for real-time prices
+                  {wsSuccessCount > 0 && <span className="ml-2 text-green-600">({wsSuccessCount} subscribed successfully)</span>}
+                </p>
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-xs text-orange-600">Show failed symbols</summary>
+                  <div className="mt-1 text-xs text-orange-600 max-h-32 overflow-y-auto">
+                    {wsFailedSymbols.map((symbol, idx) => (
+                      <span key={idx} className="inline-block mr-2 mb-1 bg-orange-100 px-1 rounded">{symbol}</span>
+                    ))}
+                  </div>
+                </details>
+                <button 
+                  onClick={() => setWsFailedSymbols([])} 
+                  className="mt-2 text-xs text-orange-600 hover:text-orange-800 underline"
+                >
+                  Dismiss
+                </button>
               </div>
             </div>
           </div>
