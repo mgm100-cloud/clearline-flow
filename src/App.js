@@ -1927,8 +1927,42 @@ const ClearlineFlow = () => {
           // Keep default hardcoded list as fallback
         }
         
-        // WebSocket handles real-time quote streaming - no need for initial batch fetch
-        // Quotes will update automatically once WebSocket connects and subscribes
+        // Fetch initial quotes via REST API (for when market is closed)
+        // WebSocket will overwrite with live data when market is open
+        if (tickersData && tickersData.length > 0) {
+          console.log('📊 Fetching initial batch quotes via REST API...');
+          try {
+            // Only fetch for active tickers (not Old status)
+            const activeSymbols = tickersData
+              .filter(t => t.status !== 'Old' && t.ticker)
+              .map(t => t.ticker.replace(' US', ''));
+            
+            if (activeSymbols.length > 0) {
+              const { quotes: initialQuotes, errors } = await QuoteService.getBatchQuotes(activeSymbols);
+              console.log(`✅ Initial quotes loaded: ${Object.keys(initialQuotes).length} successful, ${Object.keys(errors).length} errors`);
+              
+              // Update quotes state
+              setQuotes(prev => ({ ...prev, ...initialQuotes }));
+              
+              // Update tickers with current prices
+              setTickers(prev => prev.map(ticker => {
+                const cleanSymbol = ticker.ticker?.replace(' US', '');
+                const quoteData = initialQuotes[cleanSymbol];
+                if (quoteData && quoteData.price) {
+                  return {
+                    ...ticker,
+                    currentPrice: quoteData.price,
+                    lastQuoteUpdate: new Date().toISOString()
+                  };
+                }
+                return ticker;
+              }));
+            }
+          } catch (quotesError) {
+            console.warn('⚠️ Could not fetch initial quotes:', quotesError);
+            // Continue without quotes - WebSocket may provide them later
+          }
+        }
         
       } catch (error) {
         console.error('❌ Error loading data from database:', error);
@@ -1943,7 +1977,22 @@ const ClearlineFlow = () => {
         if (savedTickers) {
           const localTickers = JSON.parse(savedTickers);
           setTickers(localTickers);
-          // WebSocket handles real-time quote streaming - no need for batch fetch
+          
+          // Fetch initial quotes for localStorage tickers too
+          if (localTickers.length > 0) {
+            try {
+              const activeSymbols = localTickers
+                .filter(t => t.status !== 'Old' && t.ticker)
+                .map(t => t.ticker.replace(' US', ''));
+              
+              if (activeSymbols.length > 0) {
+                const { quotes: initialQuotes } = await QuoteService.getBatchQuotes(activeSymbols);
+                setQuotes(prev => ({ ...prev, ...initialQuotes }));
+              }
+            } catch (quotesError) {
+              console.warn('⚠️ Could not fetch quotes for localStorage tickers:', quotesError);
+            }
+          }
         }
         if (savedEarnings) setEarningsData(JSON.parse(savedEarnings));
       }
