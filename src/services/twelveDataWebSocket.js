@@ -27,42 +27,60 @@ class TwelveDataWebSocketService {
     console.log('🔌 TwelveData WebSocket service initialized');
   }
 
+  // Bloomberg to TwelveData suffix mapping (must match QuoteService in App.js)
+  bloombergToTwelveDataMap: {
+    'US': '',          // US markets - just remove suffix
+    'LN': ':LSE',      // London Stock Exchange
+    'GR': ':FWB',      // Germany Frankfurt (Xetra)
+    'GY': ':FWB',      // Germany Frankfurt (alternative)
+    'CN': ':TSX',      // Canada Toronto Stock Exchange
+    'CT': ':TSX',      // Canada Toronto Venture Exchange
+    'JP': ':JPX',      // Japan Tokyo Stock Exchange
+    'JT': ':JPX',      // Japan Tokyo Stock Exchange (alternative)
+    'HK': ':HKG',      // Hong Kong Stock Exchange
+    'AU': ':ASX',      // Australia ASX
+    'FP': ':EURONEXT', // France Euronext Paris
+    'IM': ':MTA',      // Italy Borsa Italiana (main market)
+    'HM': ':MTA',      // Italy HI-MTF (alternative Italian platform)
+    'TE': ':MTA',      // Italy EuroTLX (Italian platform)
+    'SM': ':MCE',      // Spain Madrid Stock Exchange
+    'SW': ':SIX',      // Switzerland SIX Swiss Exchange
+    'SS': ':SHH',      // China Shanghai Stock Exchange
+    'SZ': ':SHZ',      // China Shenzhen Stock Exchange
+    'IN': ':BSE',      // India Bombay Stock Exchange
+    'KS': ':KRX',      // South Korea Seoul Stock Exchange
+    'TB': ':BKK',      // Thailand Bangkok Stock Exchange
+    'MK': ':KLS',      // Malaysia Kuala Lumpur Stock Exchange
+    'SP': ':SGX',      // Singapore Stock Exchange
+    'TT': ':TWO',      // Taiwan Stock Exchange
+    'NA': ':AMS',      // Netherlands/Amsterdam
+  },
+
   // Convert Bloomberg format to TwelveData format (same logic as QuoteService)
   convertBloombergToTwelveData(symbol) {
-    if (!symbol) return symbol;
+    if (!symbol || typeof symbol !== 'string') return symbol;
     
-    // Handle Bloomberg format like "AAPL US" -> "AAPL"
-    if (symbol.includes(' US')) {
-      return symbol.replace(' US', '');
-    }
+    // Clean the symbol and convert to uppercase
+    const cleanSymbol = symbol.trim().toUpperCase();
     
-    // Handle other Bloomberg formats
-    const bloombergMappings = {
-      ' LN': '.LON',   // London
-      ' SW': '.SW',    // Switzerland
-      ' GY': '.XETRA', // Germany
-      ' FP': '.PA',    // France/Paris
-      ' NA': '.AS',    // Netherlands/Amsterdam
-      ' SM': '.MC',    // Spain/Madrid
-      ' IM': '.MI',    // Italy/Milan
-      ' AU': '.AX',    // Australia
-      ' JT': '.T',     // Japan/Tokyo
-      ' HK': '.HK',    // Hong Kong
-      ' CN': '.SS',    // China/Shanghai
-      ' KS': '.KS',    // South Korea
-      ' IN': '.NS',    // India
-      ' SP': '.SI',    // Singapore
-      ' TB': '.BK',    // Thailand/Bangkok
-      ' IJ': '.JK',    // Indonesia/Jakarta
-    };
+    // Check if symbol has a space-separated suffix (Bloomberg format)
+    const parts = cleanSymbol.split(' ');
     
-    for (const [bloomberg, twelveData] of Object.entries(bloombergMappings)) {
-      if (symbol.includes(bloomberg)) {
-        return symbol.replace(bloomberg, twelveData);
+    if (parts.length === 2) {
+      const [ticker, bloombergSuffix] = parts;
+      const twelveDataSuffix = this.bloombergToTwelveDataMap[bloombergSuffix];
+      
+      if (twelveDataSuffix !== undefined) {
+        const convertedSymbol = ticker + twelveDataSuffix;
+        return convertedSymbol;
+      } else {
+        console.warn(`Unknown Bloomberg suffix "${bloombergSuffix}" for symbol "${symbol}". Using original ticker.`);
+        return ticker; // Just use the ticker without suffix
       }
     }
     
-    return symbol;
+    // If no Bloomberg suffix detected, return original symbol
+    return cleanSymbol;
   }
 
   // Connect to WebSocket
@@ -192,7 +210,7 @@ class TwelveDataWebSocketService {
       };
 
       // Convert Swiss prices if needed (same logic as QuoteService)
-      if (data.symbol && (data.symbol.endsWith('.SW') || data.symbol.includes(' SW'))) {
+      if (data.symbol && (data.symbol.endsWith(':SIX') || data.symbol.includes(' SW'))) {
         priceData.price = priceData.price / 100;
       }
 
@@ -214,7 +232,7 @@ class TwelveDataWebSocketService {
         exchange: data.exchange
       };
 
-      if (data.symbol && (data.symbol.endsWith('.SW') || data.symbol.includes(' SW'))) {
+      if (data.symbol && (data.symbol.endsWith(':SIX') || data.symbol.includes(' SW'))) {
         priceData.price = priceData.price / 100;
       }
 
