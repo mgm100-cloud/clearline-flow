@@ -27,38 +27,38 @@ class TwelveDataWebSocketService {
     console.log('🔌 TwelveData WebSocket service initialized');
   }
 
-  // Bloomberg to TwelveData suffix mapping (must match QuoteService in App.js)
-  bloombergToTwelveDataMap: {
-    'US': '',          // US markets - just remove suffix
-    'LN': ':LSE',      // London Stock Exchange
-    'GR': ':FWB',      // Germany Frankfurt (Xetra)
-    'GY': ':FWB',      // Germany Frankfurt (alternative)
-    'CN': ':TSX',      // Canada Toronto Stock Exchange
-    'CT': ':TSX',      // Canada Toronto Venture Exchange
-    'JP': ':JPX',      // Japan Tokyo Stock Exchange
-    'JT': ':JPX',      // Japan Tokyo Stock Exchange (alternative)
-    'HK': ':HKG',      // Hong Kong Stock Exchange
-    'AU': ':ASX',      // Australia ASX
-    'FP': ':EURONEXT', // France Euronext Paris
-    'IM': ':MTA',      // Italy Borsa Italiana (main market)
-    'HM': ':MTA',      // Italy HI-MTF (alternative Italian platform)
-    'TE': ':MTA',      // Italy EuroTLX (Italian platform)
-    'SM': ':MCE',      // Spain Madrid Stock Exchange
-    'SW': ':SIX',      // Switzerland SIX Swiss Exchange
-    'SS': ':SHH',      // China Shanghai Stock Exchange
-    'SZ': ':SHZ',      // China Shenzhen Stock Exchange
-    'IN': ':BSE',      // India Bombay Stock Exchange
-    'KS': ':KRX',      // South Korea Seoul Stock Exchange
-    'TB': ':BKK',      // Thailand Bangkok Stock Exchange
-    'MK': ':KLS',      // Malaysia Kuala Lumpur Stock Exchange
-    'SP': ':SGX',      // Singapore Stock Exchange
-    'TT': ':TWO',      // Taiwan Stock Exchange
-    'NA': ':AMS',      // Netherlands/Amsterdam
-  },
-
   // Convert Bloomberg format to TwelveData format (same logic as QuoteService)
   convertBloombergToTwelveData(symbol) {
     if (!symbol || typeof symbol !== 'string') return symbol;
+    
+    // Bloomberg to TwelveData suffix mapping (must match QuoteService in App.js)
+    const bloombergToTwelveDataMap = {
+      'US': '',          // US markets - just remove suffix
+      'LN': ':LSE',      // London Stock Exchange
+      'GR': ':FWB',      // Germany Frankfurt (Xetra)
+      'GY': ':FWB',      // Germany Frankfurt (alternative)
+      'CN': ':TSX',      // Canada Toronto Stock Exchange
+      'CT': ':TSX',      // Canada Toronto Venture Exchange
+      'JP': ':JPX',      // Japan Tokyo Stock Exchange
+      'JT': ':JPX',      // Japan Tokyo Stock Exchange (alternative)
+      'HK': ':HKG',      // Hong Kong Stock Exchange
+      'AU': ':ASX',      // Australia ASX
+      'FP': ':EURONEXT', // France Euronext Paris
+      'IM': ':MTA',      // Italy Borsa Italiana (main market)
+      'HM': ':MTA',      // Italy HI-MTF (alternative Italian platform)
+      'TE': ':MTA',      // Italy EuroTLX (Italian platform)
+      'SM': ':MCE',      // Spain Madrid Stock Exchange
+      'SW': ':SIX',      // Switzerland SIX Swiss Exchange
+      'SS': ':SHH',      // China Shanghai Stock Exchange
+      'SZ': ':SHZ',      // China Shenzhen Stock Exchange
+      'IN': ':BSE',      // India Bombay Stock Exchange
+      'KS': ':KRX',      // South Korea Seoul Stock Exchange
+      'TB': ':BKK',      // Thailand Bangkok Stock Exchange
+      'MK': ':KLS',      // Malaysia Kuala Lumpur Stock Exchange
+      'SP': ':SGX',      // Singapore Stock Exchange
+      'TT': ':TWO',      // Taiwan Stock Exchange
+      'NA': ':AMS',      // Netherlands/Amsterdam
+    };
     
     // Clean the symbol and convert to uppercase
     const cleanSymbol = symbol.trim().toUpperCase();
@@ -68,7 +68,7 @@ class TwelveDataWebSocketService {
     
     if (parts.length === 2) {
       const [ticker, bloombergSuffix] = parts;
-      const twelveDataSuffix = this.bloombergToTwelveDataMap[bloombergSuffix];
+      const twelveDataSuffix = bloombergToTwelveDataMap[bloombergSuffix];
       
       if (twelveDataSuffix !== undefined) {
         const convertedSymbol = ticker + twelveDataSuffix;
