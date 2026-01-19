@@ -12,9 +12,11 @@ const TWELVE_DATA_API_KEY = process.env.TWELVE_DATA_API_KEY;
 // Server state
 let twelveDataWS = null;
 let isConnected = false;
+let isConnecting = false; // Lock to prevent multiple simultaneous connections
 let reconnectAttempts = 0;
 const maxReconnectAttempts = 10;
 const reconnectDelay = 5000;
+let reconnectTimeout = null; // Track reconnection timeout
 
 // Client connections and their subscriptions
 const clients = new Map(); // client WebSocket -> Set of symbols
@@ -124,25 +126,54 @@ function connectToTwelveData() {
     return;
   }
 
+  // Prevent multiple simultaneous connection attempts
+  if (isConnecting) {
+    console.log('⏳ Connection already in progress, skipping...');
+    return;
+  }
+  
+  // If already connected, don't reconnect
+  if (twelveDataWS && twelveDataWS.readyState === WebSocket.OPEN) {
+    console.log('✅ Already connected to TwelveData');
+    return;
+  }
+
+  isConnecting = true;
   console.log('🔌 Connecting to TwelveData WebSocket...');
   console.log(`📝 API Key length: ${TWELVE_DATA_API_KEY.length} chars, starts with: ${TWELVE_DATA_API_KEY.substring(0, 4)}...`);
   
   try {
+    // Close any existing connection first
+    if (twelveDataWS) {
+      twelveDataWS.removeAllListeners();
+      if (twelveDataWS.readyState === WebSocket.OPEN || twelveDataWS.readyState === WebSocket.CONNECTING) {
+        twelveDataWS.close();
+      }
+      twelveDataWS = null;
+    }
+    
     twelveDataWS = new WebSocket(`${TWELVE_DATA_WS_URL}?apikey=${TWELVE_DATA_API_KEY}`);
     
     twelveDataWS.on('open', () => {
       console.log('✅ Connected to TwelveData WebSocket');
       isConnected = true;
+      isConnecting = false;
       reconnectAttempts = 0;
       lastActivity = Date.now();
+      
+      // Clear any pending reconnect timeout
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+        reconnectTimeout = null;
+      }
       
       // Start heartbeat
       startHeartbeat();
       
-      // Resubscribe to all symbols if we had any
+      // Resubscribe to all symbols if we had any (with delay between chunks)
       if (subscribedSymbols.size > 0) {
         console.log(`🔄 Resubscribing to ${subscribedSymbols.size} symbols...`);
-        subscribeToTwelveData(Array.from(subscribedSymbols));
+        subscribeToTwelveDataWithDelay(Array.from(subscribedSymbols));
       }
       
       // Notify all clients of connection status
@@ -165,11 +196,13 @@ function connectToTwelveData() {
     
     twelveDataWS.on('error', (error) => {
       console.error('❌ TwelveData WebSocket error:', error.message);
+      isConnecting = false;
     });
     
     twelveDataWS.on('close', (code, reason) => {
       console.log(`🔌 TwelveData WebSocket closed: ${code} ${reason || '(no reason)'}`);
       isConnected = false;
+      isConnecting = false;
       stopHeartbeat();
       
       // Notify all clients of disconnection
@@ -187,6 +220,7 @@ function connectToTwelveData() {
     });
   } catch (error) {
     console.error('❌ Error creating TwelveData WebSocket:', error);
+    isConnecting = false;
   }
 }
 
@@ -267,7 +301,7 @@ function broadcastToClients(data) {
   });
 }
 
-// Subscribe to symbols on TwelveData
+// Subscribe to symbols on TwelveData (immediate, for small batches)
 function subscribeToTwelveData(symbols) {
   if (!twelveDataWS || twelveDataWS.readyState !== WebSocket.OPEN) {
     console.log('📋 TwelveData not connected, queuing subscriptions');
@@ -289,6 +323,46 @@ function subscribeToTwelveData(symbols) {
     
     console.log(`📊 Subscribing to chunk ${Math.floor(i/chunkSize) + 1}/${Math.ceil(symbols.length/chunkSize)}: ${chunk.length} symbols`);
     twelveDataWS.send(JSON.stringify(message));
+  }
+}
+
+// Subscribe to symbols with delay between chunks (for large batches/resubscription)
+async function subscribeToTwelveDataWithDelay(symbols) {
+  if (!twelveDataWS || twelveDataWS.readyState !== WebSocket.OPEN) {
+    console.log('📋 TwelveData not connected, queuing subscriptions');
+    return;
+  }
+  
+  if (symbols.length === 0) return;
+  
+  // Subscribe in chunks of 100 with 500ms delay between each
+  const chunkSize = 100;
+  const chunkDelay = 500; // ms between chunks
+  const totalChunks = Math.ceil(symbols.length / chunkSize);
+  
+  for (let i = 0; i < symbols.length; i += chunkSize) {
+    // Check if still connected before each chunk
+    if (!twelveDataWS || twelveDataWS.readyState !== WebSocket.OPEN) {
+      console.log('⚠️ Connection lost during subscription, stopping');
+      return;
+    }
+    
+    const chunk = symbols.slice(i, i + chunkSize);
+    const chunkNum = Math.floor(i/chunkSize) + 1;
+    const message = {
+      action: 'subscribe',
+      params: {
+        symbols: chunk.join(',')
+      }
+    };
+    
+    console.log(`📊 Subscribing to chunk ${chunkNum}/${totalChunks}: ${chunk.length} symbols`);
+    twelveDataWS.send(JSON.stringify(message));
+    
+    // Delay before next chunk (except for last chunk)
+    if (i + chunkSize < symbols.length) {
+      await new Promise(resolve => setTimeout(resolve, chunkDelay));
+    }
   }
 }
 
@@ -372,10 +446,17 @@ function stopHeartbeat() {
 
 // Attempt reconnection
 function attemptReconnect() {
+  // Don't schedule another reconnection if one is already pending or connecting
+  if (reconnectTimeout || isConnecting) {
+    console.log('⏳ Reconnection already scheduled or in progress');
+    return;
+  }
+  
   if (reconnectAttempts >= maxReconnectAttempts) {
-    console.error('❌ Max reconnection attempts reached');
+    console.error('❌ Max reconnection attempts reached, waiting 60s before retry');
     // Reset and try again after longer delay
-    setTimeout(() => {
+    reconnectTimeout = setTimeout(() => {
+      reconnectTimeout = null;
       reconnectAttempts = 0;
       connectToTwelveData();
     }, 60000);
@@ -387,7 +468,8 @@ function attemptReconnect() {
   
   console.log(`🔄 Attempting reconnection ${reconnectAttempts}/${maxReconnectAttempts} in ${delay/1000}s...`);
   
-  setTimeout(() => {
+  reconnectTimeout = setTimeout(() => {
+    reconnectTimeout = null;
     connectToTwelveData();
   }, delay);
 }
