@@ -593,12 +593,16 @@ function convertToFMPSymbol(symbol) {
 async function fetchFMPQuotes(symbols) {
   if (!FMP_API_KEY || symbols.length === 0) return [];
   
-  // Convert to FMP format
-  const fmpSymbolMap = new Map(); // FMP symbol -> original symbol
+  // Convert to FMP format - use array to support multiple original symbols mapping to same FMP symbol
+  // e.g., both "9984 JP" and "9984 JT" map to "9984.T"
+  const fmpSymbolMap = new Map(); // FMP symbol -> array of original symbols
   symbols.forEach(originalSymbol => {
     const fmpSymbol = convertToFMPSymbol(originalSymbol);
     if (fmpSymbol) {
-      fmpSymbolMap.set(fmpSymbol, originalSymbol);
+      if (!fmpSymbolMap.has(fmpSymbol)) {
+        fmpSymbolMap.set(fmpSymbol, []);
+      }
+      fmpSymbolMap.get(fmpSymbol).push(originalSymbol);
     }
   });
   
@@ -609,7 +613,7 @@ async function fetchFMPQuotes(symbols) {
   
   // Log the URL (without API key for security)
   console.log(`🌐 FMP Request URL: ${FMP_BASE_URL}/quote/${fmpSymbolList}?apikey=***`);
-  console.log(`📋 FMP Symbol mapping: ${Array.from(fmpSymbolMap.entries()).map(([fmp, orig]) => `${orig} → ${fmp}`).join(', ')}`);
+  console.log(`📋 FMP Symbol mapping: ${Array.from(fmpSymbolMap.entries()).map(([fmp, originals]) => `${originals.join('+')} → ${fmp}`).join(', ')}`);
   
   return new Promise((resolve) => {
     https.get(url, (res) => {
@@ -643,20 +647,25 @@ async function fetchFMPQuotes(symbols) {
           }
           
           // Map back to original symbols and format as price updates
-          const priceUpdates = quotes.map(quote => {
-            const originalSymbol = fmpSymbolMap.get(quote.symbol);
-            if (!originalSymbol || quote.price === undefined) return null;
+          // One FMP quote can map to multiple original symbols
+          const priceUpdates = [];
+          quotes.forEach(quote => {
+            const originalSymbols = fmpSymbolMap.get(quote.symbol);
+            if (!originalSymbols || quote.price === undefined) return;
             
-            return {
-              type: 'price',
-              symbol: originalSymbol, // Use original Bloomberg format
-              price: parseFloat(quote.price),
-              timestamp: quote.timestamp || Date.now(),
-              dayVolume: quote.volume ? parseInt(quote.volume) : null,
-              exchange: quote.exchange || 'FMP',
-              source: 'FMP'
-            };
-          }).filter(Boolean);
+            // Create a price update for EACH original symbol that maps to this FMP symbol
+            originalSymbols.forEach(originalSymbol => {
+              priceUpdates.push({
+                type: 'price',
+                symbol: originalSymbol, // Use original Bloomberg format
+                price: parseFloat(quote.price),
+                timestamp: quote.timestamp || Date.now(),
+                dayVolume: quote.volume ? parseInt(quote.volume) : null,
+                exchange: quote.exchange || 'FMP',
+                source: 'FMP'
+              });
+            });
+          });
           
           resolve(priceUpdates);
         } catch (error) {
