@@ -31,24 +31,19 @@ class TwelveDataWebSocketService {
   convertBloombergToTwelveData(symbol) {
     if (!symbol || typeof symbol !== 'string') return symbol;
     
-    // Japanese stocks are handled via FMP API, not TwelveData - return null to skip
-    const japaneseExchanges = ['JP', 'JT'];
+    // These exchanges are handled via FMP API, not TwelveData - return null to skip
+    // Japan (JP, JT), Hong Kong (HK), Italy (IM, HM, TE), UK (LN), Denmark (DC)
+    const fmpExchanges = ['JP', 'JT', 'HK', 'IM', 'HM', 'TE', 'LN', 'DC'];
     
-    // Bloomberg to TwelveData suffix mapping
+    // Bloomberg to TwelveData suffix mapping (only exchanges supported by TwelveData)
     const bloombergToTwelveDataMap = {
       'US': '',          // US markets - just remove suffix
-      'LN': ':LSE',      // London Stock Exchange
       'GR': ':XETR',     // Germany Xetra
       'GY': ':XETR',     // Germany Xetra (alternative)
       'CN': ':TSX',      // Canada Toronto Stock Exchange
       'CT': ':TSX',      // Canada Toronto Venture Exchange
-      'DC': ':XCSE',     // Denmark Copenhagen Stock Exchange
-      'HK': ':HKEX',     // Hong Kong Stock Exchange (HKEX for WebSocket)
       'AU': ':ASX',      // Australia ASX
       'FP': ':EPA',      // France Euronext Paris (EPA for WebSocket)
-      'IM': ':BIT',      // Italy Borsa Italiana (BIT for WebSocket)
-      'HM': ':BIT',      // Italy HI-MTF
-      'TE': ':BIT',      // Italy EuroTLX
       'SM': ':BME',      // Spain Madrid Stock Exchange (BME for WebSocket)
       'SW': ':SIX',      // Switzerland SIX Swiss Exchange
       'SS': ':SHH',      // China Shanghai Stock Exchange
@@ -74,8 +69,8 @@ class TwelveDataWebSocketService {
     if (parts.length === 2) {
       let [ticker, bloombergSuffix] = parts;
       
-      // Skip Japanese stocks silently - they use FMP
-      if (japaneseExchanges.includes(bloombergSuffix)) {
+      // Skip FMP-handled exchanges silently (Japan, Hong Kong, Italy, UK, Denmark)
+      if (fmpExchanges.includes(bloombergSuffix)) {
         return null; // Return null to indicate this should be skipped
       }
       
@@ -300,14 +295,15 @@ class TwelveDataWebSocketService {
     }
 
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      // Queue for later if not connected (only non-Japanese symbols)
-      const nonJapaneseSymbols = symbols.filter(s => {
+      // Queue for later if not connected (only TwelveData-supported symbols)
+      const fmpSuffixes = ['JP', 'JT', 'HK', 'IM', 'HM', 'TE', 'LN', 'DC'];
+      const twelveDataSymbols = symbols.filter(s => {
         const upper = s?.toUpperCase() || '';
-        return !upper.includes(' JP') && !upper.includes(' JT');
+        return !fmpSuffixes.some(suffix => upper.includes(` ${suffix}`));
       });
-      if (nonJapaneseSymbols.length > 0) {
-        console.log('📋 Queuing subscriptions for when connected:', nonJapaneseSymbols.length, 'symbols');
-        this.pendingSubscriptions.push(...nonJapaneseSymbols);
+      if (twelveDataSymbols.length > 0) {
+        console.log('📋 Queuing subscriptions for when connected:', twelveDataSymbols.length, 'symbols');
+        this.pendingSubscriptions.push(...twelveDataSymbols);
       }
       
       // Try to connect if not already

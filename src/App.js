@@ -118,41 +118,55 @@ const QuoteService = {
     return cleanSymbol;
   },
 
-  // Check if symbol is Japanese
-  isJapaneseSymbol(symbol) {
+  // Check if symbol should use FMP (Japan, Hong Kong, Italy, UK, Denmark)
+  isFMPSymbol(symbol) {
     if (!symbol) return false;
     const upperSymbol = symbol.toUpperCase();
-    return upperSymbol.includes(' JP') || upperSymbol.includes(' JT') || upperSymbol.endsWith(':JPX');
+    const fmpSuffixes = [' JP', ' JT', ' HK', ' IM', ' HM', ' TE', ' LN', ' DC'];
+    return fmpSuffixes.some(suffix => upperSymbol.includes(suffix));
   },
 
-  // Get quote for Japanese stocks via FMP
-  async getJapaneseQuote(symbol) {
-    if (!FMP_API_KEY || FMP_API_KEY === 'YOUR_FMP_API_KEY_HERE') {
-      throw new Error('FMP API key not configured for Japanese stocks');
-    }
-
-    // Extract ticker code from Bloomberg format (e.g., "7203 JP" -> "7203")
+  // Get the FMP exchange format for a symbol
+  getFMPFormat(symbol) {
+    if (!symbol) return null;
+    const upperSymbol = symbol.toUpperCase();
     const tickerCode = symbol.split(' ')[0];
     
-    // Try different FMP formats for Japanese stocks
-    const formats = [
-      `${tickerCode}.T`,      // Tokyo format (e.g., 7203.T)
-      `${tickerCode}.TYO`,    // Alternative Tokyo format
-      tickerCode              // Just the code
-    ];
+    // Map Bloomberg suffix to FMP format
+    if (upperSymbol.includes(' JP') || upperSymbol.includes(' JT')) {
+      return [`${tickerCode}.T`, `${tickerCode}.TYO`, tickerCode]; // Japan
+    } else if (upperSymbol.includes(' HK')) {
+      return [`${tickerCode}.HK`, tickerCode]; // Hong Kong
+    } else if (upperSymbol.includes(' IM') || upperSymbol.includes(' HM') || upperSymbol.includes(' TE')) {
+      return [`${tickerCode}.MI`, tickerCode]; // Italy Milan
+    } else if (upperSymbol.includes(' LN')) {
+      return [`${tickerCode}.L`, `${tickerCode}.LSE`, tickerCode]; // UK London
+    } else if (upperSymbol.includes(' DC')) {
+      return [`${tickerCode}.CO`, tickerCode]; // Denmark Copenhagen
+    }
+    return [tickerCode];
+  },
+
+  // Get quote for FMP-handled stocks (Japan, Hong Kong, Italy, UK, Denmark)
+  async getFMPQuote(symbol) {
+    if (!FMP_API_KEY || FMP_API_KEY === 'YOUR_FMP_API_KEY_HERE') {
+      throw new Error('FMP API key not configured');
+    }
+
+    // Get the FMP format options for this symbol
+    const formats = this.getFMPFormat(symbol);
 
     for (const fmpSymbol of formats) {
       try {
         const url = `${FMP_BASE_URL}/quote/${fmpSymbol}?apikey=${FMP_API_KEY}`;
-        console.log(`🇯🇵 Fetching Japanese quote for ${fmpSymbol} (original: ${symbol}) from FMP...`);
+        console.log(`🌍 Fetching FMP quote for ${fmpSymbol} (original: ${symbol})...`);
         
         const response = await fetch(url);
         const data = await response.json();
         
-        console.log(`FMP Japanese quote response for ${fmpSymbol}:`, data);
-        
         if (Array.isArray(data) && data.length > 0 && data[0].price) {
           const quote = data[0];
+          console.log(`✅ FMP quote found for ${fmpSymbol}:`, quote.price);
           return {
             symbol: fmpSymbol,
             originalSymbol: symbol,
@@ -165,7 +179,7 @@ const QuoteService = {
             low: quote.dayLow ? parseFloat(quote.dayLow) : null,
             open: quote.open ? parseFloat(quote.open) : null,
             lastUpdated: new Date().toISOString(),
-            source: 'fmp-japan',
+            source: 'fmp',
             isIntraday: true
           };
         }
@@ -174,13 +188,18 @@ const QuoteService = {
       }
     }
     
-    throw new Error(`Japanese quote not available for ${symbol}`);
+    throw new Error(`FMP quote not available for ${symbol}`);
+  },
+
+  // Legacy alias for Japanese quotes
+  async getJapaneseQuote(symbol) {
+    return this.getFMPQuote(symbol);
   },
 
   async getQuote(symbol) {
-    // Route Japanese stocks to FMP
-    if (this.isJapaneseSymbol(symbol)) {
-      return this.getJapaneseQuote(symbol);
+    // Route FMP-handled exchanges (Japan, Hong Kong, Italy, UK, Denmark) to FMP
+    if (this.isFMPSymbol(symbol)) {
+      return this.getFMPQuote(symbol);
     }
 
     if (!TWELVE_DATA_API_KEY || TWELVE_DATA_API_KEY === 'YOUR_API_KEY_HERE') {
@@ -2136,15 +2155,16 @@ const ClearlineFlow = () => {
   useEffect(() => {
     if (!isAuthenticated || !wsInitializedRef.current || tickers.length === 0) return;
     
-    // Helper to check if Japanese ticker
-    const isJapanese = (ticker) => {
+    // Helper to check if ticker uses FMP (Japan, Hong Kong, Italy, UK, Denmark)
+    const isFMPTicker = (ticker) => {
       const upper = ticker?.toUpperCase() || '';
-      return upper.includes(' JP') || upper.includes(' JT');
+      const fmpSuffixes = [' JP', ' JT', ' HK', ' IM', ' HM', ' TE', ' LN', ' DC'];
+      return fmpSuffixes.some(suffix => upper.includes(suffix));
     };
     
-    // Get unique symbols to subscribe to (exclude Japanese - they use FMP)
+    // Get unique symbols to subscribe to (exclude FMP-handled exchanges)
     const symbols = tickers
-      .filter(t => t.ticker && t.status !== 'Old' && !isJapanese(t.ticker)) // Exclude Old and Japanese
+      .filter(t => t.ticker && t.status !== 'Old' && !isFMPTicker(t.ticker)) // Exclude Old and FMP exchanges
       .map(t => t.ticker.replace(' US', ''));
     
     // Check if the symbols list has actually changed
@@ -2162,30 +2182,31 @@ const ClearlineFlow = () => {
     }
   }, [isAuthenticated, tickers]);
 
-  // Poll Japanese tickers via FMP REST API (FMP WebSocket doesn't support Japanese stocks)
+  // Poll FMP tickers via REST API (Japan, Hong Kong, Italy, UK, Denmark - not supported by TwelveData WebSocket)
   useEffect(() => {
     if (!isAuthenticated || tickers.length === 0) return;
     
-    // Helper to check if Japanese ticker
-    const isJapanese = (ticker) => {
+    // Helper to check if ticker uses FMP
+    const isFMPTicker = (ticker) => {
       const upper = ticker?.toUpperCase() || '';
-      return upper.includes(' JP') || upper.includes(' JT');
+      const fmpSuffixes = [' JP', ' JT', ' HK', ' IM', ' HM', ' TE', ' LN', ' DC'];
+      return fmpSuffixes.some(suffix => upper.includes(suffix));
     };
     
-    // Get Japanese tickers
-    const japaneseTickers = tickers.filter(t => t.ticker && t.status !== 'Old' && isJapanese(t.ticker));
+    // Get FMP tickers (Japan, Hong Kong, Italy, UK, Denmark)
+    const fmpTickers = tickers.filter(t => t.ticker && t.status !== 'Old' && isFMPTicker(t.ticker));
     
-    if (japaneseTickers.length === 0) return;
+    if (fmpTickers.length === 0) return;
     
-    console.log(`🇯🇵 Setting up FMP polling for ${japaneseTickers.length} Japanese tickers`);
+    console.log(`🌍 Setting up FMP polling for ${fmpTickers.length} international tickers (JP, HK, IT, UK, DK)`);
     
-    // Function to fetch Japanese quotes
-    const fetchJapaneseQuotes = async () => {
-      console.log(`🇯🇵 Polling ${japaneseTickers.length} Japanese tickers via FMP...`);
+    // Function to fetch FMP quotes
+    const fetchFMPQuotes = async () => {
+      console.log(`🌍 Polling ${fmpTickers.length} tickers via FMP...`);
       
-      for (const ticker of japaneseTickers) {
+      for (const ticker of fmpTickers) {
         try {
-          const quote = await QuoteService.getJapaneseQuote(ticker.ticker);
+          const quote = await QuoteService.getFMPQuote(ticker.ticker);
           if (quote && quote.price) {
             // Update ticker with new price
             setTickers(prev => prev.map(t => {
@@ -2206,7 +2227,7 @@ const ClearlineFlow = () => {
             }));
           }
         } catch (error) {
-          console.warn(`🇯🇵 Failed to fetch Japanese quote for ${ticker.ticker}:`, error.message);
+          console.warn(`🌍 Failed to fetch FMP quote for ${ticker.ticker}:`, error.message);
         }
         
         // Small delay between requests to respect rate limits
@@ -2215,10 +2236,10 @@ const ClearlineFlow = () => {
     };
     
     // Fetch immediately
-    fetchJapaneseQuotes();
+    fetchFMPQuotes();
     
     // Then poll every 60 seconds
-    const pollInterval = setInterval(fetchJapaneseQuotes, 60000);
+    const pollInterval = setInterval(fetchFMPQuotes, 60000);
     
     return () => {
       clearInterval(pollInterval);
