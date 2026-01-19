@@ -1,6 +1,10 @@
 // TwelveData WebSocket Service for real-time price streaming
+// Connects to backend WebSocket server (shared connection) or directly to TwelveData (local dev)
 
 const TWELVE_DATA_WS_URL = 'wss://ws.twelvedata.com/v1/quotes/price';
+
+// Check for backend WebSocket server URL (set this in production)
+const BACKEND_WS_URL = process.env.REACT_APP_WS_SERVER_URL;
 
 class TwelveDataWebSocketService {
   constructor() {
@@ -16,6 +20,7 @@ class TwelveDataWebSocketService {
     this.isConnecting = false;
     this.heartbeatInterval = null;
     this.lastHeartbeat = null;
+    this.useBackendServer = !!BACKEND_WS_URL;
   }
 
   // Initialize with API key and callbacks
@@ -24,7 +29,13 @@ class TwelveDataWebSocketService {
     this.onPriceUpdate = onPriceUpdate;
     this.onConnectionChange = onConnectionChange;
     this.onSubscriptionStatus = onSubscriptionStatus;
-    console.log('🔌 TwelveData WebSocket service initialized');
+    
+    if (this.useBackendServer) {
+      console.log('🔌 TwelveData WebSocket service initialized (using backend server)');
+      console.log('🌐 Backend server URL:', BACKEND_WS_URL);
+    } else {
+      console.log('🔌 TwelveData WebSocket service initialized (direct connection)');
+    }
   }
 
   // Convert Bloomberg format to TwelveData format (same logic as QuoteService)
@@ -99,26 +110,32 @@ class TwelveDataWebSocketService {
     return symbol.includes(':');
   }
 
-  // Connect to WebSocket
+  // Connect to WebSocket (backend server or directly to TwelveData)
   connect() {
     if (this.isConnecting || (this.ws && this.ws.readyState === WebSocket.OPEN)) {
       console.log('🔌 WebSocket already connected or connecting');
       return;
     }
 
-    if (!this.apiKey || this.apiKey === 'YOUR_API_KEY_HERE') {
+    // For backend server, we don't need API key
+    if (!this.useBackendServer && (!this.apiKey || this.apiKey === 'YOUR_API_KEY_HERE')) {
       console.error('❌ TwelveData API key not configured for WebSocket');
       return;
     }
 
     this.isConnecting = true;
-    console.log('🔌 Connecting to TwelveData WebSocket...');
+    
+    const wsUrl = this.useBackendServer 
+      ? BACKEND_WS_URL 
+      : `${TWELVE_DATA_WS_URL}?apikey=${this.apiKey}`;
+    
+    console.log(`🔌 Connecting to ${this.useBackendServer ? 'backend' : 'TwelveData'} WebSocket...`);
 
     try {
-      this.ws = new WebSocket(`${TWELVE_DATA_WS_URL}?apikey=${this.apiKey}`);
+      this.ws = new WebSocket(wsUrl);
 
       this.ws.onopen = () => {
-        console.log('✅ TwelveData WebSocket connected');
+        console.log(`✅ ${this.useBackendServer ? 'Backend' : 'TwelveData'} WebSocket connected`);
         this.isConnecting = false;
         this.reconnectAttempts = 0;
         
@@ -147,12 +164,12 @@ class TwelveDataWebSocketService {
       };
 
       this.ws.onerror = (error) => {
-        console.error('❌ TwelveData WebSocket error:', error);
+        console.error('❌ WebSocket error:', error);
         this.isConnecting = false;
       };
 
       this.ws.onclose = (event) => {
-        console.log('🔌 TwelveData WebSocket closed:', event.code, event.reason);
+        console.log('🔌 WebSocket closed:', event.code, event.reason);
         this.isConnecting = false;
         this.stopHeartbeat();
         
@@ -174,6 +191,72 @@ class TwelveDataWebSocketService {
     // Track last activity for connection health monitoring
     this.lastHeartbeat = Date.now();
     
+    // Handle backend server message format
+    if (this.useBackendServer) {
+      this.handleBackendMessage(data);
+      return;
+    }
+    
+    // Handle direct TwelveData message format
+    this.handleTwelveDataMessage(data);
+  }
+
+  // Handle messages from backend server
+  handleBackendMessage(data) {
+    const { type } = data;
+    
+    if (type === 'heartbeat') {
+      return;
+    }
+    
+    if (type === 'connection') {
+      console.log(`🔌 Backend connection status: ${data.connected ? 'TwelveData connected' : 'TwelveData disconnected'}`);
+      // The backend's TwelveData connection status
+      if (data.subscribedSymbols !== undefined) {
+        console.log(`📊 Backend has ${data.subscribedSymbols} symbols subscribed`);
+      }
+      return;
+    }
+    
+    if (type === 'subscription-status') {
+      console.log('📊 Subscription status:', data);
+      if (data.success) {
+        console.log('✅ Successfully subscribed to:', data.success.length, 'symbols');
+      }
+      if (data.fails && data.fails.length > 0) {
+        console.warn('❌ Failed to subscribe:', data.fails);
+      }
+      // Notify the app of subscription status
+      if (this.onSubscriptionStatus) {
+        this.onSubscriptionStatus({
+          success: data.success || [],
+          fails: data.fails || []
+        });
+      }
+      return;
+    }
+    
+    if (type === 'price') {
+      // Price update from backend
+      const priceData = {
+        symbol: data.symbol,
+        price: data.price,
+        timestamp: data.timestamp,
+        dayVolume: data.dayVolume,
+        exchange: data.exchange
+      };
+
+      console.log('💰 Price update:', priceData.symbol, priceData.price);
+
+      if (this.onPriceUpdate) {
+        this.onPriceUpdate(priceData);
+      }
+      return;
+    }
+  }
+
+  // Handle direct TwelveData messages (for local development)
+  handleTwelveDataMessage(data) {
     // Log all incoming messages for debugging (except heartbeat responses to reduce noise)
     if (data.event !== 'heartbeat') {
       console.log('📨 WebSocket message received:', data);
@@ -280,7 +363,29 @@ class TwelveDataWebSocketService {
   subscribe(symbols) {
     if (!symbols || symbols.length === 0) return;
 
-    // Convert symbols to TwelveData format (filter out nulls - e.g., Japanese stocks handled by FMP)
+    // For backend server, send original symbols (backend handles conversion)
+    if (this.useBackendServer) {
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+        console.log('📋 Queuing subscriptions for when connected:', symbols.length, 'symbols');
+        this.pendingSubscriptions.push(...symbols);
+        this.connect();
+        return;
+      }
+
+      const subscribeMessage = {
+        action: 'subscribe',
+        symbols: symbols
+      };
+
+      console.log(`📊 Subscribing to ${symbols.length} symbols via backend`);
+      this.ws.send(JSON.stringify(subscribeMessage));
+      
+      // Track subscribed symbols
+      symbols.forEach(s => this.subscribedSymbols.add(s));
+      return;
+    }
+
+    // Direct TwelveData connection - convert symbols
     const convertedSymbols = symbols
       .map(s => this.convertBloombergToTwelveData(s))
       .filter(s => s !== null && s !== undefined);
@@ -333,7 +438,21 @@ class TwelveDataWebSocketService {
   unsubscribe(symbols) {
     if (!symbols || symbols.length === 0) return;
 
-    // Filter out Japanese symbols and null conversions
+    // For backend server
+    if (this.useBackendServer) {
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        const unsubscribeMessage = {
+          action: 'unsubscribe',
+          symbols: symbols
+        };
+        console.log('📊 Unsubscribing from symbols via backend:', symbols.length);
+        this.ws.send(JSON.stringify(unsubscribeMessage));
+      }
+      symbols.forEach(s => this.subscribedSymbols.delete(s));
+      return;
+    }
+
+    // Direct TwelveData connection
     const convertedSymbols = symbols
       .map(s => this.convertBloombergToTwelveData(s))
       .filter(s => s !== null && s !== undefined);
@@ -379,7 +498,9 @@ class TwelveDataWebSocketService {
     this.heartbeatInterval = setInterval(() => {
       if (this.ws && this.ws.readyState === WebSocket.OPEN) {
         // Send heartbeat message to keep connection alive
-        const heartbeatMessage = { action: 'heartbeat' };
+        const heartbeatMessage = this.useBackendServer 
+          ? { action: 'heartbeat' }
+          : { action: 'heartbeat' };
         this.ws.send(JSON.stringify(heartbeatMessage));
         console.log('💓 Sent heartbeat');
         
@@ -421,7 +542,7 @@ class TwelveDataWebSocketService {
 
   // Disconnect WebSocket
   disconnect() {
-    console.log('🔌 Disconnecting TwelveData WebSocket...');
+    console.log('🔌 Disconnecting WebSocket...');
     this.stopHeartbeat();
     
     if (this.ws) {
@@ -443,7 +564,8 @@ class TwelveDataWebSocketService {
     return {
       connected: this.isConnected(),
       subscribedCount: this.subscribedSymbols.size,
-      reconnectAttempts: this.reconnectAttempts
+      reconnectAttempts: this.reconnectAttempts,
+      useBackendServer: this.useBackendServer
     };
   }
 }

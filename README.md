@@ -24,6 +24,11 @@ REACT_APP_TWELVE_DATA_API_KEY=your_twelve_data_api_key_here
 REACT_APP_FMP_API_KEY=your_fmp_api_key_here
 REACT_APP_ALPHA_VANTAGE_API_KEY=your_alpha_vantage_api_key_here
 
+# WebSocket Server URL (for shared TwelveData connection)
+# Set this to your deployed WebSocket server URL (see server/README.md)
+# If not set, the app will connect directly to TwelveData (limited to 3 connections)
+REACT_APP_WS_SERVER_URL=wss://your-websocket-server.railway.app
+
 # Supabase Configuration
 REACT_APP_SUPABASE_URL=your_supabase_project_url
 REACT_APP_SUPABASE_ANON_KEY=your_supabase_anon_key
