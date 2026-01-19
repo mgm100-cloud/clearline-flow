@@ -2194,20 +2194,25 @@ const ClearlineFlow = () => {
       }
     };
     
-    // Handler for subscription status - only update on meaningful changes
+    // Handler for subscription status - accumulate across all chunks
     const handleSubscriptionStatus = (status) => {
-      // Only log, don't accumulate to prevent re-renders
-      // We'll set the final values once instead of incrementing
       const successCount = status.success?.length || 0;
       const failCount = status.fails?.length || 0;
       
       if (successCount > 0) {
-        // Update with actual count, not accumulated
-        setWsSuccessCount(successCount);
+        // Accumulate success count across chunks
+        setWsSuccessCount(prev => prev + successCount);
       }
       if (failCount > 0) {
-        // Replace failed symbols instead of accumulating
-        setWsFailedSymbols(status.fails);
+        // Accumulate failed symbols across chunks (avoid duplicates)
+        setWsFailedSymbols(prev => {
+          const existingSymbols = new Set(prev.map(f => typeof f === 'string' ? f : f?.symbol));
+          const newFails = status.fails.filter(f => {
+            const sym = typeof f === 'string' ? f : f?.symbol;
+            return !existingSymbols.has(sym);
+          });
+          return [...prev, ...newFails];
+        });
       }
     };
     
