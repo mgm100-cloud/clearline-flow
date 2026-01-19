@@ -62,8 +62,8 @@ const QuoteService = {
   // Bloomberg to TwelveData suffix mapping (TwelveData uses different format)
   bloombergToTwelveDataMap: {
     'LN': ':LSE',      // London Stock Exchange
-    'GR': ':FWB',      // Germany Frankfurt (Xetra)
-    'GY': ':FWB',      // Germany Frankfurt (alternative)
+    'GR': ':XETR',     // Germany Xetra
+    'GY': ':XETR',     // Germany Xetra (alternative)
     'CN': ':TSX',      // Canada Toronto Stock Exchange
     'CT': ':TSX',     // Canada Toronto Venture Exchange
     'JP': ':JPX',      // Japan Tokyo Stock Exchange
@@ -85,6 +85,7 @@ const QuoteService = {
     'MK': ':KLS',      // Malaysia Kuala Lumpur Stock Exchange
     'SP': ':SGX',      // Singapore Stock Exchange
     'TT': ':TWO',      // Taiwan Stock Exchange
+    'NA': ':XAMS',     // Netherlands/Amsterdam Euronext
   },
 
   // Convert Bloomberg format symbol to TwelveData format

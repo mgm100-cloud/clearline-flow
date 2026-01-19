@@ -38,8 +38,8 @@ class TwelveDataWebSocketService {
     const bloombergToTwelveDataMap = {
       'US': '',          // US markets - just remove suffix
       'LN': ':LSE',      // London Stock Exchange
-      'GR': ':FWB',      // Germany Frankfurt (Xetra)
-      'GY': ':FWB',      // Germany Frankfurt (alternative)
+      'GR': ':XETR',     // Germany Xetra
+      'GY': ':XETR',     // Germany Xetra (alternative)
       'CN': ':TSX',      // Canada Toronto Stock Exchange
       'CT': ':TSX',      // Canada Toronto Venture Exchange
       'DC': ':XCSE',     // Denmark Copenhagen Stock Exchange
@@ -59,7 +59,7 @@ class TwelveDataWebSocketService {
       'MK': ':KLSE',     // Malaysia Kuala Lumpur Stock Exchange
       'SP': ':SGX',      // Singapore Stock Exchange
       'TT': ':TWSE',     // Taiwan Stock Exchange
-      'NA': ':AMS',      // Netherlands/Amsterdam
+      'NA': ':XAMS',     // Netherlands/Amsterdam Euronext
     };
     
     // Clean the symbol and convert to uppercase
