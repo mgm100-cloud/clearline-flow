@@ -68,6 +68,7 @@ const QuoteService = {
     'CT': ':TSX',     // Canada Toronto Venture Exchange
     'JP': ':JPX',      // Japan Tokyo Stock Exchange
     'JT': ':JPX',      // Japan Tokyo Stock Exchange (alternative)
+    'DC': ':XCSE',     // Denmark Copenhagen Stock Exchange
     'HK': ':HKG',      // Hong Kong Stock Exchange
     'AU': ':ASX',      // Australia ASX
     'FP': ':EURONEXT',      // France Euronext Paris

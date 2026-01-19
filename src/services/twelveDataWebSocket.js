@@ -41,6 +41,7 @@ class TwelveDataWebSocketService {
       'CT': ':TSX',      // Canada Toronto Venture Exchange
       'JP': ':JPX',      // Japan Tokyo Stock Exchange
       'JT': ':JPX',      // Japan Tokyo Stock Exchange (alternative)
+      'DC': ':XCSE',     // Denmark Copenhagen Stock Exchange
       'HK': ':HKEX',     // Hong Kong Stock Exchange (HKEX for WebSocket)
       'AU': ':ASX',      // Australia ASX
       'FP': ':EPA',      // France Euronext Paris (EPA for WebSocket)
