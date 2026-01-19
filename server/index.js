@@ -57,6 +57,10 @@ const FMP_POLL_INTERVAL = 60000; // Poll FMP every 60 seconds
 // Key: converted symbol (e.g., "AAPL" or "BT.A:LSE"), Value: { price, timestamp, source }
 const priceCache = new Map();
 
+// Error tracking - stores error messages for symbols that failed to get prices
+// Key: symbol, Value: { error, timestamp, source }
+const symbolErrors = new Map();
+
 // Heartbeat interval
 let heartbeatInterval = null;
 let lastActivity = Date.now();
@@ -270,6 +274,22 @@ function handleTwelveDataMessage(data) {
   if (data.event === 'subscribe-status') {
     console.log(`📊 Subscription status: ${data.success?.length || 0} success, ${data.fails?.length || 0} fails`);
     
+    // Track failed subscriptions with error details
+    if (data.fails && data.fails.length > 0) {
+      data.fails.forEach(fail => {
+        const symbol = typeof fail === 'string' ? fail : fail.symbol;
+        const errorMsg = typeof fail === 'object' ? (fail.msg || fail.message || fail.error || JSON.stringify(fail)) : 'Subscription failed';
+        if (symbol) {
+          symbolErrors.set(symbol, {
+            error: errorMsg,
+            timestamp: Date.now(),
+            source: 'twelvedata-subscription'
+          });
+          console.log(`❌ Subscription failed for ${symbol}: ${errorMsg}`);
+        }
+      });
+    }
+    
     // Broadcast subscription status to all clients
     broadcastToClients({
       type: 'subscription-status',
@@ -405,38 +425,28 @@ function sendCachedPricesToClient(ws, symbols) {
     console.log(`📤 Sent ${sentCount} cached prices to client (${missingSymbols.length} symbols without cache)`);
   }
   
-  // Log missing symbols with detailed diagnostics
+  // Log missing symbols with actual error messages
   if (missingSymbols.length > 0) {
     // Build detailed log as a single string to avoid Railway log truncation
     const logLines = [];
     logLines.push(`⚠️ ${missingSymbols.length} symbols without cached prices:`);
-    logLines.push(`📊 Diagnostic: TwelveData subscribed=${subscribedSymbols.size}, FMP=${fmpSymbols.size}, Cache=${priceCache.size}`);
+    logLines.push(`📊 Stats: Cache=${priceCache.size}, Errors tracked=${symbolErrors.size}`);
     
-    // Log first 50 with detailed status
+    // Log first 50 with actual error messages
     const toLog = missingSymbols.slice(0, 50);
     for (let i = 0; i < toLog.length; i++) {
       const m = toLog[i];
       try {
-        const isSubscribedToTD = m.converted ? subscribedSymbols.has(m.converted) : false;
-        const isInFMPList = m.isFMP ? fmpSymbols.has(m.original) : false;
-        const isServerManaged = m.converted ? serverManagedTwelveDataSymbols.has(m.converted) : false;
+        // Check for stored error message
+        const symbolToCheck = m.converted || m.original;
+        const errorInfo = symbolErrors.get(symbolToCheck) || symbolErrors.get(m.original);
         
-        let status = '';
-        if (m.isFMP) {
-          status = isInFMPList ? 'FMP-polling' : 'FMP-NOT-in-list';
-        } else if (m.converted) {
-          if (isSubscribedToTD) {
-            status = 'TD-subscribed-waiting';
-          } else if (isServerManaged) {
-            status = 'TD-server-managed-not-subscribed';
-          } else {
-            status = 'TD-NOT-subscribed';
-          }
-        } else {
-          status = 'unknown-format';
+        let errorMsg = 'No error recorded - price not yet received';
+        if (errorInfo) {
+          errorMsg = `[${errorInfo.source}] ${errorInfo.error}`;
         }
         
-        logLines.push(`  ${i+1}. ${m.original} -> ${m.converted || 'null'} [${status}]`);
+        logLines.push(`  ${i+1}. ${m.original} -> ${m.converted || 'null'}: ${errorMsg}`);
       } catch (err) {
         logLines.push(`  ${i+1}. ERROR logging ${m.original}: ${err.message}`);
       }
@@ -445,12 +455,6 @@ function sendCachedPricesToClient(ws, symbols) {
     if (missingSymbols.length > 50) {
       logLines.push(`  ... and ${missingSymbols.length - 50} more`);
     }
-    
-    // Summary counts
-    const fmpMissing = missingSymbols.filter(m => m.isFMP).length;
-    const tdMissing = missingSymbols.filter(m => !m.isFMP && m.converted).length;
-    const unknownMissing = missingSymbols.filter(m => !m.isFMP && !m.converted).length;
-    logLines.push(`📊 Breakdown: ${tdMissing} TwelveData, ${fmpMissing} FMP, ${unknownMissing} unknown`);
     
     // Output all at once
     console.log(logLines.join('\n'));
@@ -1069,12 +1073,20 @@ async function fetchInitialPrices() {
             dayVolume: data.volume ? parseInt(data.volume) : null,
             exchange: data.exchange
           });
+          // Clear any previous error for this symbol
+          symbolErrors.delete(symbol);
           successCount++;
         } else {
           errorCount++;
           // Track the failure with details
           const errorMsg = data?.code ? `${data.code}: ${data.message || 'Unknown error'}` : 'No price data';
           failedSymbols.push({ symbol, error: errorMsg });
+          // Store in symbolErrors map for later reference
+          symbolErrors.set(symbol, {
+            error: errorMsg,
+            timestamp: Date.now(),
+            source: 'twelvedata-rest'
+          });
         }
       });
       
@@ -1087,7 +1099,13 @@ async function fetchInitialPrices() {
       console.error(`❌ Error fetching batch ${Math.floor(i/batchSize) + 1}:`, error.message);
       // Track all symbols in failed batch
       batch.forEach(symbol => {
-        failedSymbols.push({ symbol, error: `Batch error: ${error.message}` });
+        const errorMsg = `Batch error: ${error.message}`;
+        failedSymbols.push({ symbol, error: errorMsg });
+        symbolErrors.set(symbol, {
+          error: errorMsg,
+          timestamp: Date.now(),
+          source: 'twelvedata-rest-batch'
+        });
       });
       errorCount += batch.length;
     }
