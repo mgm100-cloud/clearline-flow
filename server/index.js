@@ -407,42 +407,53 @@ function sendCachedPricesToClient(ws, symbols) {
   
   // Log missing symbols with detailed diagnostics
   if (missingSymbols.length > 0) {
-    console.log(`⚠️ ${missingSymbols.length} symbols without cached prices:`);
-    console.log(`📊 Diagnostic info: TwelveData subscribed: ${subscribedSymbols.size}, FMP symbols: ${fmpSymbols.size}, Price cache: ${priceCache.size}`);
+    // Build detailed log as a single string to avoid Railway log truncation
+    const logLines = [];
+    logLines.push(`⚠️ ${missingSymbols.length} symbols without cached prices:`);
+    logLines.push(`📊 Diagnostic: TwelveData subscribed=${subscribedSymbols.size}, FMP=${fmpSymbols.size}, Cache=${priceCache.size}`);
     
-    // Log first 30 with detailed status
-    missingSymbols.slice(0, 30).forEach(m => {
-      const isSubscribedToTD = m.converted ? subscribedSymbols.has(m.converted) : false;
-      const isInFMPList = m.isFMP ? fmpSymbols.has(m.original) : false;
-      const isServerManaged = m.converted ? serverManagedTwelveDataSymbols.has(m.converted) : false;
-      
-      let status = '';
-      if (m.isFMP) {
-        status = isInFMPList ? '🔄 FMP polling active' : '❌ NOT in FMP poll list';
-      } else if (m.converted) {
-        if (isSubscribedToTD) {
-          status = '📡 Subscribed to TwelveData (waiting for price)';
-        } else if (isServerManaged) {
-          status = '📋 Server-managed but NOT subscribed';
+    // Log first 50 with detailed status
+    const toLog = missingSymbols.slice(0, 50);
+    for (let i = 0; i < toLog.length; i++) {
+      const m = toLog[i];
+      try {
+        const isSubscribedToTD = m.converted ? subscribedSymbols.has(m.converted) : false;
+        const isInFMPList = m.isFMP ? fmpSymbols.has(m.original) : false;
+        const isServerManaged = m.converted ? serverManagedTwelveDataSymbols.has(m.converted) : false;
+        
+        let status = '';
+        if (m.isFMP) {
+          status = isInFMPList ? 'FMP-polling' : 'FMP-NOT-in-list';
+        } else if (m.converted) {
+          if (isSubscribedToTD) {
+            status = 'TD-subscribed-waiting';
+          } else if (isServerManaged) {
+            status = 'TD-server-managed-not-subscribed';
+          } else {
+            status = 'TD-NOT-subscribed';
+          }
         } else {
-          status = '❌ NOT subscribed to TwelveData';
+          status = 'unknown-format';
         }
-      } else {
-        status = '❓ Unknown symbol format';
+        
+        logLines.push(`  ${i+1}. ${m.original} -> ${m.converted || 'null'} [${status}]`);
+      } catch (err) {
+        logLines.push(`  ${i+1}. ERROR logging ${m.original}: ${err.message}`);
       }
-      
-      console.log(`   - ${m.original} → ${m.converted || 'null'} | ${status}`);
-    });
+    }
     
-    if (missingSymbols.length > 30) {
-      console.log(`   ... and ${missingSymbols.length - 30} more`);
+    if (missingSymbols.length > 50) {
+      logLines.push(`  ... and ${missingSymbols.length - 50} more`);
     }
     
     // Summary counts
     const fmpMissing = missingSymbols.filter(m => m.isFMP).length;
     const tdMissing = missingSymbols.filter(m => !m.isFMP && m.converted).length;
     const unknownMissing = missingSymbols.filter(m => !m.isFMP && !m.converted).length;
-    console.log(`📊 Missing breakdown: ${tdMissing} TwelveData, ${fmpMissing} FMP, ${unknownMissing} unknown`);
+    logLines.push(`📊 Breakdown: ${tdMissing} TwelveData, ${fmpMissing} FMP, ${unknownMissing} unknown`);
+    
+    // Output all at once
+    console.log(logLines.join('\n'));
   }
 }
 
