@@ -2139,6 +2139,8 @@ const ClearlineFlow = () => {
         
         if (convertedSymbol === priceData.symbol || tickerSymbol === priceData.symbol) {
           originalSymbolForQuotes = tickerSymbol;
+          // Track that we received a price for this symbol
+          receivedPricesRef.current.add(tickerSymbol);
           break;
         }
       }
@@ -2197,6 +2199,8 @@ const ClearlineFlow = () => {
         // Reset subscription status when disconnected
         setWsFailedSymbols([]);
         setWsSuccessCount(0);
+        // Clear received prices tracking so we request them again on reconnect
+        receivedPricesRef.current.clear();
       }
     };
     
@@ -2237,6 +2241,9 @@ const ClearlineFlow = () => {
   // Track subscribed symbols to avoid unnecessary resubscription
   const subscribedSymbolsRef = useRef(new Set());
   const lastWsConnectedRef = useRef(false);
+  
+  // Track which symbols have received prices in this session (for retry logic)
+  const receivedPricesRef = useRef(new Set());
   
   // Subscribe to tickers when they change or WebSocket reconnects
   useEffect(() => {
@@ -2280,17 +2287,20 @@ const ClearlineFlow = () => {
     if (!isAuthenticated || !wsConnected || tickers.length === 0) return;
     
     const checkMissingPrices = () => {
-      // Find tickers that don't have a current price
-      const tickersWithoutPrice = tickers.filter(t => 
-        t.ticker && 
-        t.currentPrice === null || 
-        t.currentPrice === undefined
-      );
+      // Find tickers that haven't received a price in this session
+      const tickersWithoutPrice = tickers.filter(t => {
+        if (!t.ticker) return false;
+        const symbol = t.ticker.replace(' US', '');
+        // Check if we've received a price for this symbol
+        return !receivedPricesRef.current.has(symbol);
+      });
       
       if (tickersWithoutPrice.length > 0) {
         const symbols = tickersWithoutPrice.map(t => t.ticker.replace(' US', ''));
-        console.log(`🔄 Requesting cached prices for ${symbols.length} tickers without prices`);
+        console.log(`🔄 Requesting cached prices for ${symbols.length} tickers without prices (${receivedPricesRef.current.size} already received)`);
         twelveDataWS.requestCachedPrices(symbols);
+      } else {
+        console.log(`✅ All ${tickers.length} tickers have received prices`);
       }
     };
     
