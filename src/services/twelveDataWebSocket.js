@@ -43,6 +43,18 @@ class TwelveDataWebSocketService {
   convertBloombergToTwelveData(symbol) {
     if (!symbol || typeof symbol !== 'string') return symbol;
     
+    // Special US ticker mappings where TwelveData uses different symbols
+    const usTwelveDataSymbolMap = {
+      'ACHVW': 'ACHVWXX',
+      'TICAW': 'TICAWX',
+    };
+    
+    // Check for special US ticker mappings first
+    const baseSymbol = symbol.trim().toUpperCase().split(' ')[0];
+    if (usTwelveDataSymbolMap[baseSymbol]) {
+      return usTwelveDataSymbolMap[baseSymbol];
+    }
+    
     // These exchanges are handled via FMP API, not TwelveData - return null to skip
     // Japan (JP, JT), Hong Kong (HK), Italy (IM, HM, TE), UK (LN), Denmark (DC)
     const fmpExchanges = ['JP', 'JT', 'HK', 'IM', 'HM', 'TE', 'LN', 'DC'];

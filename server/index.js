@@ -50,12 +50,26 @@ const bloombergToTwelveDataMap = {
 // FMP-handled exchanges (skip for TwelveData)
 const fmpExchanges = ['JP', 'JT', 'HK', 'IM', 'HM', 'TE', 'LN', 'DC'];
 
+// Special US ticker mappings where TwelveData uses different symbols
+const usTwelveDataSymbolMap = {
+  'ACHVW': 'ACHVWXX',
+  'TICAW': 'TICAWX',
+};
+
 // Convert Bloomberg format to TwelveData format
 function convertBloombergToTwelveData(symbol) {
   if (!symbol || typeof symbol !== 'string') return { converted: symbol, original: symbol };
   
   let cleanSymbol = symbol.trim().toUpperCase();
   cleanSymbol = cleanSymbol.replace(/\//g, '.');
+  
+  // Check for special US ticker mappings first
+  const baseSymbol = cleanSymbol.split(' ')[0];
+  if (usTwelveDataSymbolMap[baseSymbol]) {
+    const mappedSymbol = usTwelveDataSymbolMap[baseSymbol];
+    console.log(`🔄 Mapping US ticker: ${baseSymbol} → ${mappedSymbol}`);
+    return { converted: mappedSymbol, original: symbol };
+  }
   
   const parts = cleanSymbol.split(' ');
   
