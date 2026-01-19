@@ -106,10 +106,12 @@ console.log('🚀 Starting WebSocket server...');
 function connectToTwelveData() {
   if (!TWELVE_DATA_API_KEY) {
     console.error('❌ TWELVE_DATA_API_KEY environment variable not set');
+    console.log('⚠️ Server will run without TwelveData connection - clients can still connect');
     return;
   }
 
   console.log('🔌 Connecting to TwelveData WebSocket...');
+  console.log(`📝 API Key length: ${TWELVE_DATA_API_KEY.length} chars, starts with: ${TWELVE_DATA_API_KEY.substring(0, 4)}...`);
   
   try {
     twelveDataWS = new WebSocket(`${TWELVE_DATA_WS_URL}?apikey=${TWELVE_DATA_API_KEY}`);
@@ -152,7 +154,7 @@ function connectToTwelveData() {
     });
     
     twelveDataWS.on('close', (code, reason) => {
-      console.log(`🔌 TwelveData WebSocket closed: ${code} ${reason}`);
+      console.log(`🔌 TwelveData WebSocket closed: ${code} ${reason || '(no reason)'}`);
       isConnected = false;
       stopHeartbeat();
       
@@ -162,8 +164,12 @@ function connectToTwelveData() {
         connected: false
       });
       
-      // Attempt reconnection
-      attemptReconnect();
+      // Only attempt reconnection if we have clients or symbols to subscribe
+      if (clients.size > 0 || subscribedSymbols.size > 0) {
+        attemptReconnect();
+      } else {
+        console.log('📋 No clients connected, will reconnect when needed');
+      }
     });
   } catch (error) {
     console.error('❌ Error creating TwelveData WebSocket:', error);
@@ -378,6 +384,12 @@ wss.on('connection', (ws, req) => {
   // Initialize client's subscription set
   clients.set(ws, new Set());
   
+  // Connect to TwelveData if this is the first client and we're not already connected
+  if (!twelveDataWS || twelveDataWS.readyState !== WebSocket.OPEN) {
+    console.log('🔌 First client connected, connecting to TwelveData...');
+    connectToTwelveData();
+  }
+  
   // Send initial connection status
   ws.send(JSON.stringify({
     type: 'connection',
@@ -496,9 +508,11 @@ function handleClientMessage(ws, message) {
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 WebSocket server running on port ${PORT}`);
   console.log(`📡 Health check available at http://0.0.0.0:${PORT}/health`);
+  console.log(`🔑 TWELVE_DATA_API_KEY is ${TWELVE_DATA_API_KEY ? 'SET' : 'NOT SET'}`);
   
-  // Connect to TwelveData
-  connectToTwelveData();
+  // Don't connect to TwelveData immediately - wait for clients
+  // This prevents unnecessary reconnection loops when no one is using the service
+  console.log('⏳ Waiting for clients before connecting to TwelveData...');
 });
 
 // Graceful shutdown
