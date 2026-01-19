@@ -472,7 +472,10 @@ function convertToFMPSymbol(symbol) {
   
   if (parts.length !== 2) return null;
   
-  const [ticker, exchange] = parts;
+  let [ticker, exchange] = parts;
+  
+  // Replace slashes with dashes for FMP format (e.g., BT/A -> BT-A)
+  ticker = ticker.replace(/\//g, '-');
   
   // Map Bloomberg exchange codes to FMP exchange suffixes
   const fmpExchangeMap = {

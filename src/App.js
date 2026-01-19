@@ -190,7 +190,10 @@ const QuoteService = {
   getFMPFormat(symbol) {
     if (!symbol) return null;
     const upperSymbol = symbol.toUpperCase();
-    const tickerCode = symbol.split(' ')[0];
+    let tickerCode = symbol.split(' ')[0];
+    
+    // Replace slashes with dashes for FMP format (e.g., BT/A -> BT-A)
+    tickerCode = tickerCode.replace(/\//g, '-');
     
     // Map Bloomberg suffix to FMP format
     if (upperSymbol.includes(' JP') || upperSymbol.includes(' JT')) {
