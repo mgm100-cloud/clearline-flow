@@ -173,8 +173,13 @@ class TwelveDataWebSocketService {
 
   // Handle incoming messages
   handleMessage(data) {
-    // Log all incoming messages for debugging
-    console.log('📨 WebSocket message received:', data);
+    // Track last activity for connection health monitoring
+    this.lastHeartbeat = Date.now();
+    
+    // Log all incoming messages for debugging (except heartbeat responses to reduce noise)
+    if (data.event !== 'heartbeat') {
+      console.log('📨 WebSocket message received:', data);
+    }
     
     // Handle different message types
     if (data.event === 'subscribe-status') {
@@ -351,19 +356,27 @@ class TwelveDataWebSocketService {
   }
 
   // Start heartbeat to keep connection alive
+  // TwelveData recommends sending heartbeat every 10 seconds
   startHeartbeat() {
     this.stopHeartbeat();
+    this.lastHeartbeat = Date.now();
+    
     this.heartbeatInterval = setInterval(() => {
       if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-        // TwelveData doesn't require explicit ping, but we check connection health
+        // Send heartbeat message to keep connection alive
+        const heartbeatMessage = { action: 'heartbeat' };
+        this.ws.send(JSON.stringify(heartbeatMessage));
+        console.log('💓 Sent heartbeat');
+        
+        // Check if we've received any data recently (including our own heartbeat response)
         const now = Date.now();
         if (this.lastHeartbeat && (now - this.lastHeartbeat) > 60000) {
-          // No heartbeat in 60 seconds, connection might be stale
-          console.warn('⚠️ No heartbeat received in 60 seconds, reconnecting...');
+          // No activity in 60 seconds, connection might be stale
+          console.warn('⚠️ No activity in 60 seconds, reconnecting...');
           this.ws.close();
         }
       }
-    }, 30000); // Check every 30 seconds
+    }, 10000); // Send heartbeat every 10 seconds as recommended by TwelveData
   }
 
   // Stop heartbeat
