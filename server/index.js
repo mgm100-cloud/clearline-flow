@@ -274,18 +274,20 @@ function handleTwelveDataMessage(data) {
   if (data.event === 'subscribe-status') {
     console.log(`📊 Subscription status: ${data.success?.length || 0} success, ${data.fails?.length || 0} fails`);
     
-    // Track failed subscriptions with error details
+    // Track failed subscriptions with error details - capture FULL response
     if (data.fails && data.fails.length > 0) {
+      console.log(`❌ TwelveData subscription failures:`);
       data.fails.forEach(fail => {
         const symbol = typeof fail === 'string' ? fail : fail.symbol;
-        const errorMsg = typeof fail === 'object' ? (fail.msg || fail.message || fail.error || JSON.stringify(fail)) : 'Subscription failed';
+        // Capture the FULL failure object so we see exactly what TwelveData returned
+        const errorMsg = typeof fail === 'object' ? JSON.stringify(fail) : 'Subscription failed (no details)';
         if (symbol) {
           symbolErrors.set(symbol, {
             error: errorMsg,
             timestamp: Date.now(),
-            source: 'twelvedata-subscription'
+            source: 'twelvedata-ws'
           });
-          console.log(`❌ Subscription failed for ${symbol}: ${errorMsg}`);
+          console.log(`   - ${symbol}: ${errorMsg}`);
         }
       });
     }
@@ -1078,8 +1080,14 @@ async function fetchInitialPrices() {
           successCount++;
         } else {
           errorCount++;
-          // Track the failure with details
-          const errorMsg = data?.code ? `${data.code}: ${data.message || 'Unknown error'}` : 'No price data';
+          // Capture the FULL TwelveData response as the error message
+          let errorMsg;
+          if (data) {
+            // Include the entire response so we can see exactly what TwelveData returned
+            errorMsg = JSON.stringify(data);
+          } else {
+            errorMsg = 'No response data';
+          }
           failedSymbols.push({ symbol, error: errorMsg });
           // Store in symbolErrors map for later reference
           symbolErrors.set(symbol, {
