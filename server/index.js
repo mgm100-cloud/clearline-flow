@@ -1,10 +1,12 @@
 // Backend WebSocket Server for TwelveData Price Streaming + FMP Polling
 // This server maintains a single connection to TwelveData and serves multiple clients
 // Also polls FMP for exchanges not supported by TwelveData WebSocket
+// Syncs ticker list from Supabase database periodically
 
 const WebSocket = require('ws');
 const http = require('http');
 const https = require('https');
+const { createClient } = require('@supabase/supabase-js');
 
 // Configuration
 const PORT = process.env.PORT || 3001;
@@ -12,6 +14,20 @@ const TWELVE_DATA_WS_URL = 'wss://ws.twelvedata.com/v1/quotes/price';
 const TWELVE_DATA_API_KEY = process.env.TWELVE_DATA_API_KEY;
 const FMP_API_KEY = process.env.FMP_API_KEY;
 const FMP_BASE_URL = 'https://financialmodelingprep.com/api/v3';
+
+// Supabase configuration
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+const TICKER_SYNC_INTERVAL = 5 * 60 * 1000; // Sync tickers every 5 minutes
+
+// Initialize Supabase client
+let supabase = null;
+if (SUPABASE_URL && SUPABASE_SERVICE_KEY) {
+  supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+  console.log('✅ Supabase client initialized');
+} else {
+  console.log('⚠️ Supabase not configured - will rely on client subscriptions');
+}
 
 // Server state
 let twelveDataWS = null;
@@ -117,6 +133,9 @@ const server = http.createServer((req, res) => {
       twelveDataSymbols: subscribedSymbols.size,
       fmpSymbols: fmpSymbols.size,
       fmpPollingActive: !!fmpPollingInterval,
+      supabaseConnected: !!supabase,
+      serverManagedSymbols: serverManagedSymbols.size,
+      tickerSyncActive: !!tickerSyncInterval,
       uptime: process.uptime()
     }));
   } else {
@@ -614,6 +633,162 @@ function updateFMPSubscriptions() {
 
 // ==================== END FMP POLLING ====================
 
+// ==================== SUPABASE TICKER SYNC ====================
+
+let tickerSyncInterval = null;
+let serverManagedSymbols = new Set(); // Symbols loaded from database
+
+// Fetch all tickers from Supabase and update subscriptions
+async function syncTickersFromDatabase() {
+  if (!supabase) {
+    return;
+  }
+  
+  console.log('🔄 Syncing tickers from database...');
+  
+  try {
+    // Fetch all tickers from the database
+    const { data: tickers, error } = await supabase
+      .from('tickers')
+      .select('ticker, status')
+      .not('ticker', 'is', null);
+    
+    if (error) {
+      console.error('❌ Error fetching tickers from Supabase:', error.message);
+      return;
+    }
+    
+    if (!tickers || tickers.length === 0) {
+      console.log('📋 No tickers found in database');
+      return;
+    }
+    
+    console.log(`📊 Found ${tickers.length} tickers in database`);
+    
+    // Get unique symbols
+    const newSymbols = new Set();
+    tickers.forEach(t => {
+      if (t.ticker) {
+        // Remove ' US' suffix for consistency
+        const symbol = t.ticker.replace(' US', '');
+        newSymbols.add(symbol);
+      }
+    });
+    
+    // Find symbols to add and remove
+    const symbolsToAdd = [];
+    const symbolsToRemove = [];
+    
+    newSymbols.forEach(symbol => {
+      if (!serverManagedSymbols.has(symbol)) {
+        symbolsToAdd.push(symbol);
+      }
+    });
+    
+    serverManagedSymbols.forEach(symbol => {
+      if (!newSymbols.has(symbol)) {
+        symbolsToRemove.push(symbol);
+      }
+    });
+    
+    // Update server managed symbols
+    serverManagedSymbols = newSymbols;
+    
+    if (symbolsToAdd.length === 0 && symbolsToRemove.length === 0) {
+      console.log('✅ No ticker changes detected');
+      return;
+    }
+    
+    console.log(`📊 Ticker changes: +${symbolsToAdd.length} new, -${symbolsToRemove.length} removed`);
+    
+    // Subscribe to new symbols
+    if (symbolsToAdd.length > 0) {
+      // Route symbols to TwelveData or FMP
+      const twelveDataSymbols = [];
+      const fmpSymbolsList = [];
+      
+      symbolsToAdd.forEach(symbol => {
+        const { converted, isFMP } = convertBloombergToTwelveData(symbol);
+        
+        if (isFMP) {
+          fmpSymbolsList.push(symbol);
+          fmpSymbols.add(symbol);
+        } else if (converted) {
+          twelveDataSymbols.push(converted);
+          subscribedSymbols.add(converted);
+        }
+      });
+      
+      if (twelveDataSymbols.length > 0) {
+        console.log(`📈 Adding ${twelveDataSymbols.length} symbols to TwelveData`);
+        await subscribeToTwelveDataWithDelay(twelveDataSymbols);
+      }
+      
+      if (fmpSymbolsList.length > 0) {
+        console.log(`📈 Adding ${fmpSymbolsList.length} symbols to FMP polling`);
+        if (!fmpPollingInterval) {
+          startFMPPolling();
+        }
+      }
+    }
+    
+    // Unsubscribe from removed symbols
+    if (symbolsToRemove.length > 0) {
+      const twelveDataToRemove = [];
+      
+      symbolsToRemove.forEach(symbol => {
+        const { converted, isFMP } = convertBloombergToTwelveData(symbol);
+        
+        if (isFMP) {
+          fmpSymbols.delete(symbol);
+        } else if (converted) {
+          twelveDataToRemove.push(converted);
+          subscribedSymbols.delete(converted);
+        }
+      });
+      
+      if (twelveDataToRemove.length > 0) {
+        unsubscribeFromTwelveData(twelveDataToRemove);
+      }
+    }
+    
+    console.log(`✅ Sync complete: ${subscribedSymbols.size} TwelveData, ${fmpSymbols.size} FMP`);
+    
+  } catch (error) {
+    console.error('❌ Error syncing tickers:', error);
+  }
+}
+
+// Start periodic ticker sync
+function startTickerSync() {
+  if (!supabase) {
+    console.log('⚠️ Supabase not configured, skipping ticker sync');
+    return;
+  }
+  
+  if (tickerSyncInterval) return;
+  
+  console.log(`🔄 Starting ticker sync (every ${TICKER_SYNC_INTERVAL / 1000 / 60} minutes)`);
+  
+  // Sync immediately
+  syncTickersFromDatabase();
+  
+  // Then sync periodically
+  tickerSyncInterval = setInterval(() => {
+    syncTickersFromDatabase();
+  }, TICKER_SYNC_INTERVAL);
+}
+
+// Stop ticker sync
+function stopTickerSync() {
+  if (tickerSyncInterval) {
+    clearInterval(tickerSyncInterval);
+    tickerSyncInterval = null;
+  }
+}
+
+// ==================== END SUPABASE TICKER SYNC ====================
+
 // Start heartbeat to keep TwelveData connection alive
 function startHeartbeat() {
   stopHeartbeat();
@@ -854,10 +1029,21 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`📡 Health check available at http://0.0.0.0:${PORT}/health`);
   console.log(`🔑 TWELVE_DATA_API_KEY is ${TWELVE_DATA_API_KEY ? 'SET' : 'NOT SET'}`);
   console.log(`🔑 FMP_API_KEY is ${FMP_API_KEY ? 'SET' : 'NOT SET'}`);
+  console.log(`🔑 SUPABASE is ${supabase ? 'CONFIGURED' : 'NOT CONFIGURED'}`);
   
-  // Don't connect to TwelveData immediately - wait for clients
-  // This prevents unnecessary reconnection loops when no one is using the service
-  console.log('⏳ Waiting for clients before connecting to TwelveData...');
+  // If Supabase is configured, start syncing tickers from database
+  if (supabase) {
+    console.log('🔄 Starting database ticker sync...');
+    startTickerSync();
+    
+    // Connect to TwelveData immediately since we'll have symbols from database
+    console.log('🔌 Connecting to TwelveData for database-synced symbols...');
+    connectToTwelveData();
+  } else {
+    // Without Supabase, wait for clients to provide symbols
+    console.log('⏳ Waiting for clients before connecting to TwelveData...');
+  }
+  
   console.log('📈 FMP polling will start when FMP symbols are subscribed');
 });
 
@@ -867,6 +1053,7 @@ process.on('SIGINT', () => {
   
   stopHeartbeat();
   stopFMPPolling();
+  stopTickerSync();
   
   if (twelveDataWS) {
     twelveDataWS.close();
@@ -885,5 +1072,6 @@ process.on('SIGINT', () => {
 process.on('SIGTERM', () => {
   console.log('\n🛑 SIGTERM received, shutting down...');
   stopFMPPolling();
+  stopTickerSync();
   process.exit(0);
 });
