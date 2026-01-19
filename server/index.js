@@ -1,13 +1,17 @@
-// Backend WebSocket Server for TwelveData Price Streaming
+// Backend WebSocket Server for TwelveData Price Streaming + FMP Polling
 // This server maintains a single connection to TwelveData and serves multiple clients
+// Also polls FMP for exchanges not supported by TwelveData WebSocket
 
 const WebSocket = require('ws');
 const http = require('http');
+const https = require('https');
 
 // Configuration
 const PORT = process.env.PORT || 3001;
 const TWELVE_DATA_WS_URL = 'wss://ws.twelvedata.com/v1/quotes/price';
 const TWELVE_DATA_API_KEY = process.env.TWELVE_DATA_API_KEY;
+const FMP_API_KEY = process.env.FMP_API_KEY;
+const FMP_BASE_URL = 'https://financialmodelingprep.com/api/v3';
 
 // Server state
 let twelveDataWS = null;
@@ -22,6 +26,12 @@ let reconnectTimeout = null; // Track reconnection timeout
 const clients = new Map(); // client WebSocket -> Set of symbols
 const symbolSubscribers = new Map(); // symbol -> Set of client WebSockets
 const subscribedSymbols = new Set(); // All symbols currently subscribed to TwelveData
+
+// FMP symbols (exchanges not supported by TwelveData WebSocket)
+const fmpSymbols = new Set(); // Symbols to poll via FMP
+const fmpSymbolSubscribers = new Map(); // FMP symbol -> Set of client WebSockets
+let fmpPollingInterval = null;
+const FMP_POLL_INTERVAL = 60000; // Poll FMP every 60 seconds
 
 // Heartbeat interval
 let heartbeatInterval = null;
@@ -104,7 +114,9 @@ const server = http.createServer((req, res) => {
       status: 'ok',
       twelveDataConnected: isConnected,
       clientCount: clients.size,
-      subscribedSymbols: subscribedSymbols.size,
+      twelveDataSymbols: subscribedSymbols.size,
+      fmpSymbols: fmpSymbols.size,
+      fmpPollingActive: !!fmpPollingInterval,
       uptime: process.uptime()
     }));
   } else {
@@ -384,10 +396,12 @@ function unsubscribeFromTwelveData(symbols) {
 
 // Update subscriptions based on all clients' needs
 function updateAggregatedSubscriptions() {
-  // Collect all symbols needed by all clients
+  // Collect all TwelveData symbols from symbolSubscribers (these are the actual subscribed symbols)
   const neededSymbols = new Set();
-  clients.forEach((symbols) => {
-    symbols.forEach((symbol) => neededSymbols.add(symbol));
+  symbolSubscribers.forEach((subscribers, symbol) => {
+    if (subscribers.size > 0) {
+      neededSymbols.add(symbol);
+    }
   });
   
   // Find symbols to add and remove
@@ -417,6 +431,188 @@ function updateAggregatedSubscriptions() {
     unsubscribeFromTwelveData(symbolsToRemove);
   }
 }
+
+// ==================== FMP POLLING ====================
+
+// Convert Bloomberg symbol to FMP format
+function convertToFMPSymbol(symbol) {
+  if (!symbol || typeof symbol !== 'string') return null;
+  
+  const cleanSymbol = symbol.trim().toUpperCase();
+  const parts = cleanSymbol.split(' ');
+  
+  if (parts.length !== 2) return null;
+  
+  const [ticker, exchange] = parts;
+  
+  // Map Bloomberg exchange codes to FMP exchange suffixes
+  const fmpExchangeMap = {
+    'JP': '.T',    // Tokyo Stock Exchange
+    'JT': '.T',    // Tokyo Stock Exchange (alternative)
+    'HK': '.HK',   // Hong Kong Stock Exchange
+    'LN': '.L',    // London Stock Exchange
+    'IM': '.MI',   // Milan Stock Exchange (Italy)
+    'HM': '.MI',   // Milan Stock Exchange (alternative)
+    'TE': '.MI',   // Milan Stock Exchange (alternative)
+    'DC': '.CO',   // Copenhagen Stock Exchange (Denmark)
+  };
+  
+  const fmpSuffix = fmpExchangeMap[exchange];
+  if (!fmpSuffix) return null;
+  
+  return ticker + fmpSuffix;
+}
+
+// Fetch quotes from FMP for a batch of symbols
+async function fetchFMPQuotes(symbols) {
+  if (!FMP_API_KEY || symbols.length === 0) return [];
+  
+  // Convert to FMP format
+  const fmpSymbolMap = new Map(); // FMP symbol -> original symbol
+  symbols.forEach(originalSymbol => {
+    const fmpSymbol = convertToFMPSymbol(originalSymbol);
+    if (fmpSymbol) {
+      fmpSymbolMap.set(fmpSymbol, originalSymbol);
+    }
+  });
+  
+  if (fmpSymbolMap.size === 0) return [];
+  
+  const fmpSymbolList = Array.from(fmpSymbolMap.keys()).join(',');
+  const url = `${FMP_BASE_URL}/quote/${fmpSymbolList}?apikey=${FMP_API_KEY}`;
+  
+  return new Promise((resolve) => {
+    https.get(url, (res) => {
+      let data = '';
+      
+      res.on('data', chunk => { data += chunk; });
+      
+      res.on('end', () => {
+        try {
+          const quotes = JSON.parse(data);
+          if (!Array.isArray(quotes)) {
+            console.error('❌ FMP returned non-array:', quotes);
+            resolve([]);
+            return;
+          }
+          
+          // Map back to original symbols and format as price updates
+          const priceUpdates = quotes.map(quote => {
+            const originalSymbol = fmpSymbolMap.get(quote.symbol);
+            if (!originalSymbol || quote.price === undefined) return null;
+            
+            return {
+              type: 'price',
+              symbol: originalSymbol, // Use original Bloomberg format
+              price: parseFloat(quote.price),
+              timestamp: quote.timestamp || Date.now(),
+              dayVolume: quote.volume ? parseInt(quote.volume) : null,
+              exchange: quote.exchange || 'FMP',
+              source: 'FMP'
+            };
+          }).filter(Boolean);
+          
+          resolve(priceUpdates);
+        } catch (error) {
+          console.error('❌ Error parsing FMP response:', error);
+          resolve([]);
+        }
+      });
+    }).on('error', (error) => {
+      console.error('❌ FMP request error:', error.message);
+      resolve([]);
+    });
+  });
+}
+
+// Poll FMP for all subscribed FMP symbols
+async function pollFMPQuotes() {
+  if (fmpSymbols.size === 0) return;
+  
+  console.log(`📈 Polling FMP for ${fmpSymbols.size} symbols...`);
+  
+  const symbols = Array.from(fmpSymbols);
+  
+  // FMP has a limit, so batch in groups of 50
+  const batchSize = 50;
+  for (let i = 0; i < symbols.length; i += batchSize) {
+    const batch = symbols.slice(i, i + batchSize);
+    const priceUpdates = await fetchFMPQuotes(batch);
+    
+    // Broadcast each price update to subscribed clients
+    priceUpdates.forEach(priceData => {
+      broadcastFMPPriceUpdate(priceData);
+    });
+  }
+}
+
+// Broadcast FMP price update to subscribed clients
+function broadcastFMPPriceUpdate(priceData) {
+  const symbol = priceData.symbol;
+  const subscribers = fmpSymbolSubscribers.get(symbol);
+  
+  if (subscribers && subscribers.size > 0) {
+    const message = JSON.stringify(priceData);
+    subscribers.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(message);
+      }
+    });
+  }
+}
+
+// Start FMP polling
+function startFMPPolling() {
+  if (fmpPollingInterval) return;
+  
+  if (!FMP_API_KEY) {
+    console.log('⚠️ FMP_API_KEY not set, FMP polling disabled');
+    return;
+  }
+  
+  console.log('🔄 Starting FMP polling...');
+  
+  // Poll immediately, then on interval
+  pollFMPQuotes();
+  
+  fmpPollingInterval = setInterval(() => {
+    pollFMPQuotes();
+  }, FMP_POLL_INTERVAL);
+}
+
+// Stop FMP polling
+function stopFMPPolling() {
+  if (fmpPollingInterval) {
+    clearInterval(fmpPollingInterval);
+    fmpPollingInterval = null;
+  }
+}
+
+// Update FMP subscriptions
+function updateFMPSubscriptions() {
+  // Collect all FMP symbols from fmpSymbolSubscribers (these are the actual subscribed symbols)
+  const neededFMPSymbols = new Set();
+  fmpSymbolSubscribers.forEach((subscribers, symbol) => {
+    if (subscribers.size > 0) {
+      neededFMPSymbols.add(symbol);
+    }
+  });
+  
+  // Update the set
+  fmpSymbols.clear();
+  neededFMPSymbols.forEach(symbol => fmpSymbols.add(symbol));
+  
+  // Start or stop polling based on whether we have symbols
+  if (fmpSymbols.size > 0 && !fmpPollingInterval) {
+    startFMPPolling();
+  } else if (fmpSymbols.size === 0 && fmpPollingInterval) {
+    stopFMPPolling();
+  }
+  
+  console.log(`📊 FMP symbols updated: ${fmpSymbols.size} symbols`);
+}
+
+// ==================== END FMP POLLING ====================
 
 // Start heartbeat to keep TwelveData connection alive
 function startHeartbeat() {
@@ -479,8 +675,8 @@ wss.on('connection', (ws, req) => {
   const clientId = `${req.socket.remoteAddress}:${Date.now()}`;
   console.log(`👤 New client connected: ${clientId}`);
   
-  // Initialize client's subscription set
-  clients.set(ws, new Set());
+  // Initialize client's subscription sets (TwelveData and FMP)
+  clients.set(ws, { twelveDataSymbols: new Set(), fmpSymbols: new Set() });
   
   // Connect to TwelveData if this is the first client and we're not already connected
   if (!twelveDataWS || twelveDataWS.readyState !== WebSocket.OPEN) {
@@ -492,7 +688,8 @@ wss.on('connection', (ws, req) => {
   ws.send(JSON.stringify({
     type: 'connection',
     connected: isConnected,
-    subscribedSymbols: subscribedSymbols.size
+    subscribedSymbols: subscribedSymbols.size,
+    fmpSymbols: fmpSymbols.size
   }));
   
   // Handle messages from client
@@ -509,10 +706,10 @@ wss.on('connection', (ws, req) => {
   ws.on('close', () => {
     console.log(`👤 Client disconnected: ${clientId}`);
     
-    // Remove client's subscriptions from symbol tracking
-    const clientSymbols = clients.get(ws);
-    if (clientSymbols) {
-      clientSymbols.forEach((symbol) => {
+    // Remove client's TwelveData subscriptions
+    const clientData = clients.get(ws);
+    if (clientData && clientData.twelveDataSymbols) {
+      clientData.twelveDataSymbols.forEach((symbol) => {
         const subscribers = symbolSubscribers.get(symbol);
         if (subscribers) {
           subscribers.delete(ws);
@@ -523,13 +720,27 @@ wss.on('connection', (ws, req) => {
       });
     }
     
+    // Remove client's FMP subscriptions
+    if (clientData && clientData.fmpSymbols) {
+      clientData.fmpSymbols.forEach((symbol) => {
+        const subscribers = fmpSymbolSubscribers.get(symbol);
+        if (subscribers) {
+          subscribers.delete(ws);
+          if (subscribers.size === 0) {
+            fmpSymbolSubscribers.delete(symbol);
+          }
+        }
+      });
+    }
+    
     // Remove client
     clients.delete(ws);
     
-    // Update TwelveData subscriptions
+    // Update subscriptions
     updateAggregatedSubscriptions();
+    updateFMPSubscriptions();
     
-    console.log(`📊 Active clients: ${clients.size}, Subscribed symbols: ${subscribedSymbols.size}`);
+    console.log(`📊 Active clients: ${clients.size}, TwelveData: ${subscribedSymbols.size}, FMP: ${fmpSymbols.size}`);
   });
   
   ws.on('error', (error) => {
@@ -546,42 +757,76 @@ function handleClientMessage(ws, message) {
   if (action === 'subscribe' && Array.isArray(symbols)) {
     console.log(`📥 Client subscribing to ${symbols.length} symbols`);
     
-    const clientSymbols = clients.get(ws);
-    const convertedSymbols = [];
+    const clientData = clients.get(ws);
+    if (!clientData) return;
+    
+    let twelveDataCount = 0;
+    let fmpCount = 0;
     
     symbols.forEach((symbol) => {
       const { converted, original, isFMP } = convertBloombergToTwelveData(symbol);
       
-      if (isFMP || converted === null) {
-        // Skip FMP-handled symbols for TwelveData
+      if (isFMP) {
+        // Handle FMP symbol
+        clientData.fmpSymbols.add(original);
+        fmpCount++;
+        
+        // Track which clients are subscribed to this FMP symbol
+        if (!fmpSymbolSubscribers.has(original)) {
+          fmpSymbolSubscribers.set(original, new Set());
+        }
+        fmpSymbolSubscribers.get(original).add(ws);
         return;
       }
       
-      // Track client's subscriptions using converted symbol
-      clientSymbols.add(converted);
-      convertedSymbols.push(converted);
+      if (converted === null) return;
       
-      // Track which clients are subscribed to which symbols
+      // Track client's TwelveData subscriptions using converted symbol
+      clientData.twelveDataSymbols.add(converted);
+      twelveDataCount++;
+      
+      // Track which clients are subscribed to which TwelveData symbols
       if (!symbolSubscribers.has(converted)) {
         symbolSubscribers.set(converted, new Set());
       }
       symbolSubscribers.get(converted).add(ws);
     });
     
-    // Update TwelveData subscriptions
+    console.log(`📊 Subscription breakdown: ${twelveDataCount} TwelveData, ${fmpCount} FMP`);
+    
+    // Update subscriptions
     updateAggregatedSubscriptions();
+    if (fmpCount > 0) {
+      updateFMPSubscriptions();
+    }
   }
   
   if (action === 'unsubscribe' && Array.isArray(symbols)) {
     console.log(`📤 Client unsubscribing from ${symbols.length} symbols`);
     
-    const clientSymbols = clients.get(ws);
+    const clientData = clients.get(ws);
+    if (!clientData) return;
     
     symbols.forEach((symbol) => {
-      const { converted } = convertBloombergToTwelveData(symbol);
+      const { converted, original, isFMP } = convertBloombergToTwelveData(symbol);
+      
+      if (isFMP) {
+        // Handle FMP symbol unsubscription
+        clientData.fmpSymbols.delete(original);
+        
+        const subscribers = fmpSymbolSubscribers.get(original);
+        if (subscribers) {
+          subscribers.delete(ws);
+          if (subscribers.size === 0) {
+            fmpSymbolSubscribers.delete(original);
+          }
+        }
+        return;
+      }
+      
       if (!converted) return;
       
-      clientSymbols.delete(converted);
+      clientData.twelveDataSymbols.delete(converted);
       
       const subscribers = symbolSubscribers.get(converted);
       if (subscribers) {
@@ -592,8 +837,9 @@ function handleClientMessage(ws, message) {
       }
     });
     
-    // Update TwelveData subscriptions
+    // Update subscriptions
     updateAggregatedSubscriptions();
+    updateFMPSubscriptions();
   }
   
   if (action === 'heartbeat') {
@@ -607,10 +853,12 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 WebSocket server running on port ${PORT}`);
   console.log(`📡 Health check available at http://0.0.0.0:${PORT}/health`);
   console.log(`🔑 TWELVE_DATA_API_KEY is ${TWELVE_DATA_API_KEY ? 'SET' : 'NOT SET'}`);
+  console.log(`🔑 FMP_API_KEY is ${FMP_API_KEY ? 'SET' : 'NOT SET'}`);
   
   // Don't connect to TwelveData immediately - wait for clients
   // This prevents unnecessary reconnection loops when no one is using the service
   console.log('⏳ Waiting for clients before connecting to TwelveData...');
+  console.log('📈 FMP polling will start when FMP symbols are subscribed');
 });
 
 // Graceful shutdown
@@ -618,6 +866,7 @@ process.on('SIGINT', () => {
   console.log('\n🛑 Shutting down...');
   
   stopHeartbeat();
+  stopFMPPolling();
   
   if (twelveDataWS) {
     twelveDataWS.close();
@@ -635,5 +884,6 @@ process.on('SIGINT', () => {
 
 process.on('SIGTERM', () => {
   console.log('\n🛑 SIGTERM received, shutting down...');
+  stopFMPPolling();
   process.exit(0);
 });
