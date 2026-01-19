@@ -31,7 +31,10 @@ class TwelveDataWebSocketService {
   convertBloombergToTwelveData(symbol) {
     if (!symbol || typeof symbol !== 'string') return symbol;
     
-    // Bloomberg to TwelveData suffix mapping (must match QuoteService in App.js)
+    // Japanese stocks are handled via FMP API, not TwelveData - return null to skip
+    const japaneseExchanges = ['JP', 'JT'];
+    
+    // Bloomberg to TwelveData suffix mapping
     const bloombergToTwelveDataMap = {
       'US': '',          // US markets - just remove suffix
       'LN': ':LSE',      // London Stock Exchange
@@ -39,7 +42,6 @@ class TwelveDataWebSocketService {
       'GY': ':FWB',      // Germany Frankfurt (alternative)
       'CN': ':TSX',      // Canada Toronto Stock Exchange
       'CT': ':TSX',      // Canada Toronto Venture Exchange
-      // Note: Japanese stocks (JP, JT) are handled via FMP API, not TwelveData WebSocket
       'DC': ':XCSE',     // Denmark Copenhagen Stock Exchange
       'HK': ':HKEX',     // Hong Kong Stock Exchange (HKEX for WebSocket)
       'AU': ':ASX',      // Australia ASX
@@ -71,6 +73,11 @@ class TwelveDataWebSocketService {
     
     if (parts.length === 2) {
       let [ticker, bloombergSuffix] = parts;
+      
+      // Skip Japanese stocks silently - they use FMP
+      if (japaneseExchanges.includes(bloombergSuffix)) {
+        return null; // Return null to indicate this should be skipped
+      }
       
       // Also clean up the ticker part - replace slashes with periods
       ticker = ticker.replace(/\//g, '.');
@@ -282,13 +289,26 @@ class TwelveDataWebSocketService {
   subscribe(symbols) {
     if (!symbols || symbols.length === 0) return;
 
-    // Convert symbols to TwelveData format
-    const convertedSymbols = symbols.map(s => this.convertBloombergToTwelveData(s));
+    // Convert symbols to TwelveData format (filter out nulls - e.g., Japanese stocks handled by FMP)
+    const convertedSymbols = symbols
+      .map(s => this.convertBloombergToTwelveData(s))
+      .filter(s => s !== null && s !== undefined);
+
+    if (convertedSymbols.length === 0) {
+      console.log('📋 No symbols to subscribe after filtering (e.g., Japanese stocks use FMP)');
+      return;
+    }
 
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      // Queue for later if not connected
-      console.log('📋 Queuing subscriptions for when connected:', convertedSymbols.length, 'symbols');
-      this.pendingSubscriptions.push(...symbols);
+      // Queue for later if not connected (only non-Japanese symbols)
+      const nonJapaneseSymbols = symbols.filter(s => {
+        const upper = s?.toUpperCase() || '';
+        return !upper.includes(' JP') && !upper.includes(' JT');
+      });
+      if (nonJapaneseSymbols.length > 0) {
+        console.log('📋 Queuing subscriptions for when connected:', nonJapaneseSymbols.length, 'symbols');
+        this.pendingSubscriptions.push(...nonJapaneseSymbols);
+      }
       
       // Try to connect if not already
       this.connect();
@@ -321,9 +341,12 @@ class TwelveDataWebSocketService {
   unsubscribe(symbols) {
     if (!symbols || symbols.length === 0) return;
 
-    const convertedSymbols = symbols.map(s => this.convertBloombergToTwelveData(s));
+    // Filter out Japanese symbols and null conversions
+    const convertedSymbols = symbols
+      .map(s => this.convertBloombergToTwelveData(s))
+      .filter(s => s !== null && s !== undefined);
 
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+    if (convertedSymbols.length > 0 && this.ws && this.ws.readyState === WebSocket.OPEN) {
       const unsubscribeMessage = {
         action: 'unsubscribe',
         params: {
