@@ -66,8 +66,8 @@ const QuoteService = {
     'GY': ':FWB',      // Germany Frankfurt (alternative)
     'CN': ':TSX',      // Canada Toronto Stock Exchange
     'CT': ':TSX',     // Canada Toronto Venture Exchange
-    'JP': ':XJPX',     // Japan Tokyo Stock Exchange
-    'JT': ':XJPX',     // Japan Tokyo Stock Exchange (alternative)
+    'JP': ':JPX',      // Japan Tokyo Stock Exchange
+    'JT': ':JPX',      // Japan Tokyo Stock Exchange (alternative)
     'HK': ':HKG',      // Hong Kong Stock Exchange
     'AU': ':ASX',      // Australia ASX
     'FP': ':EURONEXT',      // France Euronext Paris
