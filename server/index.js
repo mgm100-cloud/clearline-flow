@@ -607,6 +607,10 @@ async function fetchFMPQuotes(symbols) {
   const fmpSymbolList = Array.from(fmpSymbolMap.keys()).join(',');
   const url = `${FMP_BASE_URL}/quote/${fmpSymbolList}?apikey=${FMP_API_KEY}`;
   
+  // Log the URL (without API key for security)
+  console.log(`🌐 FMP Request URL: ${FMP_BASE_URL}/quote/${fmpSymbolList}?apikey=***`);
+  console.log(`📋 FMP Symbol mapping: ${Array.from(fmpSymbolMap.entries()).map(([fmp, orig]) => `${orig} → ${fmp}`).join(', ')}`);
+  
   return new Promise((resolve) => {
     https.get(url, (res) => {
       let data = '';
@@ -616,10 +620,26 @@ async function fetchFMPQuotes(symbols) {
       res.on('end', () => {
         try {
           const quotes = JSON.parse(data);
+          
+          // Log raw response for debugging
+          console.log(`📥 FMP Response (${quotes.length || 0} items):`, 
+            Array.isArray(quotes) 
+              ? quotes.map(q => `${q.symbol}: ${q.price}`).join(', ')
+              : JSON.stringify(quotes).substring(0, 200)
+          );
+          
           if (!Array.isArray(quotes)) {
             console.error('❌ FMP returned non-array:', quotes);
             resolve([]);
             return;
+          }
+          
+          // Log which symbols were returned vs requested
+          const returnedSymbols = new Set(quotes.map(q => q.symbol));
+          const requestedSymbols = Array.from(fmpSymbolMap.keys());
+          const missingFromResponse = requestedSymbols.filter(s => !returnedSymbols.has(s));
+          if (missingFromResponse.length > 0) {
+            console.warn(`⚠️ FMP did not return data for: ${missingFromResponse.join(', ')}`);
           }
           
           // Map back to original symbols and format as price updates
