@@ -2243,17 +2243,10 @@ const ClearlineFlow = () => {
     // If not connected, don't try to subscribe
     if (!wsConnected) return;
     
-    // Helper to check if ticker uses FMP (Japan, Hong Kong, Italy, UK, Denmark)
-    const isFMPTicker = (ticker) => {
-      const upper = ticker?.toUpperCase() || '';
-      const fmpSuffixes = [' JP', ' JT', ' HK', ' IM', ' HM', ' TE', ' LN', ' DC'];
-      return fmpSuffixes.some(suffix => upper.includes(suffix));
-    };
-    
-    // Get unique symbols to subscribe to (exclude FMP-handled exchanges only)
-    // Now that we have a shared backend WebSocket, include all tickers including Old status
+    // Get unique symbols to subscribe to
+    // Backend handles routing: TwelveData for most, FMP for JP/HK/UK/IT/DK
     const symbols = tickers
-      .filter(t => t.ticker && !isFMPTicker(t.ticker)) // Only exclude FMP exchanges
+      .filter(t => t.ticker)
       .map(t => t.ticker.replace(' US', ''));
     
     // Check if the symbols list has actually changed
@@ -2276,69 +2269,8 @@ const ClearlineFlow = () => {
     }
   }, [isAuthenticated, tickers, wsConnected]);
 
-  // Poll FMP tickers via REST API (Japan, Hong Kong, Italy, UK, Denmark - not supported by TwelveData WebSocket)
-  useEffect(() => {
-    if (!isAuthenticated || tickers.length === 0) return;
-    
-    // Helper to check if ticker uses FMP
-    const isFMPTicker = (ticker) => {
-      const upper = ticker?.toUpperCase() || '';
-      const fmpSuffixes = [' JP', ' JT', ' HK', ' IM', ' HM', ' TE', ' LN', ' DC'];
-      return fmpSuffixes.some(suffix => upper.includes(suffix));
-    };
-    
-    // Get FMP tickers (Japan, Hong Kong, Italy, UK, Denmark)
-    const fmpTickers = tickers.filter(t => t.ticker && t.status !== 'Old' && isFMPTicker(t.ticker));
-    
-    if (fmpTickers.length === 0) return;
-    
-    console.log(`🌍 Setting up FMP polling for ${fmpTickers.length} international tickers (JP, HK, IT, UK, DK)`);
-    
-    // Function to fetch FMP quotes
-    const fetchFMPQuotes = async () => {
-      console.log(`🌍 Polling ${fmpTickers.length} tickers via FMP...`);
-      
-      for (const ticker of fmpTickers) {
-        try {
-          const quote = await QuoteService.getFMPQuote(ticker.ticker);
-          if (quote && quote.price) {
-            // Update ticker with new price
-            setTickers(prev => prev.map(t => {
-              if (t.id === ticker.id) {
-                return {
-                  ...t,
-                  currentPrice: quote.price,
-                  lastQuoteUpdate: new Date().toISOString()
-                };
-              }
-              return t;
-            }));
-            
-            // Update quotes state
-            setQuotes(prev => ({
-              ...prev,
-              [ticker.ticker]: quote
-            }));
-          }
-        } catch (error) {
-          console.warn(`🌍 Failed to fetch FMP quote for ${ticker.ticker}:`, error.message);
-        }
-        
-        // Small delay between requests to respect rate limits
-        await new Promise(resolve => setTimeout(resolve, 200));
-      }
-    };
-    
-    // Fetch immediately
-    fetchFMPQuotes();
-    
-    // Then poll every 60 seconds
-    const pollInterval = setInterval(fetchFMPQuotes, 60000);
-    
-    return () => {
-      clearInterval(pollInterval);
-    };
-  }, [isAuthenticated, tickers.length]); // Only re-run when ticker count changes
+  // FMP tickers (Japan, Hong Kong, Italy, UK, Denmark) are now handled by the backend server
+  // The backend polls FMP and sends prices through the same WebSocket connection
 
   // Handle successful authentication
   const handleAuthSuccess = async (user, session) => {
