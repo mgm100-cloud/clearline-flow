@@ -1666,6 +1666,7 @@ const ClearlineFlow = () => {
 
   // Data state
   const [tickers, setTickers] = useState([]);
+  const tickersRef = useRef([]); // Ref to access current tickers in callbacks
   const [analysts, setAnalysts] = useState(['LT', 'GA', 'DP', 'MS', 'DO', 'MM']);
   const [analystEmails, setAnalystEmails] = useState([]);
   const [selectedAnalyst, _setSelectedAnalyst] = useState(() => getStoredValue('selectedAnalyst', 'LT'));
@@ -2119,13 +2120,32 @@ const ClearlineFlow = () => {
     }
   }, [isAuthenticated]);
 
+  // Keep tickersRef in sync with tickers state for use in callbacks
+  useEffect(() => {
+    tickersRef.current = tickers;
+  }, [tickers]);
+
   // Initialize WebSocket for real-time price streaming
   useEffect(() => {
     if (!isAuthenticated || wsInitializedRef.current) return;
     
     // Handler for price updates from WebSocket
     const handlePriceUpdate = (priceData) => {
-      // Find the original symbol (with Bloomberg suffix) from the converted symbol
+      // First, find the original symbol using tickersRef (synchronously, outside state setters)
+      let originalSymbolForQuotes = priceData.symbol; // Default to received symbol
+      
+      // Search through current tickers to find which one matches
+      for (const ticker of tickersRef.current) {
+        const tickerSymbol = ticker.ticker.replace(' US', '');
+        const convertedSymbol = twelveDataWS.convertBloombergToTwelveData(tickerSymbol);
+        
+        if (convertedSymbol === priceData.symbol || tickerSymbol === priceData.symbol) {
+          originalSymbolForQuotes = tickerSymbol;
+          break;
+        }
+      }
+      
+      // Update tickers state
       setTickers(prev => {
         let hasChanges = false;
         const updated = prev.map(ticker => {
@@ -2149,25 +2169,17 @@ const ClearlineFlow = () => {
         return hasChanges ? updated : prev;
       });
       
-      // Also update quotes state for components that use it
-      setQuotes(prev => {
-        // Find original symbol
-        const originalSymbol = Object.keys(prev).find(key => {
-          const converted = twelveDataWS.convertBloombergToTwelveData(key);
-          return converted === priceData.symbol;
-        }) || priceData.symbol;
-        
-        return {
-          ...prev,
-          [originalSymbol]: {
-            ...prev[originalSymbol],
-            price: priceData.price,
-            volume: priceData.dayVolume,
-            lastUpdated: new Date().toISOString(),
-            source: 'websocket'
-          }
-        };
-      });
+      // Update quotes state using the original symbol we found
+      setQuotes(prev => ({
+        ...prev,
+        [originalSymbolForQuotes]: {
+          ...prev[originalSymbolForQuotes],
+          price: priceData.price,
+          volume: priceData.dayVolume,
+          lastUpdated: new Date().toISOString(),
+          source: 'websocket'
+        }
+      }));
       
       setWsLastUpdate(new Date());
     };
