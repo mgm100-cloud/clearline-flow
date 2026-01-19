@@ -129,16 +129,12 @@ class TwelveDataWebSocketService {
         // Start heartbeat
         this.startHeartbeat();
 
-        // Subscribe to any pending symbols
-        if (this.pendingSubscriptions.length > 0) {
-          this.subscribe(this.pendingSubscriptions);
-          this.pendingSubscriptions = [];
-        }
-
-        // Resubscribe to previously subscribed symbols on reconnect
-        if (this.subscribedSymbols.size > 0) {
-          this.subscribe(Array.from(this.subscribedSymbols));
-        }
+        // Clear pending subscriptions - the App.js useEffect will handle subscriptions
+        // This prevents double-subscribing
+        this.pendingSubscriptions = [];
+        
+        // Note: We don't resubscribe here - the App.js useEffect will detect
+        // the connection change and call updateSubscriptions() with the current tickers
       };
 
       this.ws.onmessage = (event) => {

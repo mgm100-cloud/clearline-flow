@@ -2206,10 +2206,18 @@ const ClearlineFlow = () => {
 
   // Track subscribed symbols to avoid unnecessary resubscription
   const subscribedSymbolsRef = useRef(new Set());
+  const lastWsConnectedRef = useRef(false);
   
-  // Subscribe to tickers when they change
+  // Subscribe to tickers when they change or WebSocket reconnects
   useEffect(() => {
     if (!isAuthenticated || !wsInitializedRef.current || tickers.length === 0) return;
+    
+    // Check if this is a reconnection (was disconnected, now connected)
+    const isReconnect = wsConnected && !lastWsConnectedRef.current;
+    lastWsConnectedRef.current = wsConnected;
+    
+    // If not connected, don't try to subscribe
+    if (!wsConnected) return;
     
     // Helper to check if ticker uses FMP (Japan, Hong Kong, Italy, UK, Denmark)
     const isFMPTicker = (ticker) => {
@@ -2227,16 +2235,21 @@ const ClearlineFlow = () => {
     const currentSymbolsSet = new Set(symbols);
     const previousSymbols = subscribedSymbolsRef.current;
     
-    // Only update if symbols have changed
-    const hasChanged = currentSymbolsSet.size !== previousSymbols.size ||
+    // Only update if symbols have changed OR this is a reconnection
+    const hasChanged = isReconnect || 
+      currentSymbolsSet.size !== previousSymbols.size ||
       symbols.some(s => !previousSymbols.has(s));
     
     if (hasChanged && symbols.length > 0) {
-      console.log(`📊 Subscribing to ${symbols.length} ticker symbols via WebSocket`);
+      // Clear previous subscriptions on reconnect
+      if (isReconnect) {
+        subscribedSymbolsRef.current = new Set();
+      }
+      console.log(`📊 Subscribing to ${symbols.length} ticker symbols via WebSocket${isReconnect ? ' (reconnect)' : ''}`);
       twelveDataWS.updateSubscriptions(symbols);
       subscribedSymbolsRef.current = currentSymbolsSet;
     }
-  }, [isAuthenticated, tickers]);
+  }, [isAuthenticated, tickers, wsConnected]);
 
   // Poll FMP tickers via REST API (Japan, Hong Kong, Italy, UK, Denmark - not supported by TwelveData WebSocket)
   useEffect(() => {
