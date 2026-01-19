@@ -315,6 +315,9 @@ function handleTwelveDataMessage(data) {
       exchange: data.exchange
     });
     
+    // Track price updates received
+    priceUpdatesReceived++;
+    
     // Broadcast to clients subscribed to this symbol
     broadcastPriceUpdate(priceData);
   }
@@ -402,16 +405,44 @@ function sendCachedPricesToClient(ws, symbols) {
     console.log(`📤 Sent ${sentCount} cached prices to client (${missingSymbols.length} symbols without cache)`);
   }
   
-  // Log missing symbols for diagnostics
+  // Log missing symbols with detailed diagnostics
   if (missingSymbols.length > 0) {
     console.log(`⚠️ ${missingSymbols.length} symbols without cached prices:`);
-    // Log first 20 for brevity
-    missingSymbols.slice(0, 20).forEach(m => {
-      console.log(`   - ${m.original} → ${m.converted || 'null'} (FMP: ${m.isFMP})`);
+    console.log(`📊 Diagnostic info: TwelveData subscribed: ${subscribedSymbols.size}, FMP symbols: ${fmpSymbols.size}, Price cache: ${priceCache.size}`);
+    
+    // Log first 30 with detailed status
+    missingSymbols.slice(0, 30).forEach(m => {
+      const isSubscribedToTD = m.converted ? subscribedSymbols.has(m.converted) : false;
+      const isInFMPList = m.isFMP ? fmpSymbols.has(m.original) : false;
+      const isServerManaged = m.converted ? serverManagedTwelveDataSymbols.has(m.converted) : false;
+      
+      let status = '';
+      if (m.isFMP) {
+        status = isInFMPList ? '🔄 FMP polling active' : '❌ NOT in FMP poll list';
+      } else if (m.converted) {
+        if (isSubscribedToTD) {
+          status = '📡 Subscribed to TwelveData (waiting for price)';
+        } else if (isServerManaged) {
+          status = '📋 Server-managed but NOT subscribed';
+        } else {
+          status = '❌ NOT subscribed to TwelveData';
+        }
+      } else {
+        status = '❓ Unknown symbol format';
+      }
+      
+      console.log(`   - ${m.original} → ${m.converted || 'null'} | ${status}`);
     });
-    if (missingSymbols.length > 20) {
-      console.log(`   ... and ${missingSymbols.length - 20} more`);
+    
+    if (missingSymbols.length > 30) {
+      console.log(`   ... and ${missingSymbols.length - 30} more`);
     }
+    
+    // Summary counts
+    const fmpMissing = missingSymbols.filter(m => m.isFMP).length;
+    const tdMissing = missingSymbols.filter(m => !m.isFMP && m.converted).length;
+    const unknownMissing = missingSymbols.filter(m => !m.isFMP && !m.converted).length;
+    console.log(`📊 Missing breakdown: ${tdMissing} TwelveData, ${fmpMissing} FMP, ${unknownMissing} unknown`);
   }
 }
 
@@ -1065,6 +1096,10 @@ async function fetchInitialPrices() {
 
 // ==================== END INITIAL PRICE FETCH ====================
 
+// Track price updates received
+let priceUpdatesReceived = 0;
+let lastPriceUpdateLog = Date.now();
+
 // Start heartbeat to keep TwelveData connection alive
 function startHeartbeat() {
   stopHeartbeat();
@@ -1072,6 +1107,14 @@ function startHeartbeat() {
   heartbeatInterval = setInterval(() => {
     if (twelveDataWS && twelveDataWS.readyState === WebSocket.OPEN) {
       twelveDataWS.send(JSON.stringify({ action: 'heartbeat' }));
+      
+      // Log cache status every minute (every 6 heartbeats since heartbeat is every 10s)
+      const now = Date.now();
+      if (now - lastPriceUpdateLog >= 60000) {
+        console.log(`📊 Status: Cache=${priceCache.size}, Subscribed=${subscribedSymbols.size}, ServerManaged=${serverManagedTwelveDataSymbols.size}, FMP=${fmpSymbols.size}, PriceUpdates=${priceUpdatesReceived}`);
+        lastPriceUpdateLog = now;
+      }
+      
       console.log('💓 Sent heartbeat to TwelveData');
       
       // Check for stale connection - use 5 minutes since markets may be closed
