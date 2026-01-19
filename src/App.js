@@ -87,11 +87,16 @@ const getCurrencySymbol = (ticker) => {
   return '$';
 };
 
-// Format price with currency symbol
+// Format price with currency symbol and thousands separators
 const formatPriceWithCurrency = (price, ticker) => {
   if (price === null || price === undefined || isNaN(price)) return '-';
   const symbol = getCurrencySymbol(ticker);
-  const formattedPrice = parseFloat(price).toFixed(2);
+  
+  // Format with 2 decimal places and thousands separators
+  const formattedPrice = parseFloat(price).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
   
   // Some currencies go after the number
   if (symbol === 'kr' || symbol === 'CHF') {
