@@ -658,12 +658,24 @@ async function pollFMPQuotes() {
   console.log(`📈 Polling FMP for ${fmpSymbols.size} symbols...`);
   
   const symbols = Array.from(fmpSymbols);
+  let successCount = 0;
+  const failedSymbols = [];
   
   // FMP has a limit, so batch in groups of 50
   const batchSize = 50;
   for (let i = 0; i < symbols.length; i += batchSize) {
     const batch = symbols.slice(i, i + batchSize);
     const priceUpdates = await fetchFMPQuotes(batch);
+    
+    // Track which symbols got prices
+    const returnedSymbols = new Set(priceUpdates.map(p => p.symbol));
+    
+    // Check for symbols that didn't get a price
+    batch.forEach(symbol => {
+      if (!returnedSymbols.has(symbol)) {
+        failedSymbols.push({ symbol, error: 'No price returned from FMP' });
+      }
+    });
     
     // Cache and broadcast each price update
     priceUpdates.forEach(priceData => {
@@ -675,9 +687,21 @@ async function pollFMPQuotes() {
         dayVolume: priceData.dayVolume,
         exchange: priceData.exchange
       });
+      successCount++;
       
       // Broadcast to subscribed clients
       broadcastFMPPriceUpdate(priceData);
+    });
+  }
+  
+  console.log(`📊 FMP poll complete: ${successCount} success, ${failedSymbols.length} failed`);
+  
+  // Log detailed info about failed symbols
+  if (failedSymbols.length > 0) {
+    console.log(`❌ ${failedSymbols.length} FMP symbols failed:`);
+    failedSymbols.forEach(({ symbol, error }) => {
+      const fmpSymbol = convertToFMPSymbol(symbol);
+      console.log(`   - ${symbol} (FMP: ${fmpSymbol}): ${error}`);
     });
   }
 }
@@ -942,6 +966,7 @@ async function fetchInitialPrices() {
   const batchSize = 8;
   let successCount = 0;
   let errorCount = 0;
+  const failedSymbols = []; // Track which symbols failed and why
   
   for (let i = 0; i < symbolsWithoutPrices.length; i += batchSize) {
     const batch = symbolsWithoutPrices.slice(i, i + batchSize);
@@ -986,6 +1011,9 @@ async function fetchInitialPrices() {
           successCount++;
         } else {
           errorCount++;
+          // Track the failure with details
+          const errorMsg = data?.code ? `${data.code}: ${data.message || 'Unknown error'}` : 'No price data';
+          failedSymbols.push({ symbol, error: errorMsg });
         }
       });
       
@@ -996,12 +1024,24 @@ async function fetchInitialPrices() {
       
     } catch (error) {
       console.error(`❌ Error fetching batch ${Math.floor(i/batchSize) + 1}:`, error.message);
+      // Track all symbols in failed batch
+      batch.forEach(symbol => {
+        failedSymbols.push({ symbol, error: `Batch error: ${error.message}` });
+      });
       errorCount += batch.length;
     }
   }
   
   console.log(`📊 Initial price fetch complete: ${successCount} success, ${errorCount} errors`);
   console.log(`💾 Price cache now has ${priceCache.size} entries`);
+  
+  // Log detailed info about failed symbols
+  if (failedSymbols.length > 0) {
+    console.log(`❌ ${failedSymbols.length} symbols failed to fetch initial price:`);
+    failedSymbols.forEach(({ symbol, error }) => {
+      console.log(`   - ${symbol}: ${error}`);
+    });
+  }
 }
 
 // ==================== END INITIAL PRICE FETCH ====================
