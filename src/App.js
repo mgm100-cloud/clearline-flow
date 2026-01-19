@@ -2161,6 +2161,69 @@ const ClearlineFlow = () => {
     }
   }, [isAuthenticated, tickers]);
 
+  // Poll Japanese tickers via FMP REST API (FMP WebSocket doesn't support Japanese stocks)
+  useEffect(() => {
+    if (!isAuthenticated || tickers.length === 0) return;
+    
+    // Helper to check if Japanese ticker
+    const isJapanese = (ticker) => {
+      const upper = ticker?.toUpperCase() || '';
+      return upper.includes(' JP') || upper.includes(' JT');
+    };
+    
+    // Get Japanese tickers
+    const japaneseTickers = tickers.filter(t => t.ticker && t.status !== 'Old' && isJapanese(t.ticker));
+    
+    if (japaneseTickers.length === 0) return;
+    
+    console.log(`🇯🇵 Setting up FMP polling for ${japaneseTickers.length} Japanese tickers`);
+    
+    // Function to fetch Japanese quotes
+    const fetchJapaneseQuotes = async () => {
+      console.log(`🇯🇵 Polling ${japaneseTickers.length} Japanese tickers via FMP...`);
+      
+      for (const ticker of japaneseTickers) {
+        try {
+          const quote = await QuoteService.getJapaneseQuote(ticker.ticker);
+          if (quote && quote.price) {
+            // Update ticker with new price
+            setTickers(prev => prev.map(t => {
+              if (t.id === ticker.id) {
+                return {
+                  ...t,
+                  currentPrice: quote.price,
+                  lastQuoteUpdate: new Date().toISOString()
+                };
+              }
+              return t;
+            }));
+            
+            // Update quotes state
+            setQuotes(prev => ({
+              ...prev,
+              [ticker.ticker]: quote
+            }));
+          }
+        } catch (error) {
+          console.warn(`🇯🇵 Failed to fetch Japanese quote for ${ticker.ticker}:`, error.message);
+        }
+        
+        // Small delay between requests to respect rate limits
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+    };
+    
+    // Fetch immediately
+    fetchJapaneseQuotes();
+    
+    // Then poll every 60 seconds
+    const pollInterval = setInterval(fetchJapaneseQuotes, 60000);
+    
+    return () => {
+      clearInterval(pollInterval);
+    };
+  }, [isAuthenticated, tickers.length]); // Only re-run when ticker count changes
+
   // Handle successful authentication
   const handleAuthSuccess = async (user, session) => {
     console.log('🔑 Authentication successful:', user);
