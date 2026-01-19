@@ -337,10 +337,12 @@ function startHeartbeat() {
   heartbeatInterval = setInterval(() => {
     if (twelveDataWS && twelveDataWS.readyState === WebSocket.OPEN) {
       twelveDataWS.send(JSON.stringify({ action: 'heartbeat' }));
+      console.log('💓 Sent heartbeat to TwelveData');
       
-      // Check for stale connection
-      if (Date.now() - lastActivity > 60000) {
-        console.warn('⚠️ No activity in 60 seconds, reconnecting...');
+      // Check for stale connection - use 5 minutes since markets may be closed
+      // and no price updates will come through
+      if (Date.now() - lastActivity > 300000) {
+        console.warn('⚠️ No activity in 5 minutes, reconnecting...');
         twelveDataWS.close();
       }
     }

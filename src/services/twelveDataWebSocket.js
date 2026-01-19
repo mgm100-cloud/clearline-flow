@@ -21,6 +21,7 @@ class TwelveDataWebSocketService {
     this.heartbeatInterval = null;
     this.lastHeartbeat = null;
     this.useBackendServer = !!BACKEND_WS_URL;
+    this.lastBackendStatus = null; // Track last status to avoid duplicate logs
   }
 
   // Initialize with API key and callbacks
@@ -210,22 +211,21 @@ class TwelveDataWebSocketService {
     }
     
     if (type === 'connection') {
-      console.log(`🔌 Backend connection status: ${data.connected ? 'TwelveData connected' : 'TwelveData disconnected'}`);
-      // The backend's TwelveData connection status
-      if (data.subscribedSymbols !== undefined) {
-        console.log(`📊 Backend has ${data.subscribedSymbols} symbols subscribed`);
+      // Only log if status actually changed
+      const newStatus = data.connected ? 'connected' : 'disconnected';
+      if (this.lastBackendStatus !== newStatus) {
+        console.log(`🔌 Backend TwelveData status: ${data.connected ? 'Connected' : 'Disconnected'}`);
+        this.lastBackendStatus = newStatus;
       }
       return;
     }
     
     if (type === 'subscription-status') {
-      console.log('📊 Subscription status:', data);
-      if (data.success) {
-        console.log('✅ Successfully subscribed to:', data.success.length, 'symbols');
-      }
-      if (data.fails && data.fails.length > 0) {
-        console.warn('❌ Failed to subscribe:', data.fails);
-      }
+      // Only log summary, not full details
+      const successCount = data.success?.length || 0;
+      const failCount = data.fails?.length || 0;
+      console.log(`📊 Subscription: ${successCount} success, ${failCount} fails`);
+      
       // Notify the app of subscription status
       if (this.onSubscriptionStatus) {
         this.onSubscriptionStatus({
@@ -237,7 +237,7 @@ class TwelveDataWebSocketService {
     }
     
     if (type === 'price') {
-      // Price update from backend
+      // Price update from backend - don't log every price to reduce noise
       const priceData = {
         symbol: data.symbol,
         price: data.price,
@@ -245,8 +245,6 @@ class TwelveDataWebSocketService {
         dayVolume: data.dayVolume,
         exchange: data.exchange
       };
-
-      console.log('💰 Price update:', priceData.symbol, priceData.price);
 
       if (this.onPriceUpdate) {
         this.onPriceUpdate(priceData);
@@ -494,21 +492,25 @@ class TwelveDataWebSocketService {
   startHeartbeat() {
     this.stopHeartbeat();
     this.lastHeartbeat = Date.now();
+    this.heartbeatCount = 0;
     
     this.heartbeatInterval = setInterval(() => {
       if (this.ws && this.ws.readyState === WebSocket.OPEN) {
         // Send heartbeat message to keep connection alive
-        const heartbeatMessage = this.useBackendServer 
-          ? { action: 'heartbeat' }
-          : { action: 'heartbeat' };
+        const heartbeatMessage = { action: 'heartbeat' };
         this.ws.send(JSON.stringify(heartbeatMessage));
-        console.log('💓 Sent heartbeat');
+        this.heartbeatCount++;
         
-        // Check if we've received any data recently (including our own heartbeat response)
+        // Only log every 6th heartbeat (once per minute) to reduce noise
+        if (this.heartbeatCount % 6 === 0) {
+          console.log('💓 Heartbeat sent (connection alive)');
+        }
+        
+        // Check if we've received any data recently - use 5 minutes since markets may be closed
         const now = Date.now();
-        if (this.lastHeartbeat && (now - this.lastHeartbeat) > 60000) {
-          // No activity in 60 seconds, connection might be stale
-          console.warn('⚠️ No activity in 60 seconds, reconnecting...');
+        if (this.lastHeartbeat && (now - this.lastHeartbeat) > 300000) {
+          // No activity in 5 minutes, connection might be stale
+          console.warn('⚠️ No activity in 5 minutes, reconnecting...');
           this.ws.close();
         }
       }

@@ -1631,10 +1631,15 @@ const setStoredValue = (key, value) => {
 };
 
 const ClearlineFlow = () => {
-  console.log('🚀 ClearlineFlow component loaded');
-  
   // Reference to prevent re-initialization on tab focus
   const isInitializedRef = useRef(false);
+  
+  // Log component mount only once
+  const hasMountedRef = useRef(false);
+  if (!hasMountedRef.current) {
+    console.log('🚀 ClearlineFlow component mounted');
+    hasMountedRef.current = true;
+  }
   // Reference to prevent infinite auth refresh loops
   const isRefreshingRef = useRef(false);
   
@@ -2171,8 +2176,15 @@ const ClearlineFlow = () => {
       setWsLastUpdate(new Date());
     };
     
-    // Handler for connection status changes
+    // Track last connection status to avoid duplicate state updates
+    let lastConnectedStatus = null;
+    
+    // Handler for connection status changes - only update if status changed
     const handleConnectionChange = (connected) => {
+      if (lastConnectedStatus === connected) {
+        return; // Skip duplicate status updates
+      }
+      lastConnectedStatus = connected;
       console.log(`🔌 WebSocket connection status: ${connected ? 'Connected' : 'Disconnected'}`);
       setWsConnected(connected);
       if (!connected) {
@@ -2182,13 +2194,20 @@ const ClearlineFlow = () => {
       }
     };
     
-    // Handler for subscription status
+    // Handler for subscription status - only update on meaningful changes
     const handleSubscriptionStatus = (status) => {
-      if (status.success && status.success.length > 0) {
-        setWsSuccessCount(prev => prev + status.success.length);
+      // Only log, don't accumulate to prevent re-renders
+      // We'll set the final values once instead of incrementing
+      const successCount = status.success?.length || 0;
+      const failCount = status.fails?.length || 0;
+      
+      if (successCount > 0) {
+        // Update with actual count, not accumulated
+        setWsSuccessCount(successCount);
       }
-      if (status.fails && status.fails.length > 0) {
-        setWsFailedSymbols(prev => [...prev, ...status.fails]);
+      if (failCount > 0) {
+        // Replace failed symbols instead of accumulating
+        setWsFailedSymbols(status.fails);
       }
     };
     
