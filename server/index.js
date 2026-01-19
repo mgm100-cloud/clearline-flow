@@ -43,6 +43,10 @@ const clients = new Map(); // client WebSocket -> Set of symbols
 const symbolSubscribers = new Map(); // symbol -> Set of client WebSockets
 const subscribedSymbols = new Set(); // All symbols currently subscribed to TwelveData
 
+// Server-managed symbols from database sync (converted TwelveData format)
+// These should NOT be unsubscribed when clients disconnect
+const serverManagedTwelveDataSymbols = new Set();
+
 // FMP symbols (exchanges not supported by TwelveData WebSocket)
 const fmpSymbols = new Set(); // Symbols to poll via FMP
 const fmpSymbolSubscribers = new Map(); // FMP symbol -> Set of client WebSockets
@@ -423,6 +427,12 @@ function updateAggregatedSubscriptions() {
     }
   });
   
+  // Also include server-managed symbols from database sync
+  // These should always stay subscribed regardless of client activity
+  serverManagedTwelveDataSymbols.forEach(symbol => {
+    neededSymbols.add(symbol);
+  });
+  
   // Find symbols to add and remove
   const symbolsToAdd = [];
   const symbolsToRemove = [];
@@ -716,6 +726,7 @@ async function syncTickersFromDatabase() {
         } else if (converted) {
           twelveDataSymbols.push(converted);
           subscribedSymbols.add(converted);
+          serverManagedTwelveDataSymbols.add(converted); // Track server-managed symbols
         }
       });
       
@@ -744,6 +755,7 @@ async function syncTickersFromDatabase() {
         } else if (converted) {
           twelveDataToRemove.push(converted);
           subscribedSymbols.delete(converted);
+          serverManagedTwelveDataSymbols.delete(converted); // Remove from server-managed
         }
       });
       
