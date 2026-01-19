@@ -59,7 +59,7 @@ class TwelveDataWebSocketService {
       'MK': ':KLSE',     // Malaysia Kuala Lumpur Stock Exchange
       'SP': ':SGX',      // Singapore Stock Exchange
       'TT': ':TWSE',     // Taiwan Stock Exchange
-      'NA': ':XAMS',     // Netherlands/Amsterdam Euronext
+      'NA': ':Euronext', // Netherlands/Amsterdam Euronext
     };
     
     // Clean the symbol and convert to uppercase

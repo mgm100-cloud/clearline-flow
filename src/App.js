@@ -85,7 +85,7 @@ const QuoteService = {
     'MK': ':KLS',      // Malaysia Kuala Lumpur Stock Exchange
     'SP': ':SGX',      // Singapore Stock Exchange
     'TT': ':TWO',      // Taiwan Stock Exchange
-    'NA': ':XAMS',     // Netherlands/Amsterdam Euronext
+    'NA': ':Euronext', // Netherlands/Amsterdam Euronext
   },
 
   // Convert Bloomberg format symbol to TwelveData format
