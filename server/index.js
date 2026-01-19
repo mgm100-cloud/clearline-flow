@@ -297,11 +297,6 @@ function handleTwelveDataMessage(data) {
   if (data.symbol && data.price !== undefined) {
     let price = parseFloat(data.price);
     
-    // Convert Swiss prices (quoted in cents)
-    if (data.symbol.endsWith(':SIX')) {
-      price = price / 100;
-    }
-    
     const priceData = {
       type: 'price',
       symbol: data.symbol,
@@ -1024,11 +1019,6 @@ async function fetchInitialPrices() {
       Object.entries(quotes).forEach(([symbol, data]) => {
         if (data && data.close && !data.code) {
           let price = parseFloat(data.close);
-          
-          // Convert Swiss prices
-          if (symbol.endsWith(':SIX')) {
-            price = price / 100;
-          }
           
           priceCache.set(symbol, {
             price: price,

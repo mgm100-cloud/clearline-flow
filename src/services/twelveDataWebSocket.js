@@ -361,11 +361,6 @@ class TwelveDataWebSocketService {
         exchange: data.exchange
       };
 
-      // Convert Swiss prices if needed (same logic as QuoteService)
-      if (data.symbol && (data.symbol.endsWith(':SIX') || data.symbol.includes(' SW'))) {
-        priceData.price = priceData.price / 100;
-      }
-
       console.log('💰 Price update:', priceData.symbol, priceData.price);
 
       if (this.onPriceUpdate) {
@@ -383,10 +378,6 @@ class TwelveDataWebSocketService {
         dayVolume: data.day_volume ? parseInt(data.day_volume) : null,
         exchange: data.exchange
       };
-
-      if (data.symbol && (data.symbol.endsWith(':SIX') || data.symbol.includes(' SW'))) {
-        priceData.price = priceData.price / 100;
-      }
 
       console.log('💰 Price update (event):', priceData.symbol, priceData.price);
 

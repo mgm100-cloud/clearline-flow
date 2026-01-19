@@ -107,11 +107,9 @@ const formatPriceWithCurrency = (price, ticker) => {
 
 // Quote service for TwelveData integration
 const QuoteService = {
-  // Helper function to convert Swiss prices (divide by 100)
+  // Helper function for Swiss prices - no longer needed as TwelveData now returns correct prices
   convertSwissPrice(price, originalSymbol) {
-    if (originalSymbol && originalSymbol.includes(' SW') && price) {
-      return price / 100;
-    }
+    // Swiss prices no longer need conversion - TwelveData returns correct values
     return price;
   },
 
