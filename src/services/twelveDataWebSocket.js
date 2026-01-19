@@ -250,7 +250,15 @@ class TwelveDataWebSocketService {
     
     if (type === 'cached-prices') {
       // Batch of cached prices from backend (sent on initial connection)
-      console.log(`📦 Received ${data.count || data.prices?.length || 0} cached prices from backend`);
+      const receivedCount = data.count || data.prices?.length || 0;
+      const totalRequested = data.totalRequested || 'unknown';
+      const missingCount = data.missing || 0;
+      
+      console.log(`📦 Received ${receivedCount} cached prices from backend (requested: ${totalRequested}, missing: ${missingCount})`);
+      
+      if (missingCount > 0) {
+        console.warn(`⚠️ ${missingCount} symbols don't have cached prices - check Railway logs for details`);
+      }
       
       if (data.prices && Array.isArray(data.prices) && this.onPriceUpdate) {
         data.prices.forEach(priceData => {

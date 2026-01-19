@@ -347,8 +347,11 @@ function sendCachedPricesToClient(ws, symbols) {
   let sentCount = 0;
   const cachedPrices = [];
   
+  const missingSymbols = [];
+  
   symbols.forEach(symbol => {
     const { converted, original, isFMP } = convertBloombergToTwelveData(symbol);
+    let found = false;
     
     // Check TwelveData cache (using converted symbol)
     if (converted && priceCache.has(converted)) {
@@ -363,6 +366,7 @@ function sendCachedPricesToClient(ws, symbols) {
         cached: true
       });
       sentCount++;
+      found = true;
     }
     
     // Check FMP cache (using original Bloomberg symbol)
@@ -378,6 +382,16 @@ function sendCachedPricesToClient(ws, symbols) {
         cached: true
       });
       sentCount++;
+      found = true;
+    }
+    
+    // Track symbols without cached prices
+    if (!found) {
+      missingSymbols.push({
+        original: symbol,
+        converted: converted,
+        isFMP: isFMP
+      });
     }
   });
   
@@ -386,9 +400,23 @@ function sendCachedPricesToClient(ws, symbols) {
     ws.send(JSON.stringify({
       type: 'cached-prices',
       prices: cachedPrices,
-      count: cachedPrices.length
+      count: cachedPrices.length,
+      totalRequested: symbols.length,
+      missing: missingSymbols.length
     }));
-    console.log(`📤 Sent ${sentCount} cached prices to client`);
+    console.log(`📤 Sent ${sentCount} cached prices to client (${missingSymbols.length} symbols without cache)`);
+  }
+  
+  // Log missing symbols for diagnostics
+  if (missingSymbols.length > 0) {
+    console.log(`⚠️ ${missingSymbols.length} symbols without cached prices:`);
+    // Log first 20 for brevity
+    missingSymbols.slice(0, 20).forEach(m => {
+      console.log(`   - ${m.original} → ${m.converted || 'null'} (FMP: ${m.isFMP})`);
+    });
+    if (missingSymbols.length > 20) {
+      console.log(`   ... and ${missingSymbols.length - 20} more`);
+    }
   }
 }
 
