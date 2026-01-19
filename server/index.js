@@ -492,10 +492,10 @@ function handleClientMessage(ws, message) {
   }
 }
 
-// Start the server
-server.listen(PORT, () => {
+// Start the server - bind to 0.0.0.0 for Railway
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 WebSocket server running on port ${PORT}`);
-  console.log(`📡 Health check available at http://localhost:${PORT}/health`);
+  console.log(`📡 Health check available at http://0.0.0.0:${PORT}/health`);
   
   // Connect to TwelveData
   connectToTwelveData();
