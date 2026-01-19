@@ -157,7 +157,11 @@ const QuoteService = {
     const parts = cleanSymbol.split(' ');
     
     if (parts.length === 2) {
-      const [ticker, bloombergSuffix] = parts;
+      let [ticker, bloombergSuffix] = parts;
+      
+      // Replace slashes with periods (for UK share classes like BT/A -> BT.A)
+      ticker = ticker.replace(/\//g, '.');
+      
       const twelveDataSuffix = this.bloombergToTwelveDataMap[bloombergSuffix];
       
       if (twelveDataSuffix) {
