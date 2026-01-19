@@ -53,6 +53,10 @@ const fmpSymbolSubscribers = new Map(); // FMP symbol -> Set of client WebSocket
 let fmpPollingInterval = null;
 const FMP_POLL_INTERVAL = 60000; // Poll FMP every 60 seconds
 
+// Price cache - stores last known price for each symbol
+// Key: converted symbol (e.g., "AAPL" or "BT.A:LSE"), Value: { price, timestamp, source }
+const priceCache = new Map();
+
 // Heartbeat interval
 let heartbeatInterval = null;
 let lastActivity = Date.now();
@@ -140,6 +144,7 @@ const server = http.createServer((req, res) => {
       supabaseConnected: !!supabase,
       serverManagedSymbols: serverManagedSymbols.size,
       tickerSyncActive: !!tickerSyncInterval,
+      priceCacheSize: priceCache.size,
       uptime: process.uptime()
     }));
   } else {
@@ -306,6 +311,15 @@ function handleTwelveDataMessage(data) {
       exchange: data.exchange
     };
     
+    // Cache the price
+    priceCache.set(data.symbol, {
+      price: price,
+      timestamp: data.timestamp || Date.now(),
+      source: 'twelvedata',
+      dayVolume: priceData.dayVolume,
+      exchange: data.exchange
+    });
+    
     // Broadcast to clients subscribed to this symbol
     broadcastPriceUpdate(priceData);
   }
@@ -323,6 +337,58 @@ function broadcastPriceUpdate(priceData) {
         client.send(message);
       }
     });
+  }
+}
+
+// Send cached prices to a specific client for their subscribed symbols
+function sendCachedPricesToClient(ws, symbols) {
+  if (ws.readyState !== WebSocket.OPEN) return;
+  
+  let sentCount = 0;
+  const cachedPrices = [];
+  
+  symbols.forEach(symbol => {
+    const { converted, original, isFMP } = convertBloombergToTwelveData(symbol);
+    
+    // Check TwelveData cache (using converted symbol)
+    if (converted && priceCache.has(converted)) {
+      const cached = priceCache.get(converted);
+      cachedPrices.push({
+        type: 'price',
+        symbol: converted,
+        price: cached.price,
+        timestamp: cached.timestamp,
+        dayVolume: cached.dayVolume,
+        exchange: cached.exchange,
+        cached: true
+      });
+      sentCount++;
+    }
+    
+    // Check FMP cache (using original Bloomberg symbol)
+    if (isFMP && priceCache.has(original)) {
+      const cached = priceCache.get(original);
+      cachedPrices.push({
+        type: 'price',
+        symbol: original,
+        price: cached.price,
+        timestamp: cached.timestamp,
+        dayVolume: cached.dayVolume,
+        exchange: cached.exchange,
+        cached: true
+      });
+      sentCount++;
+    }
+  });
+  
+  // Send all cached prices in a batch message
+  if (cachedPrices.length > 0) {
+    ws.send(JSON.stringify({
+      type: 'cached-prices',
+      prices: cachedPrices,
+      count: cachedPrices.length
+    }));
+    console.log(`📤 Sent ${sentCount} cached prices to client`);
   }
 }
 
@@ -571,8 +637,18 @@ async function pollFMPQuotes() {
     const batch = symbols.slice(i, i + batchSize);
     const priceUpdates = await fetchFMPQuotes(batch);
     
-    // Broadcast each price update to subscribed clients
+    // Cache and broadcast each price update
     priceUpdates.forEach(priceData => {
+      // Cache the price (use original Bloomberg symbol as key)
+      priceCache.set(priceData.symbol, {
+        price: priceData.price,
+        timestamp: priceData.timestamp || Date.now(),
+        source: 'fmp',
+        dayVolume: priceData.dayVolume,
+        exchange: priceData.exchange
+      });
+      
+      // Broadcast to subscribed clients
       broadcastFMPPriceUpdate(priceData);
     });
   }
@@ -769,6 +845,12 @@ async function syncTickersFromDatabase() {
     
     console.log(`✅ Sync complete: ${subscribedSymbols.size} TwelveData, ${fmpSymbols.size} FMP`);
     
+    // Fetch initial prices for symbols without cached prices
+    // Run this in background after a short delay to let WebSocket subscriptions complete
+    setTimeout(async () => {
+      await fetchInitialPrices();
+    }, 5000);
+    
   } catch (error) {
     console.error('❌ Error syncing tickers:', error);
   }
@@ -803,6 +885,98 @@ function stopTickerSync() {
 }
 
 // ==================== END SUPABASE TICKER SYNC ====================
+
+// ==================== INITIAL PRICE FETCH ====================
+
+// Fetch initial prices from TwelveData REST API for symbols without cached prices
+async function fetchInitialPrices() {
+  if (!TWELVE_DATA_API_KEY) {
+    console.log('⚠️ TwelveData API key not set, skipping initial price fetch');
+    return;
+  }
+  
+  // Get all TwelveData symbols that don't have cached prices
+  const symbolsWithoutPrices = [];
+  serverManagedTwelveDataSymbols.forEach(symbol => {
+    if (!priceCache.has(symbol)) {
+      symbolsWithoutPrices.push(symbol);
+    }
+  });
+  
+  if (symbolsWithoutPrices.length === 0) {
+    console.log('✅ All symbols have cached prices');
+    return;
+  }
+  
+  console.log(`📈 Fetching initial prices for ${symbolsWithoutPrices.length} symbols via REST API...`);
+  
+  // TwelveData batch quote endpoint supports up to 8 symbols at once
+  const batchSize = 8;
+  let successCount = 0;
+  let errorCount = 0;
+  
+  for (let i = 0; i < symbolsWithoutPrices.length; i += batchSize) {
+    const batch = symbolsWithoutPrices.slice(i, i + batchSize);
+    const symbolsParam = batch.join(',');
+    
+    try {
+      const url = `https://api.twelvedata.com/quote?symbol=${encodeURIComponent(symbolsParam)}&apikey=${TWELVE_DATA_API_KEY}`;
+      
+      const response = await new Promise((resolve, reject) => {
+        https.get(url, (res) => {
+          let data = '';
+          res.on('data', chunk => { data += chunk; });
+          res.on('end', () => {
+            try {
+              resolve(JSON.parse(data));
+            } catch (e) {
+              reject(e);
+            }
+          });
+        }).on('error', reject);
+      });
+      
+      // Handle batch response (object with symbol keys) or single response
+      const quotes = batch.length === 1 ? { [batch[0]]: response } : response;
+      
+      Object.entries(quotes).forEach(([symbol, data]) => {
+        if (data && data.close && !data.code) {
+          let price = parseFloat(data.close);
+          
+          // Convert Swiss prices
+          if (symbol.endsWith(':SIX')) {
+            price = price / 100;
+          }
+          
+          priceCache.set(symbol, {
+            price: price,
+            timestamp: Date.now(),
+            source: 'twelvedata-rest',
+            dayVolume: data.volume ? parseInt(data.volume) : null,
+            exchange: data.exchange
+          });
+          successCount++;
+        } else {
+          errorCount++;
+        }
+      });
+      
+      // Small delay between batches to respect rate limits
+      if (i + batchSize < symbolsWithoutPrices.length) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+      
+    } catch (error) {
+      console.error(`❌ Error fetching batch ${Math.floor(i/batchSize) + 1}:`, error.message);
+      errorCount += batch.length;
+    }
+  }
+  
+  console.log(`📊 Initial price fetch complete: ${successCount} success, ${errorCount} errors`);
+  console.log(`💾 Price cache now has ${priceCache.size} entries`);
+}
+
+// ==================== END INITIAL PRICE FETCH ====================
 
 // Start heartbeat to keep TwelveData connection alive
 function startHeartbeat() {
@@ -989,6 +1163,9 @@ function handleClientMessage(ws, message) {
     if (fmpCount > 0) {
       updateFMPSubscriptions();
     }
+    
+    // Send cached prices to the client immediately
+    sendCachedPricesToClient(ws, symbols);
   }
   
   if (action === 'unsubscribe' && Array.isArray(symbols)) {

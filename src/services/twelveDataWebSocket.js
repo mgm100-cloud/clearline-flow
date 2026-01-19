@@ -248,6 +248,25 @@ class TwelveDataWebSocketService {
       return;
     }
     
+    if (type === 'cached-prices') {
+      // Batch of cached prices from backend (sent on initial connection)
+      console.log(`📦 Received ${data.count || data.prices?.length || 0} cached prices from backend`);
+      
+      if (data.prices && Array.isArray(data.prices) && this.onPriceUpdate) {
+        data.prices.forEach(priceData => {
+          this.onPriceUpdate({
+            symbol: priceData.symbol,
+            price: priceData.price,
+            timestamp: priceData.timestamp,
+            dayVolume: priceData.dayVolume,
+            exchange: priceData.exchange,
+            cached: true
+          });
+        });
+      }
+      return;
+    }
+    
     if (type === 'price') {
       // Price update from backend - don't log every price to reduce noise
       const priceData = {
