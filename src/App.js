@@ -2981,6 +2981,87 @@ const ClearlineFlow = () => {
     }
   };
 
+  // Refresh company data for a single ticker (company name, market cap, ADV 3 month)
+  const refreshSingleTickerData = async (ticker) => {
+    if (!ticker) return { success: false, error: 'No ticker provided' };
+    
+    const cleanSymbol = ticker.ticker.replace(' US', '');
+    console.log(`🔄 Refreshing company data for ${cleanSymbol}...`);
+    
+    try {
+      const updates = {};
+      const errors = [];
+      
+      // 1. Get company name from TwelveData
+      try {
+        const companyOverview = await QuoteService.getCompanyOverview(ticker.ticker);
+        if (companyOverview?.name) {
+          updates.name = companyOverview.name;
+          console.log(`✅ Company name for ${cleanSymbol}: ${companyOverview.name}`);
+        }
+      } catch (error) {
+        console.warn(`Could not fetch company name for ${cleanSymbol}:`, error.message);
+        errors.push(`Company name: ${error.message}`);
+      }
+      
+      // 2. Get market cap from FMP
+      try {
+        const marketCapData = await QuoteService.getCompanyMarketcap(cleanSymbol);
+        if (marketCapData?.marketCap) {
+          updates.marketCap = Math.round(marketCapData.marketCap);
+          console.log(`✅ Market cap for ${cleanSymbol}: $${marketCapData.marketCap.toLocaleString()}`);
+        }
+      } catch (error) {
+        console.warn(`Could not fetch market cap for ${cleanSymbol}:`, error.message);
+        errors.push(`Market cap: ${error.message}`);
+      }
+      
+      // 3. Get ADV 3 month (needs volume data and current price)
+      try {
+        const [volumeData, quoteData] = await Promise.all([
+          QuoteService.getDailyVolumeData(ticker.ticker, 90).catch(() => null),
+          QuoteService.getGlobalQuote(ticker.ticker).catch(() => null)
+        ]);
+        
+        if (volumeData?.averageDailyVolume && quoteData?.price) {
+          const dollarVolume = volumeData.averageDailyVolume * quoteData.price;
+          updates.adv3Month = Math.round(dollarVolume);
+          console.log(`✅ ADV 3 month for ${cleanSymbol}: ${volumeData.averageDailyVolume.toLocaleString()} shares × $${quoteData.price} = $${dollarVolume.toLocaleString()}`);
+          
+          // Also update current price while we have it
+          updates.currentPrice = quoteData.price;
+          updates.lastQuoteUpdate = new Date().toISOString();
+          
+          // Update quote in state
+          setQuotes(prev => ({ ...prev, [cleanSymbol]: quoteData }));
+        } else if (volumeData?.averageDailyVolume && ticker.currentPrice) {
+          // Use existing current price if no new quote available
+          const dollarVolume = volumeData.averageDailyVolume * parseFloat(ticker.currentPrice);
+          updates.adv3Month = Math.round(dollarVolume);
+          console.log(`✅ ADV 3 month for ${cleanSymbol} (using existing price): ${volumeData.averageDailyVolume.toLocaleString()} shares × $${ticker.currentPrice} = $${dollarVolume.toLocaleString()}`);
+        }
+      } catch (error) {
+        console.warn(`Could not fetch ADV data for ${cleanSymbol}:`, error.message);
+        errors.push(`ADV 3 month: ${error.message}`);
+      }
+      
+      // Update ticker in database if we have updates
+      if (Object.keys(updates).length > 0) {
+        console.log(`🔄 Updating ticker ${cleanSymbol} with:`, updates);
+        await updateTicker(ticker.id, updates);
+        console.log(`✅ Successfully refreshed company data for ${cleanSymbol}`);
+        return { success: true, updates, warnings: errors.length > 0 ? errors : null };
+      } else {
+        console.log(`⚠️ No data available to update for ${cleanSymbol}`);
+        return { success: false, error: 'No data available to update', details: errors };
+      }
+      
+    } catch (error) {
+      console.error(`Error refreshing company data for ${cleanSymbol}:`, error);
+      return { success: false, error: error.message };
+    }
+  };
+
   // Refresh company names function
   const refreshCompanyNames = async () => {
     if (!isAuthenticated || !tickers.length) return;
@@ -4071,6 +4152,7 @@ const ClearlineFlow = () => {
             formatVolumeDollars={formatVolumeDollars}
             currentUser={currentUser}
             onNavigateBack={navigateBack}
+            onRefreshCompanyData={refreshSingleTickerData}
           />
         )}
       </main>
@@ -10300,10 +10382,14 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
 };
 
 // Idea Detail Page Component - Shows detailed view of a single ticker
-const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdateSelectedTicker, onUpdate, analysts, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors, formatMarketCap, formatVolumeDollars, currentUser, onNavigateBack }) => {
+const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdateSelectedTicker, onUpdate, analysts, quotes, onUpdateQuote, isLoadingQuotes, quoteErrors, formatMarketCap, formatVolumeDollars, currentUser, onNavigateBack, onRefreshCompanyData }) => {
   const [editingField, setEditingField] = useState(null);
   const [editValue, setEditValue] = useState('');
   const lastUpdatedTickerRef = useRef(null);
+  
+  // Company data refresh state
+  const [isRefreshingCompanyData, setIsRefreshingCompanyData] = useState(false);
+  const [refreshMessage, setRefreshMessage] = useState(null);
   
   // Email modal state
   const [showEmailModal, setShowEmailModal] = useState(false);
@@ -10518,6 +10604,35 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdateSelec
       alert(`❌ Failed to send email: ${error.message}`);
     } finally {
       setIsEmailSending(false);
+    }
+  };
+
+  // Handle company data refresh
+  const handleRefreshCompanyData = async () => {
+    if (!onRefreshCompanyData || !selectedTicker) return;
+    
+    setIsRefreshingCompanyData(true);
+    setRefreshMessage(null);
+    
+    try {
+      const result = await onRefreshCompanyData(selectedTicker);
+      
+      if (result.success) {
+        const updatedFields = Object.keys(result.updates || {}).join(', ');
+        setRefreshMessage({ type: 'success', text: `Updated: ${updatedFields}` });
+        
+        // Clear message after 5 seconds
+        setTimeout(() => setRefreshMessage(null), 5000);
+      } else {
+        setRefreshMessage({ type: 'error', text: result.error || 'No data available' });
+        setTimeout(() => setRefreshMessage(null), 5000);
+      }
+    } catch (error) {
+      console.error('Error refreshing company data:', error);
+      setRefreshMessage({ type: 'error', text: error.message });
+      setTimeout(() => setRefreshMessage(null), 5000);
+    } finally {
+      setIsRefreshingCompanyData(false);
     }
   };
 
@@ -11037,6 +11152,17 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdateSelec
             Idea Detail: {ticker.ticker}
           </h3>
           <div className="flex items-center space-x-3">
+            {onRefreshCompanyData && (
+              <button
+                onClick={handleRefreshCompanyData}
+                disabled={isRefreshingCompanyData}
+                className="inline-flex items-center px-3 py-2 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:bg-green-400 disabled:cursor-not-allowed"
+                title="Refresh company name, market cap, and ADV 3 month"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshingCompanyData ? 'animate-spin' : ''}`} />
+                {isRefreshingCompanyData ? 'Refreshing...' : 'Refresh Data'}
+              </button>
+            )}
             <button
               onClick={handleOpenEmailModal}
               className="inline-flex items-center px-3 py-2 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
@@ -11052,6 +11178,17 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdateSelec
             </button>
           </div>
         </div>
+
+        {/* Refresh status message */}
+        {refreshMessage && (
+          <div className={`mb-4 px-4 py-2 rounded-md text-sm ${
+            refreshMessage.type === 'success' 
+              ? 'bg-green-50 text-green-700 border border-green-200' 
+              : 'bg-red-50 text-red-700 border border-red-200'
+          }`}>
+            {refreshMessage.type === 'success' ? '✅' : '⚠️'} {refreshMessage.text}
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Basic Information */}
