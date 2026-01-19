@@ -2275,6 +2275,37 @@ const ClearlineFlow = () => {
     }
   }, [isAuthenticated, tickers, wsConnected]);
 
+  // Periodically check for and request missing prices (every 30 seconds)
+  useEffect(() => {
+    if (!isAuthenticated || !wsConnected || tickers.length === 0) return;
+    
+    const checkMissingPrices = () => {
+      // Find tickers that don't have a current price
+      const tickersWithoutPrice = tickers.filter(t => 
+        t.ticker && 
+        t.currentPrice === null || 
+        t.currentPrice === undefined
+      );
+      
+      if (tickersWithoutPrice.length > 0) {
+        const symbols = tickersWithoutPrice.map(t => t.ticker.replace(' US', ''));
+        console.log(`🔄 Requesting cached prices for ${symbols.length} tickers without prices`);
+        twelveDataWS.requestCachedPrices(symbols);
+      }
+    };
+    
+    // Check immediately on mount/reconnect
+    const initialTimeout = setTimeout(checkMissingPrices, 5000); // Wait 5 seconds after connection
+    
+    // Then check every 30 seconds
+    const interval = setInterval(checkMissingPrices, 30000);
+    
+    return () => {
+      clearTimeout(initialTimeout);
+      clearInterval(interval);
+    };
+  }, [isAuthenticated, wsConnected, tickers]);
+
   // FMP tickers (Japan, Hong Kong, Italy, UK, Denmark) are now handled by the backend server
   // The backend polls FMP and sends prices through the same WebSocket connection
 

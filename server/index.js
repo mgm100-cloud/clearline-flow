@@ -1300,6 +1300,12 @@ function handleClientMessage(ws, message) {
     // Client heartbeat - respond to keep connection alive
     ws.send(JSON.stringify({ type: 'heartbeat' }));
   }
+  
+  if (action === 'get-cached-prices' && Array.isArray(symbols)) {
+    // Client requesting cached prices for specific symbols (for retrying missing prices)
+    console.log(`🔄 Client requesting cached prices for ${symbols.length} symbols`);
+    sendCachedPricesToClient(ws, symbols);
+  }
 }
 
 // Start the server - bind to 0.0.0.0 for Railway

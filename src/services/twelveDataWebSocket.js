@@ -516,6 +516,29 @@ class TwelveDataWebSocketService {
       this.subscribe(symbolsToAdd);
     }
   }
+  
+  // Request cached prices for specific symbols (for retrying missing prices)
+  requestCachedPrices(symbols) {
+    if (!symbols || symbols.length === 0) return;
+    
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      console.log('⚠️ Cannot request cached prices - WebSocket not connected');
+      return;
+    }
+    
+    if (!this.useBackendServer) {
+      console.log('⚠️ get-cached-prices only supported with backend server');
+      return;
+    }
+    
+    const message = {
+      action: 'get-cached-prices',
+      symbols: symbols
+    };
+    
+    console.log(`🔄 Requesting cached prices for ${symbols.length} symbols`);
+    this.ws.send(JSON.stringify(message));
+  }
 
   // Start heartbeat to keep connection alive
   // TwelveData recommends sending heartbeat every 10 seconds
