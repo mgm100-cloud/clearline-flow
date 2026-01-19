@@ -49,6 +49,57 @@ const calculatePercentChange = (priceTarget, currentPrice) => {
   return `${change >= 0 ? '+' : ''}${Math.round(change)}%`;
 };
 
+// Currency symbol helper based on Bloomberg suffix
+const getCurrencySymbol = (ticker) => {
+  if (!ticker) return '$';
+  const upper = ticker.toUpperCase();
+  
+  // Map Bloomberg suffixes to currency symbols
+  if (upper.includes(' LN') || upper.includes(' LI')) return '£';  // UK - British Pound
+  if (upper.includes(' GR') || upper.includes(' GY')) return '€';  // Germany - Euro
+  if (upper.includes(' FP')) return '€';  // France - Euro
+  if (upper.includes(' IM') || upper.includes(' HM') || upper.includes(' TE')) return '€';  // Italy - Euro
+  if (upper.includes(' SM')) return '€';  // Spain - Euro
+  if (upper.includes(' NA')) return '€';  // Netherlands - Euro
+  if (upper.includes(' BB')) return '€';  // Belgium - Euro
+  if (upper.includes(' ID')) return '€';  // Ireland - Euro
+  if (upper.includes(' FH')) return '€';  // Finland - Euro
+  if (upper.includes(' AV')) return '€';  // Austria - Euro
+  if (upper.includes(' PL')) return '€';  // Portugal - Euro
+  if (upper.includes(' GA')) return '€';  // Greece - Euro
+  if (upper.includes(' SW')) return 'CHF';  // Switzerland - Swiss Franc
+  if (upper.includes(' JP') || upper.includes(' JT')) return '¥';  // Japan - Yen
+  if (upper.includes(' HK')) return 'HK$';  // Hong Kong - HK Dollar
+  if (upper.includes(' AU')) return 'A$';  // Australia - Australian Dollar
+  if (upper.includes(' CN') || upper.includes(' CT')) return 'C$';  // Canada - Canadian Dollar
+  if (upper.includes(' SS') || upper.includes(' SZ')) return '¥';  // China - Yuan (uses same symbol as Yen)
+  if (upper.includes(' KS') || upper.includes(' KQ')) return '₩';  // South Korea - Won
+  if (upper.includes(' IN')) return '₹';  // India - Rupee
+  if (upper.includes(' SP')) return 'S$';  // Singapore - Singapore Dollar
+  if (upper.includes(' TB')) return '฿';  // Thailand - Baht
+  if (upper.includes(' MK')) return 'RM';  // Malaysia - Ringgit
+  if (upper.includes(' DC')) return 'kr';  // Denmark - Danish Krone
+  if (upper.includes(' SS')) return 'kr';  // Sweden - Swedish Krona
+  if (upper.includes(' NO')) return 'kr';  // Norway - Norwegian Krone
+  if (upper.includes(' TT')) return 'NT$';  // Taiwan - New Taiwan Dollar
+  
+  // Default to USD for US stocks or unknown
+  return '$';
+};
+
+// Format price with currency symbol
+const formatPriceWithCurrency = (price, ticker) => {
+  if (price === null || price === undefined || isNaN(price)) return '-';
+  const symbol = getCurrencySymbol(ticker);
+  const formattedPrice = parseFloat(price).toFixed(2);
+  
+  // Some currencies go after the number
+  if (symbol === 'kr' || symbol === 'CHF') {
+    return `${formattedPrice} ${symbol}`;
+  }
+  return `${symbol}${formattedPrice}`;
+};
+
 // Quote service for TwelveData integration
 const QuoteService = {
   // Helper function to convert Swiss prices (divide by 100)
@@ -4925,7 +4976,7 @@ const EnhancedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
           </select>
         </td>
         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-          {ticker.inputPrice ? `$${parseFloat(ticker.inputPrice).toFixed(2)}` : '-'}
+          {ticker.inputPrice ? formatPriceWithCurrency(ticker.inputPrice, ticker.ticker) : '-'}
         </td>
         <td className="px-6 py-4 whitespace-nowrap">
           <QuoteDisplay 
@@ -5020,7 +5071,7 @@ const EnhancedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
         {ticker.analyst}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-        {ticker.inputPrice ? `$${parseFloat(ticker.inputPrice).toFixed(2)}` : '-'}
+        {ticker.inputPrice ? formatPriceWithCurrency(ticker.inputPrice, ticker.ticker) : '-'}
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
         <QuoteDisplay 
@@ -5473,7 +5524,7 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
           />
         </td>
         <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-          {ticker.inputPrice ? `$${parseFloat(ticker.inputPrice).toFixed(2)}` : '-'}
+          {ticker.inputPrice ? formatPriceWithCurrency(ticker.inputPrice, ticker.ticker) : '-'}
         </td>
         <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
           <QuoteDisplay 
@@ -5987,7 +6038,7 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
         )}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-        {ticker.inputPrice ? `$${parseFloat(ticker.inputPrice).toFixed(2)}` : '-'}
+        {ticker.inputPrice ? formatPriceWithCurrency(ticker.inputPrice, ticker.ticker) : '-'}
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
         <QuoteDisplay 
@@ -6798,7 +6849,7 @@ const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst
                         />
                       </td>
                       <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-900" style={{ width: '60px' }}>
-                        {ticker.ptBear ? `$${parseFloat(ticker.ptBear).toFixed(2)}` : '-'}
+                        {ticker.ptBear ? formatPriceWithCurrency(ticker.ptBear, ticker.ticker) : '-'}
                       </td>
                       <td className="px-1 py-2 whitespace-nowrap text-xs" style={{ width: '45px' }}>
                         <span className={getPercentColor(bearPercent)}>
@@ -6806,7 +6857,7 @@ const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst
                         </span>
                       </td>
                       <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-900" style={{ width: '60px' }}>
-                        {ticker.ptBase ? `$${parseFloat(ticker.ptBase).toFixed(2)}` : '-'}
+                        {ticker.ptBase ? formatPriceWithCurrency(ticker.ptBase, ticker.ticker) : '-'}
                       </td>
                       <td className="px-1 py-2 whitespace-nowrap text-xs" style={{ width: '45px' }}>
                         <span className={getPercentColor(basePercent)}>
@@ -6814,7 +6865,7 @@ const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst
                         </span>
                       </td>
                       <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-900" style={{ width: '60px' }}>
-                        {ticker.ptBull ? `$${parseFloat(ticker.ptBull).toFixed(2)}` : '-'}
+                        {ticker.ptBull ? formatPriceWithCurrency(ticker.ptBull, ticker.ticker) : '-'}
                       </td>
                       <td className="px-1 py-2 whitespace-nowrap text-xs" style={{ width: '45px' }}>
                         <span className={getPercentColor(bullPercent)}>
@@ -9990,7 +10041,7 @@ const QuoteDisplay = ({ ticker, quote, onUpdateQuote, isLoading, hasError }) => 
   if (!quote) {
     return (
       <div className="text-sm text-gray-500">
-        ${ticker?.currentPrice || '-'}
+        {ticker?.currentPrice ? formatPriceWithCurrency(ticker.currentPrice, ticker) : '-'}
         {hasError && (
           <div className="text-xs text-red-500">Quote error</div>
         )}
@@ -10001,7 +10052,7 @@ const QuoteDisplay = ({ ticker, quote, onUpdateQuote, isLoading, hasError }) => 
   return (
     <div className="text-sm">
       <div className="font-medium text-gray-900 flex items-center">
-        ${quote.price.toFixed(2)}
+        {formatPriceWithCurrency(quote.price, ticker)}
         {onUpdateQuote && (
           <button
             onClick={() => onUpdateQuote(cleanSymbol)}
@@ -10227,7 +10278,7 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
                         />
                       </td>
                       <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-900" style={{ width: '60px' }}>
-                        {ticker.ptBear ? `$${parseFloat(ticker.ptBear).toFixed(2)}` : '-'}
+                        {ticker.ptBear ? formatPriceWithCurrency(ticker.ptBear, ticker.ticker) : '-'}
                       </td>
                       <td className="px-1 py-2 whitespace-nowrap text-xs" style={{ width: '45px' }}>
                         <span className={getPercentColor(bearPercent)}>
@@ -10235,7 +10286,7 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
                         </span>
                       </td>
                       <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-900" style={{ width: '60px' }}>
-                        {ticker.ptBase ? `$${parseFloat(ticker.ptBase).toFixed(2)}` : '-'}
+                        {ticker.ptBase ? formatPriceWithCurrency(ticker.ptBase, ticker.ticker) : '-'}
                       </td>
                       <td className="px-1 py-2 whitespace-nowrap text-xs" style={{ width: '45px' }}>
                         <span className={getPercentColor(basePercent)}>
@@ -10243,7 +10294,7 @@ const PMDetailPage = ({ tickers, quotes, onUpdateQuote, isLoadingQuotes, quoteEr
                         </span>
                       </td>
                       <td className="px-2 py-2 whitespace-nowrap text-sm text-gray-900" style={{ width: '60px' }}>
-                        {ticker.ptBull ? `$${parseFloat(ticker.ptBull).toFixed(2)}` : '-'}
+                        {ticker.ptBull ? formatPriceWithCurrency(ticker.ptBull, ticker.ticker) : '-'}
                       </td>
                       <td className="px-1 py-2 whitespace-nowrap text-xs" style={{ width: '45px' }}>
                         <span className={getPercentColor(bullPercent)}>
@@ -10418,19 +10469,19 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdateSelec
               </tr>
               <tr>
                 <td style="padding: 8px; font-weight: bold; color: #6b7280;">Input Price:</td>
-                <td style="padding: 8px;">${selectedTicker.inputPrice ? `$${parseFloat(selectedTicker.inputPrice).toFixed(2)}` : 'N/A'}</td>
+                <td style="padding: 8px;">${selectedTicker.inputPrice ? formatPriceWithCurrency(selectedTicker.inputPrice, selectedTicker.ticker) : 'N/A'}</td>
               </tr>
               <tr>
                 <td style="padding: 8px; font-weight: bold; color: #6b7280;">PT Bear:</td>
-                <td style="padding: 8px;">${selectedTicker.ptBear ? `$${parseFloat(selectedTicker.ptBear).toFixed(2)} ${calculatePercentage(selectedTicker.ptBear, currentPrice)}` : 'N/A'}</td>
+                <td style="padding: 8px;">${selectedTicker.ptBear ? `${formatPriceWithCurrency(selectedTicker.ptBear, selectedTicker.ticker)} ${calculatePercentage(selectedTicker.ptBear, currentPrice)}` : 'N/A'}</td>
               </tr>
               <tr>
                 <td style="padding: 8px; font-weight: bold; color: #6b7280;">PT Base:</td>
-                <td style="padding: 8px;">${selectedTicker.ptBase ? `$${parseFloat(selectedTicker.ptBase).toFixed(2)} ${calculatePercentage(selectedTicker.ptBase, currentPrice)}` : 'N/A'}</td>
+                <td style="padding: 8px;">${selectedTicker.ptBase ? `${formatPriceWithCurrency(selectedTicker.ptBase, selectedTicker.ticker)} ${calculatePercentage(selectedTicker.ptBase, currentPrice)}` : 'N/A'}</td>
               </tr>
               <tr>
                 <td style="padding: 8px; font-weight: bold; color: #6b7280;">PT Bull:</td>
-                <td style="padding: 8px;">${selectedTicker.ptBull ? `$${parseFloat(selectedTicker.ptBull).toFixed(2)} ${calculatePercentage(selectedTicker.ptBull, currentPrice)}` : 'N/A'}</td>
+                <td style="padding: 8px;">${selectedTicker.ptBull ? `${formatPriceWithCurrency(selectedTicker.ptBull, selectedTicker.ticker)} ${calculatePercentage(selectedTicker.ptBull, currentPrice)}` : 'N/A'}</td>
               </tr>
               <tr>
                 <td style="padding: 8px; font-weight: bold; color: #6b7280;">Market Cap:</td>
@@ -10955,7 +11006,7 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdateSelec
                   className={`${onUpdate ? 'cursor-pointer hover:bg-gray-50 rounded px-1' : ''}`}
                   title={onUpdate ? 'Double-click to edit' : ''}
                 >
-                  {value ? `$${parseFloat(value).toFixed(2)}` : '-'}
+                  {value ? formatPriceWithCurrency(value, selectedTicker?.ticker) : '-'}
                 </span>
                 {percentage && (
                   <span className={`text-xs ${percentageColor} ml-6`}>
@@ -10974,8 +11025,7 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdateSelec
   const renderCurrentPriceField = () => {
     const cleanSymbol = selectedTicker.ticker.replace(' US', '');
     const quote = quotes[cleanSymbol];
-    const currentPrice = quote?.price ? parseFloat(quote.price).toFixed(2) : 
-                        (selectedTicker.currentPrice ? parseFloat(selectedTicker.currentPrice).toFixed(2) : '-');
+    const currentPrice = quote?.price || selectedTicker.currentPrice;
     const hasQuoteError = quoteErrors[cleanSymbol];
     const isRefreshing = isLoadingQuotes;
 
@@ -10985,7 +11035,7 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdateSelec
           <dt className="text-sm font-medium text-gray-500 w-1/3">Current Price</dt>
           <dd className="text-sm text-gray-900 w-2/3 flex items-center justify-between">
             <span className={hasQuoteError ? 'text-red-500' : ''}>
-              {currentPrice !== '-' ? `$${currentPrice}` : '-'}
+              {currentPrice ? formatPriceWithCurrency(currentPrice, selectedTicker.ticker) : '-'}
               {hasQuoteError && <span className="text-xs text-red-500 ml-1">(Error)</span>}
             </span>
             {onUpdateQuote && (
@@ -12566,13 +12616,13 @@ const IdeaScreeningPage = ({ tickers, quotes, onNavigateToIdeaDetail }) => {
                           {formatADV3M(ticker.adv3m)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {ticker.ptBear ? `$${parseFloat(ticker.ptBear).toFixed(2)}` : '-'}
+                          {ticker.ptBear ? formatPriceWithCurrency(ticker.ptBear, ticker.ticker) : '-'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {ticker.ptBase ? `$${parseFloat(ticker.ptBase).toFixed(2)}` : '-'}
+                          {ticker.ptBase ? formatPriceWithCurrency(ticker.ptBase, ticker.ticker) : '-'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {ticker.ptBull ? `$${parseFloat(ticker.ptBull).toFixed(2)}` : '-'}
+                          {ticker.ptBull ? formatPriceWithCurrency(ticker.ptBull, ticker.ticker) : '-'}
                         </td>
                       </tr>
                     ))
