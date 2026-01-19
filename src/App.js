@@ -2250,9 +2250,10 @@ const ClearlineFlow = () => {
       return fmpSuffixes.some(suffix => upper.includes(suffix));
     };
     
-    // Get unique symbols to subscribe to (exclude FMP-handled exchanges)
+    // Get unique symbols to subscribe to (exclude FMP-handled exchanges only)
+    // Now that we have a shared backend WebSocket, include all tickers including Old status
     const symbols = tickers
-      .filter(t => t.ticker && t.status !== 'Old' && !isFMPTicker(t.ticker)) // Exclude Old and FMP exchanges
+      .filter(t => t.ticker && !isFMPTicker(t.ticker)) // Only exclude FMP exchanges
       .map(t => t.ticker.replace(' US', ''));
     
     // Check if the symbols list has actually changed
