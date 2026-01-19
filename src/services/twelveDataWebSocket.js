@@ -39,8 +39,7 @@ class TwelveDataWebSocketService {
       'GY': ':FWB',      // Germany Frankfurt (alternative)
       'CN': ':TSX',      // Canada Toronto Stock Exchange
       'CT': ':TSX',      // Canada Toronto Venture Exchange
-      'JP': ':JPX',      // Japan Tokyo Stock Exchange
-      'JT': ':JPX',      // Japan Tokyo Stock Exchange (alternative)
+      // Note: Japanese stocks (JP, JT) are handled via FMP API, not TwelveData WebSocket
       'DC': ':XCSE',     // Denmark Copenhagen Stock Exchange
       'HK': ':HKEX',     // Hong Kong Stock Exchange (HKEX for WebSocket)
       'AU': ':ASX',      // Australia ASX

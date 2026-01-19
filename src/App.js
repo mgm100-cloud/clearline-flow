@@ -117,7 +117,71 @@ const QuoteService = {
     return cleanSymbol;
   },
 
+  // Check if symbol is Japanese
+  isJapaneseSymbol(symbol) {
+    if (!symbol) return false;
+    const upperSymbol = symbol.toUpperCase();
+    return upperSymbol.includes(' JP') || upperSymbol.includes(' JT') || upperSymbol.endsWith(':JPX');
+  },
+
+  // Get quote for Japanese stocks via FMP
+  async getJapaneseQuote(symbol) {
+    if (!FMP_API_KEY || FMP_API_KEY === 'YOUR_FMP_API_KEY_HERE') {
+      throw new Error('FMP API key not configured for Japanese stocks');
+    }
+
+    // Extract ticker code from Bloomberg format (e.g., "7203 JP" -> "7203")
+    const tickerCode = symbol.split(' ')[0];
+    
+    // Try different FMP formats for Japanese stocks
+    const formats = [
+      `${tickerCode}.T`,      // Tokyo format (e.g., 7203.T)
+      `${tickerCode}.TYO`,    // Alternative Tokyo format
+      tickerCode              // Just the code
+    ];
+
+    for (const fmpSymbol of formats) {
+      try {
+        const url = `${FMP_BASE_URL}/quote/${fmpSymbol}?apikey=${FMP_API_KEY}`;
+        console.log(`🇯🇵 Fetching Japanese quote for ${fmpSymbol} (original: ${symbol}) from FMP...`);
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        console.log(`FMP Japanese quote response for ${fmpSymbol}:`, data);
+        
+        if (Array.isArray(data) && data.length > 0 && data[0].price) {
+          const quote = data[0];
+          return {
+            symbol: fmpSymbol,
+            originalSymbol: symbol,
+            price: parseFloat(quote.price),
+            change: quote.change ? parseFloat(quote.change) : null,
+            changePercent: quote.changesPercentage ? parseFloat(quote.changesPercentage) : null,
+            volume: quote.volume ? parseInt(quote.volume) : null,
+            previousClose: quote.previousClose ? parseFloat(quote.previousClose) : null,
+            high: quote.dayHigh ? parseFloat(quote.dayHigh) : null,
+            low: quote.dayLow ? parseFloat(quote.dayLow) : null,
+            open: quote.open ? parseFloat(quote.open) : null,
+            lastUpdated: new Date().toISOString(),
+            source: 'fmp-japan',
+            isIntraday: true
+          };
+        }
+      } catch (error) {
+        console.log(`FMP format ${fmpSymbol} failed, trying next...`);
+      }
+    }
+    
+    throw new Error(`Japanese quote not available for ${symbol}`);
+  },
+
   async getQuote(symbol) {
+    // Route Japanese stocks to FMP
+    if (this.isJapaneseSymbol(symbol)) {
+      return this.getJapaneseQuote(symbol);
+    }
+
     if (!TWELVE_DATA_API_KEY || TWELVE_DATA_API_KEY === 'YOUR_API_KEY_HERE') {
       throw new Error('TwelveData API key not configured');
     }
@@ -2071,9 +2135,15 @@ const ClearlineFlow = () => {
   useEffect(() => {
     if (!isAuthenticated || !wsInitializedRef.current || tickers.length === 0) return;
     
-    // Get unique symbols to subscribe to
+    // Helper to check if Japanese ticker
+    const isJapanese = (ticker) => {
+      const upper = ticker?.toUpperCase() || '';
+      return upper.includes(' JP') || upper.includes(' JT');
+    };
+    
+    // Get unique symbols to subscribe to (exclude Japanese - they use FMP)
     const symbols = tickers
-      .filter(t => t.ticker && t.status !== 'Old') // Only active tickers
+      .filter(t => t.ticker && t.status !== 'Old' && !isJapanese(t.ticker)) // Exclude Old and Japanese
       .map(t => t.ticker.replace(' US', ''));
     
     // Check if the symbols list has actually changed
