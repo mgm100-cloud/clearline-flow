@@ -3886,6 +3886,22 @@ const ClearlineFlow = () => {
               </button>
             )}
             
+            {/* Ownership tab for Ops, Investment and Super divisions */}
+            {(userDivision === 'Ops' || userDivision === 'Investment' || userDivision === 'Super') && (
+              <button
+                onClick={() => handleTabSwitch('ownership')}
+                disabled={isTabSwitching}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'ownership'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                } ${isTabSwitching ? 'cursor-not-allowed opacity-50' : ''}`}
+              >
+                <Users className="inline h-4 w-4 mr-1" />
+                Ownership
+              </button>
+            )}
+            
             {/* Always show Todo List tab for all divisions */}
             <button
               onClick={() => handleTabSwitch('todos')}
@@ -4042,6 +4058,13 @@ const ClearlineFlow = () => {
             onUpdateTickers={setTickers}
             currentUser={currentUser}
             userRole={userRole}
+          />
+        )}
+        {activeTab === 'ownership' && (userDivision === 'Ops' || userDivision === 'Investment' || userDivision === 'Super') && (
+          <OwnershipPage 
+            tickers={tickers}
+            analysts={getInvestmentSuperAnalysts()}
+            onNavigateToIdeaDetail={navigateToIdeaDetail}
           />
         )}
         {activeTab === 'todos' && (
@@ -7268,6 +7291,176 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
    </div>
  );
 };
+
+// Ownership Page Component
+const OwnershipPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
+  const [selectedAnalystFilter, setSelectedAnalystFilter] = useState('All');
+  
+  // Filter tickers to only include Portfolio status with Long or Short position
+  const portfolioTickers = tickers.filter(ticker => 
+    ticker.status === 'Portfolio' && 
+    (ticker.lsPosition === 'Long' || ticker.lsPosition === 'Short') &&
+    (!ticker.analyst || ticker.analyst === '' || analysts.includes(ticker.analyst))
+  );
+  
+  // Apply analyst filter
+  const filteredTickers = selectedAnalystFilter === 'All' 
+    ? portfolioTickers 
+    : portfolioTickers.filter(t => t.analyst === selectedAnalystFilter);
+  
+  // Sort alphabetically by ticker
+  const sortedTickers = [...filteredTickers].sort((a, b) => 
+    (a.ticker || '').localeCompare(b.ticker || '')
+  );
+  
+  // Calculate summary statistics
+  const analystSummary = useMemo(() => {
+    const summary = {};
+    
+    // Initialize all analysts with zero counts
+    analysts.forEach(analyst => {
+      summary[analyst] = { long: 0, short: 0, total: 0 };
+    });
+    
+    // Count tickers per analyst
+    portfolioTickers.forEach(ticker => {
+      const analyst = ticker.analyst;
+      if (analyst && summary[analyst]) {
+        if (ticker.lsPosition === 'Long') {
+          summary[analyst].long++;
+        } else if (ticker.lsPosition === 'Short') {
+          summary[analyst].short++;
+        }
+        summary[analyst].total++;
+      }
+    });
+    
+    // Convert to array and sort by total descending
+    return Object.entries(summary)
+      .map(([analyst, counts]) => ({ analyst, ...counts }))
+      .sort((a, b) => b.total - a.total);
+  }, [portfolioTickers, analysts]);
+  
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold text-gray-900">Ownership</h1>
+        <div className="flex items-center space-x-3">
+          <label className="text-sm font-medium text-gray-700">Filter by Analyst:</label>
+          <select
+            value={selectedAnalystFilter}
+            onChange={(e) => setSelectedAnalystFilter(e.target.value)}
+            className="block w-40 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+          >
+            <option value="All">All</option>
+            {analysts.map(analyst => (
+              <option key={analyst} value={analyst}>{analyst}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+      
+      <div className="flex space-x-6">
+        {/* Main ticker/analyst table */}
+        <div className="flex-1 bg-white shadow rounded-lg overflow-hidden">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Ticker
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Analyst
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {sortedTickers.length === 0 ? (
+                <tr>
+                  <td colSpan="2" className="px-6 py-12 text-center text-gray-500">
+                    No portfolio positions found
+                  </td>
+                </tr>
+              ) : (
+                sortedTickers.map((ticker, index) => (
+                  <tr key={ticker.id || index} className="hover:bg-gray-50">
+                    <td className="px-6 py-3 whitespace-nowrap text-sm font-medium">
+                      <button
+                        onClick={() => onNavigateToIdeaDetail && onNavigateToIdeaDetail(ticker)}
+                        className="text-blue-600 hover:text-blue-800 underline hover:no-underline font-medium"
+                        title="Click to view in Idea Detail"
+                      >
+                        {ticker.ticker}
+                      </button>
+                    </td>
+                    <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
+                      {ticker.analyst || '-'}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+          <div className="px-6 py-3 bg-gray-50 border-t text-sm text-gray-500">
+            Total: {sortedTickers.length} positions
+          </div>
+        </div>
+        
+        {/* Summary panel */}
+        <div className="w-80 bg-white shadow rounded-lg overflow-hidden">
+          <div className="px-4 py-3 bg-gray-50 border-b">
+            <h3 className="text-sm font-semibold text-gray-700">Ownership Summary</h3>
+          </div>
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Analyst</th>
+                <th className="px-3 py-2 text-center text-xs font-medium text-green-600 uppercase">Long</th>
+                <th className="px-3 py-2 text-center text-xs font-medium text-red-600 uppercase">Short</th>
+                <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">Total</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {analystSummary.map((row, index) => (
+                <tr key={row.analyst} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                  <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
+                    {row.analyst}
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap text-sm text-center text-green-600">
+                    {row.long || '-'}
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap text-sm text-center text-red-600">
+                    {row.short || '-'}
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap text-sm text-center font-semibold text-gray-900">
+                    {row.total || '-'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot className="bg-gray-100">
+              <tr>
+                <td className="px-4 py-2 whitespace-nowrap text-sm font-bold text-gray-900">
+                  Total
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap text-sm text-center font-bold text-green-600">
+                  {analystSummary.reduce((sum, r) => sum + r.long, 0)}
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap text-sm text-center font-bold text-red-600">
+                  {analystSummary.reduce((sum, r) => sum + r.short, 0)}
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap text-sm text-center font-bold text-gray-900">
+                  {analystSummary.reduce((sum, r) => sum + r.total, 0)}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Earnings Tracking Page Component
 const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarningsAnalyst, earningsData, onUpdateEarnings, onUpdateTicker, getEarningsData, onRefreshEarningsData, analysts, quotes = {}, onUpdateQuote, isLoadingQuotes = false, quoteErrors = {}, formatTradeLevel, formatCompactDate, currentUser, onNavigateToIdeaDetail }) => {
   // State for sorting and filtering
