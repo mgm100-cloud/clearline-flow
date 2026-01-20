@@ -7473,8 +7473,16 @@ const OwnershipPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
             </tbody>
             <tfoot className="bg-gray-100">
               <tr>
-                <td className="px-4 py-2 whitespace-nowrap text-sm font-bold text-gray-900">
-                  Total
+                <td className="px-4 py-2 whitespace-nowrap text-sm font-bold">
+                  <button
+                    onClick={() => setSelectedAnalystFilter('All')}
+                    className={`text-blue-600 hover:text-blue-800 hover:underline font-bold ${
+                      selectedAnalystFilter === 'All' ? 'underline' : ''
+                    }`}
+                    title="Show all analysts"
+                  >
+                    Total
+                  </button>
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap text-sm text-center font-bold text-green-600">
                   {analystSummary.reduce((sum, r) => sum + r.long, 0)}
