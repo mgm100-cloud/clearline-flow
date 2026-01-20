@@ -2282,49 +2282,72 @@ const ClearlineFlow = () => {
     }
   }, [isAuthenticated, tickers, wsConnected]);
 
-  // Track last time we requested missing prices to prevent duplicate calls
-  const lastMissingPriceRequestRef = useRef(0);
+  // Track if we're currently requesting to prevent rapid-fire duplicate calls
+  const isRequestingMissingPricesRef = useRef(false);
+  
+  // Function to request missing prices
+  const requestMissingPrices = useCallback(() => {
+    // Skip if not ready
+    if (!wsConnected || tickersRef.current.length === 0) {
+      return;
+    }
+    
+    // Prevent rapid-fire calls (simple lock)
+    if (isRequestingMissingPricesRef.current) {
+      return;
+    }
+    
+    // Find tickers that haven't received a price in this session
+    const tickersWithoutPrice = tickersRef.current.filter(t => {
+      if (!t.ticker) return false;
+      const symbol = t.ticker.replace(' US', '');
+      return !receivedPricesRef.current.has(symbol);
+    });
+    
+    if (tickersWithoutPrice.length > 0) {
+      isRequestingMissingPricesRef.current = true;
+      const symbols = tickersWithoutPrice.map(t => t.ticker.replace(' US', ''));
+      // Log all missing symbols in a single line
+      console.log(`🔄 Requesting ${symbols.length} missing prices (${receivedPricesRef.current.size} received): ${symbols.slice(0, 20).join(', ')}${symbols.length > 20 ? ` ...+${symbols.length - 20} more` : ''}`);
+      twelveDataWS.requestCachedPrices(symbols);
+      // Reset lock after 2 seconds to allow next request
+      setTimeout(() => {
+        isRequestingMissingPricesRef.current = false;
+      }, 2000);
+    } else if (tickersRef.current.length > 0) {
+      console.log(`✅ All ${tickersRef.current.length} tickers have received prices`);
+    }
+  }, [wsConnected]);
   
   // Periodically check for and request missing prices (every 30 seconds)
   useEffect(() => {
-    if (!isAuthenticated || !wsConnected || tickers.length === 0) return;
+    if (!isAuthenticated || !wsConnected) return;
     
-    const checkMissingPrices = () => {
-      // Prevent duplicate calls within 5 seconds
-      const now = Date.now();
-      if (now - lastMissingPriceRequestRef.current < 5000) {
-        return;
-      }
-      
-      // Find tickers that haven't received a price in this session
-      const tickersWithoutPrice = tickersRef.current.filter(t => {
-        if (!t.ticker) return false;
-        const symbol = t.ticker.replace(' US', '');
-        return !receivedPricesRef.current.has(symbol);
-      });
-      
-      if (tickersWithoutPrice.length > 0) {
-        lastMissingPriceRequestRef.current = now;
-        const symbols = tickersWithoutPrice.map(t => t.ticker.replace(' US', ''));
-        // Log all missing symbols in a single line
-        console.log(`🔄 Requesting ${symbols.length} missing prices (${receivedPricesRef.current.size} received): ${symbols.slice(0, 20).join(', ')}${symbols.length > 20 ? ` ...+${symbols.length - 20} more` : ''}`);
-        twelveDataWS.requestCachedPrices(symbols);
-      } else {
-        console.log(`✅ All ${tickersRef.current.length} tickers have received prices`);
-      }
-    };
-    
-    // Check immediately on mount/reconnect
-    const initialTimeout = setTimeout(checkMissingPrices, 5000); // Wait 5 seconds after connection
+    // Check after 5 seconds to allow initial cache load
+    const initialTimeout = setTimeout(requestMissingPrices, 5000);
     
     // Then check every 30 seconds
-    const interval = setInterval(checkMissingPrices, 30000);
+    const interval = setInterval(requestMissingPrices, 30000);
     
     return () => {
       clearTimeout(initialTimeout);
       clearInterval(interval);
     };
-  }, [isAuthenticated, wsConnected]); // Removed tickers from deps - use tickersRef instead
+  }, [isAuthenticated, wsConnected, requestMissingPrices]);
+  
+  // Also trigger when tickers first load (in case they load after WebSocket connects)
+  const tickersLoadedRef = useRef(false);
+  useEffect(() => {
+    if (tickers.length > 0 && !tickersLoadedRef.current && wsConnected) {
+      tickersLoadedRef.current = true;
+      // Give a moment for initial cached prices to arrive, then request missing ones
+      setTimeout(requestMissingPrices, 3000);
+    }
+    // Reset when tickers are cleared (logout)
+    if (tickers.length === 0) {
+      tickersLoadedRef.current = false;
+    }
+  }, [tickers.length, wsConnected, requestMissingPrices]);
 
   // FMP tickers (Japan, Hong Kong, Italy, UK, Denmark) are now handled by the backend server
   // The backend polls FMP and sends prices through the same WebSocket connection
