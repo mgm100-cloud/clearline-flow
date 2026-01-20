@@ -88,7 +88,7 @@ const bloombergToTwelveDataMap = {
 };
 
 // FMP-handled exchanges (skip for TwelveData)
-const fmpExchanges = ['JP', 'JT', 'HK', 'IM', 'HM', 'TE', 'LN', 'DC'];
+const fmpExchanges = ['JP', 'JT', 'HK', 'IM', 'HM', 'TE', 'LN', 'DC', 'FP'];
 
 // Special US ticker mappings where TwelveData uses different symbols
 const usTwelveDataSymbolMap = {
@@ -624,6 +624,7 @@ function convertToFMPSymbol(symbol) {
     'HM': '.MI',   // Milan Stock Exchange (alternative)
     'TE': '.MI',   // Milan Stock Exchange (alternative)
     'DC': '.CO',   // Copenhagen Stock Exchange (Denmark)
+    'FP': '.PA',   // Paris Stock Exchange (France)
   };
   
   const fmpSuffix = fmpExchangeMap[exchange];

@@ -56,8 +56,8 @@ class TwelveDataWebSocketService {
     }
     
     // These exchanges are handled via FMP API, not TwelveData - return null to skip
-    // Japan (JP, JT), Hong Kong (HK), Italy (IM, HM, TE), UK (LN), Denmark (DC)
-    const fmpExchanges = ['JP', 'JT', 'HK', 'IM', 'HM', 'TE', 'LN', 'DC'];
+    // Japan (JP, JT), Hong Kong (HK), Italy (IM, HM, TE), UK (LN), Denmark (DC), France (FP)
+    const fmpExchanges = ['JP', 'JT', 'HK', 'IM', 'HM', 'TE', 'LN', 'DC', 'FP'];
     
     // Bloomberg to TwelveData suffix mapping (only exchanges supported by TwelveData)
     const bloombergToTwelveDataMap = {
@@ -67,7 +67,6 @@ class TwelveDataWebSocketService {
       'CN': ':TSX',      // Canada Toronto Stock Exchange
       'CT': ':TSX',      // Canada Toronto Venture Exchange
       'AU': ':ASX',      // Australia ASX
-      'FP': ':EPA',      // France Euronext Paris (EPA for WebSocket)
       'SM': ':BME',      // Spain Madrid Stock Exchange (BME for WebSocket)
       'SW': ':SIX',      // Switzerland SIX Swiss Exchange
       'SS': ':SHH',      // China Shanghai Stock Exchange
