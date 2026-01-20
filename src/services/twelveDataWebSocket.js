@@ -535,7 +535,6 @@ class TwelveDataWebSocketService {
       symbols: symbols
     };
     
-    console.log(`🔄 Requesting cached prices for ${symbols.length} symbols`);
     this.ws.send(JSON.stringify(message));
   }
 

@@ -2282,25 +2282,35 @@ const ClearlineFlow = () => {
     }
   }, [isAuthenticated, tickers, wsConnected]);
 
+  // Track last time we requested missing prices to prevent duplicate calls
+  const lastMissingPriceRequestRef = useRef(0);
+  
   // Periodically check for and request missing prices (every 30 seconds)
   useEffect(() => {
     if (!isAuthenticated || !wsConnected || tickers.length === 0) return;
     
     const checkMissingPrices = () => {
+      // Prevent duplicate calls within 5 seconds
+      const now = Date.now();
+      if (now - lastMissingPriceRequestRef.current < 5000) {
+        return;
+      }
+      
       // Find tickers that haven't received a price in this session
-      const tickersWithoutPrice = tickers.filter(t => {
+      const tickersWithoutPrice = tickersRef.current.filter(t => {
         if (!t.ticker) return false;
         const symbol = t.ticker.replace(' US', '');
-        // Check if we've received a price for this symbol
         return !receivedPricesRef.current.has(symbol);
       });
       
       if (tickersWithoutPrice.length > 0) {
+        lastMissingPriceRequestRef.current = now;
         const symbols = tickersWithoutPrice.map(t => t.ticker.replace(' US', ''));
-        console.log(`🔄 Requesting cached prices for ${symbols.length} tickers without prices (${receivedPricesRef.current.size} already received)`);
+        // Log all missing symbols in a single line
+        console.log(`🔄 Requesting ${symbols.length} missing prices (${receivedPricesRef.current.size} received): ${symbols.slice(0, 20).join(', ')}${symbols.length > 20 ? ` ...+${symbols.length - 20} more` : ''}`);
         twelveDataWS.requestCachedPrices(symbols);
       } else {
-        console.log(`✅ All ${tickers.length} tickers have received prices`);
+        console.log(`✅ All ${tickersRef.current.length} tickers have received prices`);
       }
     };
     
@@ -2314,7 +2324,7 @@ const ClearlineFlow = () => {
       clearTimeout(initialTimeout);
       clearInterval(interval);
     };
-  }, [isAuthenticated, wsConnected, tickers]);
+  }, [isAuthenticated, wsConnected]); // Removed tickers from deps - use tickersRef instead
 
   // FMP tickers (Japan, Hong Kong, Italy, UK, Denmark) are now handled by the backend server
   // The backend polls FMP and sends prices through the same WebSocket connection
