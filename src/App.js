@@ -2326,8 +2326,8 @@ const ClearlineFlow = () => {
     // Check after 5 seconds to allow initial cache load
     const initialTimeout = setTimeout(requestMissingPrices, 5000);
     
-    // Then check every 30 seconds
-    const interval = setInterval(requestMissingPrices, 30000);
+    // Then check every 15 seconds
+    const interval = setInterval(requestMissingPrices, 15000);
     
     return () => {
       clearTimeout(initialTimeout);
