@@ -272,13 +272,19 @@ function connectToTwelveData() {
 function handleTwelveDataMessage(data) {
   // Handle subscription status
   if (data.event === 'subscribe-status') {
-    console.log(`📊 Subscription status: ${data.success?.length || 0} success, ${data.fails?.length || 0} fails`);
+    const successCount = data.success?.length || 0;
+    const failCount = data.fails?.length || 0;
+    console.log(`📊 Subscription status: ${successCount} success, ${failCount} fails`);
     
-    // Track failed subscriptions with error details - capture FULL response
+    // Track and display failed subscriptions with details
     if (data.fails && data.fails.length > 0) {
-      console.log(`❌ TwelveData subscription failures:`);
-      data.fails.forEach(fail => {
+      console.log(`\n${'='.repeat(60)}`);
+      console.log(`❌ FAILED SUBSCRIPTIONS: ${failCount} symbols`);
+      console.log(`${'='.repeat(60)}`);
+      data.fails.forEach((fail, index) => {
         const symbol = typeof fail === 'string' ? fail : fail.symbol;
+        const exchange = typeof fail === 'object' && fail.exchange ? fail.exchange : 'unknown';
+        const type = typeof fail === 'object' && fail.type ? fail.type : '';
         // Capture the FULL failure object so we see exactly what TwelveData returned
         const errorMsg = typeof fail === 'object' ? JSON.stringify(fail) : 'Subscription failed (no details)';
         if (symbol) {
@@ -287,9 +293,10 @@ function handleTwelveDataMessage(data) {
             timestamp: Date.now(),
             source: 'twelvedata-ws'
           });
-          console.log(`   - ${symbol}: ${errorMsg}`);
+          console.log(`  ${index + 1}. ${symbol} (exchange: ${exchange}${type ? ', type: ' + type : ''})`);
         }
       });
+      console.log(`${'='.repeat(60)}\n`);
     }
     
     // Broadcast subscription status to all clients
