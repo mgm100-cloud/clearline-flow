@@ -7306,6 +7306,8 @@ const OwnershipPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
   // Apply analyst filter
   const filteredTickers = selectedAnalystFilter === 'All' 
     ? portfolioTickers 
+    : selectedAnalystFilter === 'Blank'
+    ? portfolioTickers.filter(t => !t.analyst || t.analyst === '')
     : portfolioTickers.filter(t => t.analyst === selectedAnalystFilter);
   
   // Sort alphabetically by ticker
@@ -7313,7 +7315,7 @@ const OwnershipPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
     (a.ticker || '').localeCompare(b.ticker || '')
   );
   
-  // Calculate summary statistics
+  // Calculate summary statistics including Blank row
   const analystSummary = useMemo(() => {
     const summary = {};
     
@@ -7321,6 +7323,9 @@ const OwnershipPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
     analysts.forEach(analyst => {
       summary[analyst] = { long: 0, short: 0, total: 0 };
     });
+    
+    // Initialize Blank for unassigned tickers
+    const blankCounts = { long: 0, short: 0, total: 0 };
     
     // Count tickers per analyst
     portfolioTickers.forEach(ticker => {
@@ -7332,13 +7337,26 @@ const OwnershipPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
           summary[analyst].short++;
         }
         summary[analyst].total++;
+      } else if (!analyst || analyst === '') {
+        // Count unassigned tickers
+        if (ticker.lsPosition === 'Long') {
+          blankCounts.long++;
+        } else if (ticker.lsPosition === 'Short') {
+          blankCounts.short++;
+        }
+        blankCounts.total++;
       }
     });
     
     // Convert to array and sort by total descending
-    return Object.entries(summary)
+    const analystRows = Object.entries(summary)
       .map(([analyst, counts]) => ({ analyst, ...counts }))
       .sort((a, b) => b.total - a.total);
+    
+    // Add Blank row at the end
+    analystRows.push({ analyst: 'Blank', ...blankCounts });
+    
+    return analystRows;
   }, [portfolioTickers, analysts]);
   
   return (
@@ -7356,6 +7374,7 @@ const OwnershipPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
             {analysts.map(analyst => (
               <option key={analyst} value={analyst}>{analyst}</option>
             ))}
+            <option value="Blank">Blank</option>
           </select>
         </div>
       </div>
@@ -7370,6 +7389,9 @@ const OwnershipPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
                   Ticker
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Name
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Analyst
                 </th>
               </tr>
@@ -7377,7 +7399,7 @@ const OwnershipPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
             <tbody className="bg-white divide-y divide-gray-200">
               {sortedTickers.length === 0 ? (
                 <tr>
-                  <td colSpan="2" className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan="3" className="px-6 py-12 text-center text-gray-500">
                     No portfolio positions found
                   </td>
                 </tr>
@@ -7392,6 +7414,9 @@ const OwnershipPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
                       >
                         {ticker.ticker}
                       </button>
+                    </td>
+                    <td className="px-6 py-3 text-sm text-gray-900">
+                      {ticker.name || '-'}
                     </td>
                     <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-900">
                       {ticker.analyst || '-'}
