@@ -7448,8 +7448,16 @@ const OwnershipPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
             <tbody className="bg-white divide-y divide-gray-200">
               {analystSummary.map((row, index) => (
                 <tr key={row.analyst} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                  <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {row.analyst}
+                  <td className="px-4 py-2 whitespace-nowrap text-sm font-medium">
+                    <button
+                      onClick={() => setSelectedAnalystFilter(row.analyst)}
+                      className={`text-blue-600 hover:text-blue-800 hover:underline font-medium ${
+                        selectedAnalystFilter === row.analyst ? 'underline' : ''
+                      }`}
+                      title={`Filter by ${row.analyst}`}
+                    >
+                      {row.analyst}
+                    </button>
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap text-sm text-center text-green-600">
                     {row.long || '-'}
