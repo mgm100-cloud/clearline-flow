@@ -9999,10 +9999,8 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, 
     </tr>
   );
 };
-// Enhanced Quote Display Component
-const QuoteDisplay = ({ ticker, quote, onUpdateQuote, isLoading, hasError }) => {
-  const cleanSymbol = ticker.replace(' US', '');
-  
+// Enhanced Quote Display Component - prices now stream via WebSocket
+const QuoteDisplay = ({ ticker, quote, isLoading, hasError }) => {
   if (!quote) {
     return (
       <div className="text-sm text-gray-500">
@@ -10016,17 +10014,8 @@ const QuoteDisplay = ({ ticker, quote, onUpdateQuote, isLoading, hasError }) => 
   
   return (
     <div className="text-sm">
-      <div className="font-medium text-gray-900 flex items-center">
+      <div className="font-medium text-gray-900">
         {formatPriceWithCurrency(quote.price, ticker)}
-        {onUpdateQuote && (
-          <button
-            onClick={() => onUpdateQuote(cleanSymbol)}
-            disabled={isLoading}
-            className="ml-1 text-xs text-blue-600 hover:text-blue-800 disabled:text-gray-400"
-          >
-            <RefreshCw className={`h-3 w-3 inline ${isLoading ? 'animate-spin' : ''}`} />
-          </button>
-        )}
       </div>
     </div>
   );
