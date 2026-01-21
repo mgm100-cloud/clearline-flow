@@ -818,5 +818,73 @@ export const DatabaseService = {
         return fallbackEmails;
       }
     }
+  },
+
+  // Get old theses for a ticker
+  async getOldTheses(tickerId) {
+    try {
+      const { data, error } = await supabase
+        .from('old_theses')
+        .select('*')
+        .eq('ticker_id', tickerId)
+        .order('archived_date', { ascending: false });
+      
+      if (error) throw error;
+      
+      // Convert to camelCase
+      return (data || []).map(row => ({
+        id: row.id,
+        tickerId: row.ticker_id,
+        thesis: row.thesis,
+        archivedDate: row.archived_date,
+        createdAt: row.created_at
+      }));
+    } catch (error) {
+      console.error('Error fetching old theses:', error);
+      return [];
+    }
+  },
+
+  // Add an old thesis (archive current thesis before replacing)
+  async addOldThesis(tickerId, thesis) {
+    try {
+      const { data, error } = await supabase
+        .from('old_theses')
+        .insert({
+          ticker_id: tickerId,
+          thesis: thesis,
+          archived_date: new Date().toISOString()
+        })
+        .select();
+      
+      if (error) throw error;
+      
+      const row = data[0];
+      return {
+        id: row.id,
+        tickerId: row.ticker_id,
+        thesis: row.thesis,
+        archivedDate: row.archived_date,
+        createdAt: row.created_at
+      };
+    } catch (error) {
+      console.error('Error adding old thesis:', error);
+      throw error;
+    }
+  },
+
+  // Delete an old thesis
+  async deleteOldThesis(oldThesisId) {
+    try {
+      const { error } = await supabase
+        .from('old_theses')
+        .delete()
+        .eq('id', oldThesisId);
+      
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error deleting old thesis:', error);
+      throw error;
+    }
   }
 } 

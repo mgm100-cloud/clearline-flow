@@ -10684,6 +10684,13 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdateSelec
   const [selectedRecipients, setSelectedRecipients] = useState([]);
   const [isEmailSending, setIsEmailSending] = useState(false);
   const [analystEmails, setAnalystEmails] = useState([]);
+  
+  // Thesis versioning state
+  const [oldTheses, setOldTheses] = useState([]);
+  const [isAddingNewThesis, setIsAddingNewThesis] = useState(false);
+  const [newThesisValue, setNewThesisValue] = useState('');
+  const [isEditingThesis, setIsEditingThesis] = useState(false);
+  const [editThesisValue, setEditThesisValue] = useState('');
 
   // Fetch analyst emails on component mount
   useEffect(() => {
@@ -10698,6 +10705,30 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdateSelec
     
     loadAnalystEmails();
   }, []);
+  
+  // Fetch old theses when ticker changes
+  useEffect(() => {
+    const loadOldTheses = async () => {
+      if (selectedTicker?.id) {
+        try {
+          const theses = await DatabaseService.getOldTheses(selectedTicker.id);
+          setOldTheses(theses);
+        } catch (error) {
+          console.error('Error loading old theses:', error);
+          setOldTheses([]);
+        }
+      } else {
+        setOldTheses([]);
+      }
+      // Reset thesis editing states when ticker changes
+      setIsAddingNewThesis(false);
+      setIsEditingThesis(false);
+      setNewThesisValue('');
+      setEditThesisValue('');
+    };
+    
+    loadOldTheses();
+  }, [selectedTicker?.id]);
 
   // Handle email modal
   const handleOpenEmailModal = () => {
@@ -11521,12 +11552,156 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdateSelec
 
         {/* Thesis */}
         <div className="mt-8">
-          <h4 className="text-base font-medium text-gray-900 mb-4 border-b border-gray-200 pb-2">
-            Investment Thesis
-          </h4>
-          <dl>
-            {renderField('Thesis', 'thesis', ticker.thesis, 'textarea')}
-          </dl>
+          <div className="flex justify-between items-center mb-4 border-b border-gray-200 pb-2">
+            <h4 className="text-base font-medium text-gray-900">
+              Investment Thesis
+            </h4>
+            {onUpdate && !isAddingNewThesis && !isEditingThesis && (
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => {
+                    setIsAddingNewThesis(true);
+                    setNewThesisValue('');
+                  }}
+                  className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                >
+                  Add New Thesis
+                </button>
+                <button
+                  onClick={() => {
+                    setIsEditingThesis(true);
+                    setEditThesisValue(ticker.thesis || '');
+                  }}
+                  className="inline-flex items-center px-3 py-1 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                >
+                  Edit Thesis
+                </button>
+              </div>
+            )}
+          </div>
+          
+          {/* Add New Thesis Mode */}
+          {isAddingNewThesis && (
+            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-700 mb-2">
+                The current thesis will be archived as "Old Thesis Pre {new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })}"
+              </p>
+              <textarea
+                value={newThesisValue}
+                onChange={(e) => setNewThesisValue(e.target.value)}
+                placeholder="Enter new thesis..."
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                rows="4"
+              />
+              <div className="flex justify-end space-x-2 mt-3">
+                <button
+                  onClick={() => {
+                    setIsAddingNewThesis(false);
+                    setNewThesisValue('');
+                  }}
+                  className="px-3 py-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!newThesisValue.trim()) {
+                      alert('Please enter a thesis.');
+                      return;
+                    }
+                    try {
+                      // Archive current thesis if it exists
+                      if (ticker.thesis && ticker.thesis.trim()) {
+                        await DatabaseService.addOldThesis(ticker.id, ticker.thesis);
+                      }
+                      // Update with new thesis
+                      await onUpdate(ticker.id, { thesis: newThesisValue });
+                      // Refresh old theses list
+                      const theses = await DatabaseService.getOldTheses(ticker.id);
+                      setOldTheses(theses);
+                      setIsAddingNewThesis(false);
+                      setNewThesisValue('');
+                    } catch (error) {
+                      console.error('Error saving new thesis:', error);
+                      alert('Error saving thesis. Please try again.');
+                    }
+                  }}
+                  className="px-3 py-1 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                >
+                  Save New Thesis
+                </button>
+              </div>
+            </div>
+          )}
+          
+          {/* Edit Thesis Mode */}
+          {isEditingThesis && (
+            <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <p className="text-sm text-yellow-700 mb-2">
+                Editing current thesis (no archive will be created)
+              </p>
+              <textarea
+                value={editThesisValue}
+                onChange={(e) => setEditThesisValue(e.target.value)}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                rows="4"
+              />
+              <div className="flex justify-end space-x-2 mt-3">
+                <button
+                  onClick={() => {
+                    setIsEditingThesis(false);
+                    setEditThesisValue('');
+                  }}
+                  className="px-3 py-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      await onUpdate(ticker.id, { thesis: editThesisValue });
+                      setIsEditingThesis(false);
+                      setEditThesisValue('');
+                    } catch (error) {
+                      console.error('Error updating thesis:', error);
+                      alert('Error updating thesis. Please try again.');
+                    }
+                  }}
+                  className="px-3 py-1 text-sm font-medium text-white bg-yellow-600 rounded-md hover:bg-yellow-700"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </div>
+          )}
+          
+          {/* Current Thesis Display */}
+          {!isAddingNewThesis && !isEditingThesis && (
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <p className="text-sm text-gray-900 whitespace-pre-wrap">
+                {ticker.thesis || <span className="text-gray-400 italic">No thesis entered</span>}
+              </p>
+            </div>
+          )}
+          
+          {/* Old Theses Section */}
+          {oldTheses.length > 0 && (
+            <div className="mt-6">
+              <h5 className="text-sm font-medium text-gray-700 mb-3">Previous Theses</h5>
+              <div className="space-y-3">
+                {oldTheses.map((oldThesis) => (
+                  <div key={oldThesis.id} className="bg-gray-100 border border-gray-200 rounded-lg p-3">
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="text-xs font-medium text-gray-500">
+                        Old Thesis Pre {new Date(oldThesis.archivedDate).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{oldThesis.thesis}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Investment Characteristics - styled like input page */}
