@@ -25,6 +25,10 @@ CREATE POLICY "Allow authenticated users to read old theses" ON public.old_these
 CREATE POLICY "Allow authenticated users to insert old theses" ON public.old_theses
     FOR INSERT TO authenticated WITH CHECK (true);
 
+-- Create policy to allow authenticated users to update old theses (for soft delete)
+CREATE POLICY "Allow authenticated users to update old theses" ON public.old_theses
+    FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+
 -- Create policy to allow authenticated users to delete old theses
 CREATE POLICY "Allow authenticated users to delete old theses" ON public.old_theses
     FOR DELETE TO authenticated USING (true);
