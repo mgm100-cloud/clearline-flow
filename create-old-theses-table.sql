@@ -4,7 +4,8 @@ CREATE TABLE IF NOT EXISTS public.old_theses (
     ticker_id UUID NOT NULL REFERENCES public.tickers(id) ON DELETE CASCADE,
     thesis TEXT NOT NULL,
     archived_date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    is_deleted BOOLEAN DEFAULT false
 );
 
 -- Create index for faster lookups by ticker

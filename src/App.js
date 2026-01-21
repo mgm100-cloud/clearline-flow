@@ -11695,6 +11695,27 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdateSelec
                       <span className="text-xs font-medium text-gray-500">
                         Old Thesis Pre {new Date(oldThesis.archivedDate).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })}
                       </span>
+                      {onUpdate && (
+                        <button
+                          onClick={async () => {
+                            if (window.confirm('Are you sure you want to delete this old thesis?')) {
+                              try {
+                                await DatabaseService.deleteOldThesis(oldThesis.id);
+                                // Refresh old theses list
+                                const theses = await DatabaseService.getOldTheses(ticker.id);
+                                setOldTheses(theses);
+                              } catch (error) {
+                                console.error('Error deleting old thesis:', error);
+                                alert('Error deleting old thesis. Please try again.');
+                              }
+                            }
+                          }}
+                          className="text-xs text-red-600 hover:text-red-800 hover:underline"
+                          title="Delete this old thesis"
+                        >
+                          Delete
+                        </button>
+                      )}
                     </div>
                     <p className="text-sm text-gray-700 whitespace-pre-wrap">{oldThesis.thesis}</p>
                   </div>

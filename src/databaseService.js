@@ -820,13 +820,14 @@ export const DatabaseService = {
     }
   },
 
-  // Get old theses for a ticker
+  // Get old theses for a ticker (excluding soft-deleted ones)
   async getOldTheses(tickerId) {
     try {
       const { data, error } = await supabase
         .from('old_theses')
         .select('*')
         .eq('ticker_id', tickerId)
+        .or('is_deleted.is.null,is_deleted.eq.false')
         .order('archived_date', { ascending: false });
       
       if (error) throw error;
@@ -837,7 +838,8 @@ export const DatabaseService = {
         tickerId: row.ticker_id,
         thesis: row.thesis,
         archivedDate: row.archived_date,
-        createdAt: row.created_at
+        createdAt: row.created_at,
+        isDeleted: row.is_deleted
       }));
     } catch (error) {
       console.error('Error fetching old theses:', error);
@@ -873,12 +875,12 @@ export const DatabaseService = {
     }
   },
 
-  // Delete an old thesis
+  // Soft delete an old thesis (marks as deleted but keeps in database)
   async deleteOldThesis(oldThesisId) {
     try {
       const { error } = await supabase
         .from('old_theses')
-        .delete()
+        .update({ is_deleted: true })
         .eq('id', oldThesisId);
       
       if (error) throw error;
