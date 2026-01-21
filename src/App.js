@@ -11358,33 +11358,22 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdateSelec
     );
   };
 
-  // Render current price field with refresh button
+  // Render current price field
   const renderCurrentPriceField = () => {
     const cleanSymbol = selectedTicker.ticker.replace(' US', '');
     const quote = quotes[cleanSymbol];
     const currentPrice = quote?.price || selectedTicker.currentPrice;
     const hasQuoteError = quoteErrors[cleanSymbol];
-    const isRefreshing = isLoadingQuotes;
 
     return (
       <div className="py-3 border-b border-gray-200">
         <div className="flex justify-between items-center">
           <dt className="text-sm font-medium text-gray-500 w-1/3">Current Price</dt>
-          <dd className="text-sm text-gray-900 w-2/3 flex items-center justify-between">
+          <dd className="text-sm text-gray-900 w-2/3">
             <span className={hasQuoteError ? 'text-red-500' : ''}>
               {currentPrice ? formatPriceWithCurrency(currentPrice, selectedTicker.ticker) : '-'}
               {hasQuoteError && <span className="text-xs text-red-500 ml-1">(Error)</span>}
             </span>
-            {onUpdateQuote && (
-              <button
-                onClick={() => onUpdateQuote(cleanSymbol)}
-                disabled={isRefreshing}
-                className="ml-2 text-xs text-blue-600 hover:text-blue-800 disabled:text-gray-400 flex items-center"
-                title="Refresh current price"
-              >
-                <RefreshCw className={`h-3 w-3 ${isRefreshing ? 'animate-spin' : ''}`} />
-              </button>
-            )}
           </dd>
         </div>
       </div>
