@@ -8770,6 +8770,8 @@ This email and any files transmitted with it may contain privileged or confident
 const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectTodoAnalyst, onAddTodo, onUpdateTodo, onDeleteTodo, onRestoreTodo, onPermanentlyDeleteTodo, analysts, userRole, onRefreshTodos, currentUser, tickers, onNavigateToIdeaDetail, onNavigateToInputWithData, userDivision, activeTodoDivision, onSetActiveTodoDivision }) => {
   const [sortField, setSortField] = useState('dateEntered');
   const [sortDirection, setSortDirection] = useState('desc');
+  const [closedSortField, setClosedSortField] = useState('dateClosed');
+  const [closedSortDirection, setClosedSortDirection] = useState('desc');
   const [showAddForm, setShowAddForm] = useState(false);
   const [showAddCompletedForm, setShowAddCompletedForm] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -8984,6 +8986,49 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
         return aVal < bVal ? 1 : -1;
       }
     });
+  };
+
+  // Sort function for closed todos - always uses closedSortField/closedSortDirection
+  const sortClosedTodos = (todosToSort) => {
+    if (!closedSortField) return todosToSort;
+    
+    return [...todosToSort].sort((a, b) => {
+      let aVal = a[closedSortField];
+      let bVal = b[closedSortField];
+      
+      // Handle date fields
+      if (closedSortField === 'dateEntered' || closedSortField === 'dateClosed') {
+        aVal = new Date(aVal || 0);
+        bVal = new Date(bVal || 0);
+      }
+      // Handle priority field with custom order
+      else if (closedSortField === 'priority') {
+        const priorityOrder = { 'high': 3, 'medium': 2, 'low': 1 };
+        aVal = priorityOrder[aVal] || 0;
+        bVal = priorityOrder[bVal] || 0;
+      }
+      // Handle string fields (ticker, analyst)
+      else if (typeof aVal === 'string') {
+        aVal = (aVal || '').toLowerCase();
+        bVal = (bVal || '').toLowerCase();
+      }
+      
+      if (closedSortDirection === 'asc') {
+        return aVal > bVal ? 1 : -1;
+      } else {
+        return aVal < bVal ? 1 : -1;
+      }
+    });
+  };
+
+  // Handle sorting for closed todos table
+  const handleClosedSort = (field) => {
+    if (closedSortField === field) {
+      setClosedSortDirection(closedSortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setClosedSortField(field);
+      setClosedSortDirection('asc');
+    }
   };
 
   // Handle drag start
@@ -9818,13 +9863,61 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    {activeTodoDivision === 'Ops' ? 'Title' : 'Ticker'}
+                  <th 
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleClosedSort('ticker')}
+                  >
+                    <div className="flex items-center">
+                      {activeTodoDivision === 'Ops' ? 'Title' : 'Ticker'}
+                      {closedSortField === 'ticker' && (
+                        closedSortDirection === 'asc' ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />
+                      )}
+                    </div>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Analyst</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Entered</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Closed</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
+                  <th 
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleClosedSort('analyst')}
+                  >
+                    <div className="flex items-center">
+                      Analyst
+                      {closedSortField === 'analyst' && (
+                        closedSortDirection === 'asc' ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleClosedSort('dateEntered')}
+                  >
+                    <div className="flex items-center">
+                      Date Entered
+                      {closedSortField === 'dateEntered' && (
+                        closedSortDirection === 'asc' ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleClosedSort('dateClosed')}
+                  >
+                    <div className="flex items-center">
+                      Date Closed
+                      {closedSortField === 'dateClosed' && (
+                        closedSortDirection === 'asc' ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleClosedSort('priority')}
+                  >
+                    <div className="flex items-center">
+                      Priority
+                      {closedSortField === 'priority' && (
+                        closedSortDirection === 'asc' ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />
+                      )}
+                    </div>
+                  </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
                   {(userRole === 'readwrite' || userRole === 'admin') && (
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -9832,7 +9925,7 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {sortTodos(recentlyClosedTodos).map((todo) => (
+                {sortClosedTodos(recentlyClosedTodos).map((todo) => (
                   <TodoRow 
                     key={todo.id} 
                     todo={todo} 
