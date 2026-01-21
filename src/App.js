@@ -7315,6 +7315,38 @@ const OwnershipPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
     (a.ticker || '').localeCompare(b.ticker || '')
   );
   
+  // Export to Excel function
+  const exportToExcel = () => {
+    // Prepare data for export (only Ticker, Name, Analyst columns)
+    const exportData = sortedTickers.map(ticker => ({
+      'Ticker': ticker.ticker || '',
+      'Name': ticker.name || '',
+      'Analyst': ticker.analyst || ''
+    }));
+    
+    // Create worksheet
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    
+    // Set column widths
+    ws['!cols'] = [
+      { wch: 15 },  // Ticker
+      { wch: 40 },  // Name
+      { wch: 10 }   // Analyst
+    ];
+    
+    // Create workbook
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Ownership');
+    
+    // Generate filename with date
+    const dateStr = new Date().toISOString().split('T')[0];
+    const filterSuffix = selectedAnalystFilter !== 'All' ? `-${selectedAnalystFilter}` : '';
+    const filename = `ownership${filterSuffix}-${dateStr}.xlsx`;
+    
+    // Download file
+    XLSX.writeFile(wb, filename);
+  };
+  
   // Calculate summary statistics including Blank row
   const analystSummary = useMemo(() => {
     const summary = {};
@@ -7363,19 +7395,28 @@ const OwnershipPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">Ownership</h1>
-        <div className="flex items-center space-x-3">
-          <label className="text-sm font-medium text-gray-700">Filter by Analyst:</label>
-          <select
-            value={selectedAnalystFilter}
-            onChange={(e) => setSelectedAnalystFilter(e.target.value)}
-            className="block w-40 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+        <div className="flex items-center space-x-4">
+          <button
+            onClick={exportToExcel}
+            className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
           >
-            <option value="All">All</option>
-            {analysts.map(analyst => (
-              <option key={analyst} value={analyst}>{analyst}</option>
-            ))}
-            <option value="Blank">Blank</option>
-          </select>
+            <Download className="h-4 w-4 mr-2" />
+            Export to Excel
+          </button>
+          <div className="flex items-center space-x-3">
+            <label className="text-sm font-medium text-gray-700">Filter by Analyst:</label>
+            <select
+              value={selectedAnalystFilter}
+              onChange={(e) => setSelectedAnalystFilter(e.target.value)}
+              className="block w-40 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            >
+              <option value="All">All</option>
+              {analysts.map(analyst => (
+                <option key={analyst} value={analyst}>{analyst}</option>
+              ))}
+              <option value="Blank">Blank</option>
+            </select>
+          </div>
         </div>
       </div>
       
