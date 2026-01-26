@@ -279,27 +279,30 @@ function connectToTwelveData() {
   }
 }
 
+// Helper to extract symbol string from TwelveData response item (could be string or object)
+function extractSymbol(item) {
+  if (typeof item === 'string') return item;
+  if (typeof item === 'object' && item !== null) {
+    return item.symbol || item.s || JSON.stringify(item);
+  }
+  return String(item);
+}
+
 // Handle messages from TwelveData
 function handleTwelveDataMessage(data) {
   // Handle subscription status
   if (data.event === 'subscribe-status') {
-    const successSymbols = data.success || [];
-    const failedSymbols = data.fails || [];
-    const successCount = successSymbols.length;
-    const failCount = failedSymbols.length;
+    const successItems = data.success || [];
+    const failItems = data.fails || [];
+    const successCount = successItems.length;
+    const failCount = failItems.length;
     
-    console.log(`\n${'='.repeat(80)}`);
-    console.log(`📊 TWELVEDATA SUBSCRIPTION STATUS RECEIVED`);
-    console.log(`${'='.repeat(80)}`);
-    console.log(`   Success: ${successCount}, Fails: ${failCount}`);
-    console.log(`   Pending subscriptions before processing: ${pendingSubscriptions.size}`);
+    console.log(`📊 Subscription batch status: ${successCount} success, ${failCount} fails (Total errors so far: ${symbolErrors.size})`);
     
-    // Log ALL successful subscriptions
+    // Process successful subscriptions (extract symbol names properly)
     if (successCount > 0) {
-      console.log(`\n✅ SUCCESSFUL SUBSCRIPTIONS (${successCount} symbols):`);
-      successSymbols.forEach((symbol, index) => {
-        const wasTracked = pendingSubscriptions.has(symbol);
-        console.log(`  ${index + 1}. ${symbol}${wasTracked ? '' : ' (NOT in pending - unexpected)'}`);
+      successItems.forEach((item) => {
+        const symbol = extractSymbol(item);
         // Remove from pending
         pendingSubscriptions.delete(symbol);
         // Clear any previous error
@@ -307,25 +310,20 @@ function handleTwelveDataMessage(data) {
       });
     }
     
-    // Track and display ALL failed subscriptions with full details - no truncation
+    // Track failed subscriptions with full details
     if (failCount > 0) {
-      console.log(`\n❌ FAILED SUBSCRIPTIONS (${failCount} symbols):`);
-      failedSymbols.forEach((fail, index) => {
-        const symbol = typeof fail === 'string' ? fail : fail.symbol;
+      failItems.forEach((fail) => {
+        const symbol = extractSymbol(fail);
         const exchange = typeof fail === 'object' && fail.exchange ? fail.exchange : 'unknown';
-        const type = typeof fail === 'object' && fail.type ? fail.type : '';
         // Capture the FULL failure object so we see exactly what TwelveData returned
         const errorMsg = typeof fail === 'object' ? JSON.stringify(fail) : 'Subscription failed (no details)';
-        if (symbol) {
-          const wasTracked = pendingSubscriptions.has(symbol);
+        if (symbol && symbol !== '{}') {
           symbolErrors.set(symbol, {
             error: errorMsg,
             timestamp: Date.now(),
-            source: 'twelvedata-ws'
+            source: 'twelvedata-ws',
+            exchange: exchange
           });
-          console.log(`  ${index + 1}. ${symbol}${wasTracked ? '' : ' (NOT in pending - unexpected)'}`);
-          console.log(`     Exchange: ${exchange}${type ? ', Type: ' + type : ''}`);
-          console.log(`     Full response: ${errorMsg}`);
           // Remove from pending
           pendingSubscriptions.delete(symbol);
         }
@@ -334,42 +332,28 @@ function handleTwelveDataMessage(data) {
     
     // Check for symbols that were sent but NOT acknowledged (still in pending)
     // These symbols were sent to TwelveData but didn't appear in success OR fails
-    if (pendingSubscriptions.size > 0) {
-      const now = Date.now();
-      const unacknowledged = [];
-      pendingSubscriptions.forEach((info, symbol) => {
-        const ageMs = now - info.timestamp;
-        // Only report as unacknowledged if sent more than 5 seconds ago
-        if (ageMs > 5000) {
-          unacknowledged.push({ symbol, ageMs, chunkId: info.chunkId });
-        }
-      });
-      
-      if (unacknowledged.length > 0) {
-        console.log(`\n⚠️ UNACKNOWLEDGED SYMBOLS (${unacknowledged.length} symbols sent but NOT in success or fails):`);
-        unacknowledged.forEach((item, index) => {
-          const ageSec = Math.round(item.ageMs / 1000);
-          console.log(`  ${index + 1}. ${item.symbol}`);
-          console.log(`     Sent ${ageSec}s ago in chunk #${item.chunkId}`);
-          // Track as error
-          symbolErrors.set(item.symbol, {
-            error: `Sent to TwelveData but never acknowledged (no success or fail response)`,
-            timestamp: Date.now(),
-            source: 'twelvedata-ws-unacknowledged'
-          });
+    const now = Date.now();
+    const staleThreshold = 5000; // 5 seconds
+    pendingSubscriptions.forEach((info, symbol) => {
+      const ageMs = now - info.timestamp;
+      if (ageMs > staleThreshold) {
+        // Track as error
+        symbolErrors.set(symbol, {
+          error: `Sent to TwelveData but never acknowledged (no success or fail response after ${Math.round(ageMs/1000)}s)`,
+          timestamp: now,
+          source: 'twelvedata-ws-unacknowledged'
         });
       }
-      
-      console.log(`\n📋 Remaining pending subscriptions: ${pendingSubscriptions.size}`);
-    }
+    });
     
-    console.log(`${'='.repeat(80)}\n`);
+    // Log current totals
+    console.log(`   Pending: ${pendingSubscriptions.size}, Total tracked errors: ${symbolErrors.size}`);
     
     // Broadcast subscription status to all clients
     broadcastToClients({
       type: 'subscription-status',
-      success: successSymbols,
-      fails: failedSymbols
+      success: successItems,
+      fails: failItems
     });
     return;
   }
@@ -1058,11 +1042,16 @@ async function syncTickersFromDatabase() {
     
     console.log(`✅ Sync complete: ${subscribedSymbols.size} TwelveData, ${fmpSymbols.size} FMP`);
     
+    // Wait for subscription responses to come back, then log all failures
+    setTimeout(() => {
+      dumpAllSubscriptionFailures();
+    }, 10000); // Wait 10 seconds for all subscription responses
+    
     // Fetch initial prices for symbols without cached prices
     // Run this in background after a short delay to let WebSocket subscriptions complete
     setTimeout(async () => {
       await fetchInitialPrices();
-    }, 5000);
+    }, 15000); // Wait 15 seconds (after subscription failures are logged)
     
   } catch (error) {
     console.error('❌ Error syncing tickers:', error);
@@ -1271,6 +1260,46 @@ function dumpAllSymbolErrors() {
   console.log(`\n${'='.repeat(80)}\n`);
 }
 
+// Dump ALL subscription failures across all batches - consolidated list
+function dumpAllSubscriptionFailures() {
+  // Get all TwelveData WebSocket related errors
+  const wsErrors = [];
+  symbolErrors.forEach((errorInfo, symbol) => {
+    if (errorInfo.source && errorInfo.source.startsWith('twelvedata-ws')) {
+      wsErrors.push({ symbol, ...errorInfo });
+    }
+  });
+  
+  if (wsErrors.length === 0) {
+    console.log(`\n${'='.repeat(80)}`);
+    console.log(`✅ ALL TWELVEDATA SUBSCRIPTIONS SUCCESSFUL`);
+    console.log(`   Total subscribed: ${subscribedSymbols.size}`);
+    console.log(`${'='.repeat(80)}\n`);
+    return;
+  }
+  
+  console.log(`\n${'='.repeat(80)}`);
+  console.log(`❌ CONSOLIDATED TWELVEDATA SUBSCRIPTION FAILURES: ${wsErrors.length} total`);
+  console.log(`${'='.repeat(80)}`);
+  console.log(`   Successfully subscribed: ${subscribedSymbols.size}`);
+  console.log(`   Failed subscriptions: ${wsErrors.length}`);
+  console.log(`${'-'.repeat(80)}`);
+  
+  // Sort by symbol for easier reading
+  wsErrors.sort((a, b) => a.symbol.localeCompare(b.symbol));
+  
+  wsErrors.forEach((err, index) => {
+    console.log(`  ${index + 1}. ${err.symbol}`);
+    console.log(`     Source: ${err.source}`);
+    console.log(`     Error: ${err.error}`);
+  });
+  
+  console.log(`\n${'='.repeat(80)}`);
+  console.log(`📋 SUMMARY: ${wsErrors.length} symbols failed to subscribe to TwelveData`);
+  console.log(`   List of failed symbols: ${wsErrors.map(e => e.symbol).join(', ')}`);
+  console.log(`${'='.repeat(80)}\n`);
+}
+
 // Start heartbeat to keep TwelveData connection alive
 function startHeartbeat() {
   stopHeartbeat();
@@ -1320,6 +1349,7 @@ function startHeartbeat() {
       
       // Dump all symbol errors every 5 minutes (30 heartbeats)
       if (now - lastErrorDumpLog >= 300000 && symbolErrors.size > 0) {
+        dumpAllSubscriptionFailures();
         dumpAllSymbolErrors();
         lastErrorDumpLog = now;
       }
