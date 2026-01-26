@@ -61,6 +61,11 @@ const priceCache = new Map();
 // Key: symbol, Value: { error, timestamp, source }
 const symbolErrors = new Map();
 
+// Track pending subscription requests to detect unacknowledged symbols
+// Key: symbol, Value: { timestamp, chunkId }
+const pendingSubscriptions = new Map();
+let subscriptionChunkId = 0;
+
 // Heartbeat interval
 let heartbeatInterval = null;
 let lastActivity = Date.now();
@@ -249,6 +254,12 @@ function connectToTwelveData() {
       isConnecting = false;
       stopHeartbeat();
       
+      // Clear pending subscriptions since they'll need to be resent
+      if (pendingSubscriptions.size > 0) {
+        console.log(`📋 Clearing ${pendingSubscriptions.size} pending subscriptions due to disconnect`);
+        pendingSubscriptions.clear();
+      }
+      
       // Notify all clients of disconnection
       broadcastToClients({
         type: 'connection',
@@ -272,40 +283,93 @@ function connectToTwelveData() {
 function handleTwelveDataMessage(data) {
   // Handle subscription status
   if (data.event === 'subscribe-status') {
-    const successCount = data.success?.length || 0;
-    const failCount = data.fails?.length || 0;
-    console.log(`📊 Subscription status: ${successCount} success, ${failCount} fails`);
+    const successSymbols = data.success || [];
+    const failedSymbols = data.fails || [];
+    const successCount = successSymbols.length;
+    const failCount = failedSymbols.length;
+    
+    console.log(`\n${'='.repeat(80)}`);
+    console.log(`📊 TWELVEDATA SUBSCRIPTION STATUS RECEIVED`);
+    console.log(`${'='.repeat(80)}`);
+    console.log(`   Success: ${successCount}, Fails: ${failCount}`);
+    console.log(`   Pending subscriptions before processing: ${pendingSubscriptions.size}`);
+    
+    // Log ALL successful subscriptions
+    if (successCount > 0) {
+      console.log(`\n✅ SUCCESSFUL SUBSCRIPTIONS (${successCount} symbols):`);
+      successSymbols.forEach((symbol, index) => {
+        const wasTracked = pendingSubscriptions.has(symbol);
+        console.log(`  ${index + 1}. ${symbol}${wasTracked ? '' : ' (NOT in pending - unexpected)'}`);
+        // Remove from pending
+        pendingSubscriptions.delete(symbol);
+        // Clear any previous error
+        symbolErrors.delete(symbol);
+      });
+    }
     
     // Track and display ALL failed subscriptions with full details - no truncation
-    if (data.fails && data.fails.length > 0) {
-      console.log(`\n${'='.repeat(80)}`);
-      console.log(`❌ TWELVEDATA SUBSCRIPTION FAILURES: ${failCount} symbols`);
-      console.log(`${'='.repeat(80)}`);
-      data.fails.forEach((fail, index) => {
+    if (failCount > 0) {
+      console.log(`\n❌ FAILED SUBSCRIPTIONS (${failCount} symbols):`);
+      failedSymbols.forEach((fail, index) => {
         const symbol = typeof fail === 'string' ? fail : fail.symbol;
         const exchange = typeof fail === 'object' && fail.exchange ? fail.exchange : 'unknown';
         const type = typeof fail === 'object' && fail.type ? fail.type : '';
         // Capture the FULL failure object so we see exactly what TwelveData returned
         const errorMsg = typeof fail === 'object' ? JSON.stringify(fail) : 'Subscription failed (no details)';
         if (symbol) {
+          const wasTracked = pendingSubscriptions.has(symbol);
           symbolErrors.set(symbol, {
             error: errorMsg,
             timestamp: Date.now(),
             source: 'twelvedata-ws'
           });
-          console.log(`  ${index + 1}. ${symbol}`);
+          console.log(`  ${index + 1}. ${symbol}${wasTracked ? '' : ' (NOT in pending - unexpected)'}`);
           console.log(`     Exchange: ${exchange}${type ? ', Type: ' + type : ''}`);
           console.log(`     Full response: ${errorMsg}`);
+          // Remove from pending
+          pendingSubscriptions.delete(symbol);
         }
       });
-      console.log(`${'='.repeat(80)}\n`);
     }
+    
+    // Check for symbols that were sent but NOT acknowledged (still in pending)
+    // These symbols were sent to TwelveData but didn't appear in success OR fails
+    if (pendingSubscriptions.size > 0) {
+      const now = Date.now();
+      const unacknowledged = [];
+      pendingSubscriptions.forEach((info, symbol) => {
+        const ageMs = now - info.timestamp;
+        // Only report as unacknowledged if sent more than 5 seconds ago
+        if (ageMs > 5000) {
+          unacknowledged.push({ symbol, ageMs, chunkId: info.chunkId });
+        }
+      });
+      
+      if (unacknowledged.length > 0) {
+        console.log(`\n⚠️ UNACKNOWLEDGED SYMBOLS (${unacknowledged.length} symbols sent but NOT in success or fails):`);
+        unacknowledged.forEach((item, index) => {
+          const ageSec = Math.round(item.ageMs / 1000);
+          console.log(`  ${index + 1}. ${item.symbol}`);
+          console.log(`     Sent ${ageSec}s ago in chunk #${item.chunkId}`);
+          // Track as error
+          symbolErrors.set(item.symbol, {
+            error: `Sent to TwelveData but never acknowledged (no success or fail response)`,
+            timestamp: Date.now(),
+            source: 'twelvedata-ws-unacknowledged'
+          });
+        });
+      }
+      
+      console.log(`\n📋 Remaining pending subscriptions: ${pendingSubscriptions.size}`);
+    }
+    
+    console.log(`${'='.repeat(80)}\n`);
     
     // Broadcast subscription status to all clients
     broadcastToClients({
       type: 'subscription-status',
-      success: data.success || [],
-      fails: data.fails || []
+      success: successSymbols,
+      fails: failedSymbols
     });
     return;
   }
@@ -490,6 +554,7 @@ function subscribeToTwelveData(symbols) {
   const chunkSize = 100;
   for (let i = 0; i < symbols.length; i += chunkSize) {
     const chunk = symbols.slice(i, i + chunkSize);
+    const chunkId = ++subscriptionChunkId;
     const message = {
       action: 'subscribe',
       params: {
@@ -497,7 +562,14 @@ function subscribeToTwelveData(symbols) {
       }
     };
     
-    console.log(`📊 Subscribing to chunk ${Math.floor(i/chunkSize) + 1}/${Math.ceil(symbols.length/chunkSize)}: ${chunk.length} symbols`);
+    // Track pending subscriptions
+    const now = Date.now();
+    chunk.forEach(symbol => {
+      pendingSubscriptions.set(symbol, { timestamp: now, chunkId });
+    });
+    
+    console.log(`📊 Subscribing to chunk ${Math.floor(i/chunkSize) + 1}/${Math.ceil(symbols.length/chunkSize)}: ${chunk.length} symbols (chunkId: ${chunkId})`);
+    console.log(`   Symbols: ${chunk.join(', ')}`);
     twelveDataWS.send(JSON.stringify(message));
   }
 }
@@ -525,6 +597,7 @@ async function subscribeToTwelveDataWithDelay(symbols) {
     
     const chunk = symbols.slice(i, i + chunkSize);
     const chunkNum = Math.floor(i/chunkSize) + 1;
+    const chunkId = ++subscriptionChunkId;
     const message = {
       action: 'subscribe',
       params: {
@@ -532,7 +605,14 @@ async function subscribeToTwelveDataWithDelay(symbols) {
       }
     };
     
-    console.log(`📊 Subscribing to chunk ${chunkNum}/${totalChunks}: ${chunk.length} symbols`);
+    // Track pending subscriptions
+    const now = Date.now();
+    chunk.forEach(symbol => {
+      pendingSubscriptions.set(symbol, { timestamp: now, chunkId });
+    });
+    
+    console.log(`📊 Subscribing to chunk ${chunkNum}/${totalChunks}: ${chunk.length} symbols (chunkId: ${chunkId})`);
+    console.log(`   Symbols: ${chunk.join(', ')}`);
     twelveDataWS.send(JSON.stringify(message));
     
     // Delay before next chunk (except for last chunk)
@@ -1202,8 +1282,40 @@ function startHeartbeat() {
       // Log cache status every minute (every 6 heartbeats since heartbeat is every 10s)
       const now = Date.now();
       if (now - lastPriceUpdateLog >= 60000) {
-        console.log(`📊 Status: Cache=${priceCache.size}, Subscribed=${subscribedSymbols.size}, ServerManaged=${serverManagedTwelveDataSymbols.size}, FMP=${fmpSymbols.size}, PriceUpdates=${priceUpdatesReceived}, ErrorsTracked=${symbolErrors.size}`);
+        console.log(`📊 Status: Cache=${priceCache.size}, Subscribed=${subscribedSymbols.size}, ServerManaged=${serverManagedTwelveDataSymbols.size}, FMP=${fmpSymbols.size}, PriceUpdates=${priceUpdatesReceived}, ErrorsTracked=${symbolErrors.size}, PendingSubs=${pendingSubscriptions.size}`);
         lastPriceUpdateLog = now;
+        
+        // Check for stale pending subscriptions (sent more than 30 seconds ago)
+        if (pendingSubscriptions.size > 0) {
+          const staleThreshold = 30000; // 30 seconds
+          const staleSymbols = [];
+          pendingSubscriptions.forEach((info, symbol) => {
+            const age = now - info.timestamp;
+            if (age > staleThreshold) {
+              staleSymbols.push({ symbol, ageMs: age, chunkId: info.chunkId });
+            }
+          });
+          
+          if (staleSymbols.length > 0) {
+            console.log(`\n${'='.repeat(80)}`);
+            console.log(`⚠️ STALE PENDING SUBSCRIPTIONS: ${staleSymbols.length} symbols sent but never acknowledged`);
+            console.log(`${'='.repeat(80)}`);
+            staleSymbols.forEach((item, index) => {
+              const ageSec = Math.round(item.ageMs / 1000);
+              console.log(`  ${index + 1}. ${item.symbol}`);
+              console.log(`     Sent ${ageSec}s ago in chunk #${item.chunkId}`);
+              // Track as error if not already tracked
+              if (!symbolErrors.has(item.symbol)) {
+                symbolErrors.set(item.symbol, {
+                  error: `Sent to TwelveData ${ageSec}s ago but never acknowledged`,
+                  timestamp: now,
+                  source: 'twelvedata-ws-unacknowledged'
+                });
+              }
+            });
+            console.log(`${'='.repeat(80)}\n`);
+          }
+        }
       }
       
       // Dump all symbol errors every 5 minutes (30 heartbeats)
