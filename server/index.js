@@ -276,11 +276,11 @@ function handleTwelveDataMessage(data) {
     const failCount = data.fails?.length || 0;
     console.log(`📊 Subscription status: ${successCount} success, ${failCount} fails`);
     
-    // Track and display failed subscriptions with details
+    // Track and display ALL failed subscriptions with full details - no truncation
     if (data.fails && data.fails.length > 0) {
-      console.log(`\n${'='.repeat(60)}`);
-      console.log(`❌ FAILED SUBSCRIPTIONS: ${failCount} symbols`);
-      console.log(`${'='.repeat(60)}`);
+      console.log(`\n${'='.repeat(80)}`);
+      console.log(`❌ TWELVEDATA SUBSCRIPTION FAILURES: ${failCount} symbols`);
+      console.log(`${'='.repeat(80)}`);
       data.fails.forEach((fail, index) => {
         const symbol = typeof fail === 'string' ? fail : fail.symbol;
         const exchange = typeof fail === 'object' && fail.exchange ? fail.exchange : 'unknown';
@@ -293,10 +293,12 @@ function handleTwelveDataMessage(data) {
             timestamp: Date.now(),
             source: 'twelvedata-ws'
           });
-          console.log(`  ${index + 1}. ${symbol} (exchange: ${exchange}${type ? ', type: ' + type : ''})`);
+          console.log(`  ${index + 1}. ${symbol}`);
+          console.log(`     Exchange: ${exchange}${type ? ', Type: ' + type : ''}`);
+          console.log(`     Full response: ${errorMsg}`);
         }
       });
-      console.log(`${'='.repeat(60)}\n`);
+      console.log(`${'='.repeat(80)}\n`);
     }
     
     // Broadcast subscription status to all clients
@@ -434,17 +436,16 @@ function sendCachedPricesToClient(ws, symbols) {
     console.log(`📤 Sent ${sentCount} cached prices to client (${missingSymbols.length} symbols without cache)`);
   }
   
-  // Log missing symbols with actual error messages
+  // Log missing symbols with actual error messages - NO TRUNCATION, show ALL
   if (missingSymbols.length > 0) {
-    // Build detailed log as a single string to avoid Railway log truncation
-    const logLines = [];
-    logLines.push(`⚠️ ${missingSymbols.length} symbols without cached prices:`);
-    logLines.push(`📊 Stats: Cache=${priceCache.size}, Errors tracked=${symbolErrors.size}`);
+    console.log(`\n${'='.repeat(80)}`);
+    console.log(`⚠️ MISSING PRICES: ${missingSymbols.length} symbols without cached prices`);
+    console.log(`📊 Stats: Cache=${priceCache.size}, ErrorsTracked=${symbolErrors.size}`);
+    console.log(`${'='.repeat(80)}`);
     
-    // Log first 50 with actual error messages
-    const toLog = missingSymbols.slice(0, 50);
-    for (let i = 0; i < toLog.length; i++) {
-      const m = toLog[i];
+    // Log ALL missing symbols - no truncation
+    for (let i = 0; i < missingSymbols.length; i++) {
+      const m = missingSymbols[i];
       try {
         // Check for stored error message
         const symbolToCheck = m.converted || m.original;
@@ -455,18 +456,14 @@ function sendCachedPricesToClient(ws, symbols) {
           errorMsg = `[${errorInfo.source}] ${errorInfo.error}`;
         }
         
-        logLines.push(`  ${i+1}. ${m.original} -> ${m.converted || 'null'}: ${errorMsg}`);
+        console.log(`  ${i+1}. ${m.original} -> ${m.converted || 'null'}`);
+        console.log(`     Error: ${errorMsg}`);
       } catch (err) {
-        logLines.push(`  ${i+1}. ERROR logging ${m.original}: ${err.message}`);
+        console.log(`  ${i+1}. ERROR logging ${m.original}: ${err.message}`);
       }
     }
     
-    if (missingSymbols.length > 50) {
-      logLines.push(`  ... and ${missingSymbols.length - 50} more`);
-    }
-    
-    // Output all at once
-    console.log(logLines.join('\n'));
+    console.log(`${'='.repeat(80)}\n`);
   }
 }
 
@@ -776,13 +773,17 @@ async function pollFMPQuotes() {
   
   console.log(`📊 FMP poll complete: ${successCount} success, ${failedSymbols.length} failed`);
   
-  // Log detailed info about failed symbols
+  // Log detailed info about ALL failed symbols - no truncation
   if (failedSymbols.length > 0) {
-    console.log(`❌ ${failedSymbols.length} FMP symbols failed:`);
-    failedSymbols.forEach(({ symbol, error }) => {
+    console.log(`\n${'='.repeat(80)}`);
+    console.log(`❌ FMP FAILED SYMBOLS: ${failedSymbols.length} total`);
+    console.log(`${'='.repeat(80)}`);
+    failedSymbols.forEach(({ symbol, error }, index) => {
       const fmpSymbol = convertToFMPSymbol(symbol);
-      console.log(`   - ${symbol} (FMP: ${fmpSymbol}): ${error}`);
+      console.log(`  ${index + 1}. ${symbol} -> FMP: ${fmpSymbol}`);
+      console.log(`     Error: ${error}`);
     });
+    console.log(`${'='.repeat(80)}\n`);
   }
 }
 
@@ -1130,13 +1131,21 @@ async function fetchInitialPrices() {
   console.log(`📊 Initial price fetch complete: ${successCount} success, ${errorCount} errors`);
   console.log(`💾 Price cache now has ${priceCache.size} entries`);
   
-  // Log detailed info about failed symbols
+  // Log detailed info about ALL failed symbols - no truncation
   if (failedSymbols.length > 0) {
-    console.log(`❌ ${failedSymbols.length} symbols failed to fetch initial price:`);
-    failedSymbols.forEach(({ symbol, error }) => {
-      console.log(`   - ${symbol}: ${error}`);
+    console.log(`\n${'='.repeat(80)}`);
+    console.log(`❌ INITIAL PRICE FETCH FAILED: ${failedSymbols.length} symbols`);
+    console.log(`${'='.repeat(80)}`);
+    failedSymbols.forEach(({ symbol, error }, index) => {
+      console.log(`  ${index + 1}. ${symbol}`);
+      console.log(`     Error: ${error}`);
     });
+    console.log(`${'='.repeat(80)}\n`);
   }
+  
+  // After initial fetch, dump ALL tracked errors so we have a complete picture
+  console.log(`\n📋 INITIAL FETCH COMPLETE - Dumping all tracked errors...`);
+  dumpAllSymbolErrors();
 }
 
 // ==================== END INITIAL PRICE FETCH ====================
@@ -1144,6 +1153,43 @@ async function fetchInitialPrices() {
 // Track price updates received
 let priceUpdatesReceived = 0;
 let lastPriceUpdateLog = Date.now();
+let lastErrorDumpLog = Date.now();
+
+// Dump all tracked symbol errors to the log
+function dumpAllSymbolErrors() {
+  if (symbolErrors.size === 0) {
+    console.log('✅ No symbol errors tracked');
+    return;
+  }
+  
+  console.log(`\n${'='.repeat(80)}`);
+  console.log(`❌ ALL TRACKED SYMBOL ERRORS (${symbolErrors.size} total)`);
+  console.log(`${'='.repeat(80)}`);
+  
+  // Group errors by source for better readability
+  const errorsBySource = new Map();
+  symbolErrors.forEach((errorInfo, symbol) => {
+    const source = errorInfo.source || 'unknown';
+    if (!errorsBySource.has(source)) {
+      errorsBySource.set(source, []);
+    }
+    errorsBySource.get(source).push({ symbol, ...errorInfo });
+  });
+  
+  // Log each source group
+  errorsBySource.forEach((errors, source) => {
+    console.log(`\n📍 Source: ${source} (${errors.length} errors)`);
+    console.log(`${'-'.repeat(60)}`);
+    errors.forEach((err, index) => {
+      const age = Math.round((Date.now() - err.timestamp) / 1000);
+      console.log(`  ${index + 1}. ${err.symbol}`);
+      console.log(`     Error: ${err.error}`);
+      console.log(`     Age: ${age}s ago`);
+    });
+  });
+  
+  console.log(`\n${'='.repeat(80)}\n`);
+}
 
 // Start heartbeat to keep TwelveData connection alive
 function startHeartbeat() {
@@ -1156,8 +1202,14 @@ function startHeartbeat() {
       // Log cache status every minute (every 6 heartbeats since heartbeat is every 10s)
       const now = Date.now();
       if (now - lastPriceUpdateLog >= 60000) {
-        console.log(`📊 Status: Cache=${priceCache.size}, Subscribed=${subscribedSymbols.size}, ServerManaged=${serverManagedTwelveDataSymbols.size}, FMP=${fmpSymbols.size}, PriceUpdates=${priceUpdatesReceived}`);
+        console.log(`📊 Status: Cache=${priceCache.size}, Subscribed=${subscribedSymbols.size}, ServerManaged=${serverManagedTwelveDataSymbols.size}, FMP=${fmpSymbols.size}, PriceUpdates=${priceUpdatesReceived}, ErrorsTracked=${symbolErrors.size}`);
         lastPriceUpdateLog = now;
+      }
+      
+      // Dump all symbol errors every 5 minutes (30 heartbeats)
+      if (now - lastErrorDumpLog >= 300000 && symbolErrors.size > 0) {
+        dumpAllSymbolErrors();
+        lastErrorDumpLog = now;
       }
       
       console.log('💓 Sent heartbeat to TwelveData');
