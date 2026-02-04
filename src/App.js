@@ -9273,6 +9273,20 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                   const color = colors[priority] || colors['medium'];
                   return `<span style="background-color: ${color.bg}; color: ${color.text}; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; text-transform: uppercase; display: inline-block;">${priority}</span>`;
                 };
+
+                // Helper function to get status badge styling
+                const getStatusBadge = (status) => {
+                  const statusText = status || 'Not started';
+                  const colors = {
+                    'In progress': { bg: '#dbeafe', text: '#2563eb' },
+                    'Waiting': { bg: '#ffedd5', text: '#ea580c' },
+                    'On hold': { bg: '#f3e8ff', text: '#9333ea' },
+                    'Done': { bg: '#dcfce7', text: '#16a34a' },
+                    'Not started': { bg: '#f3f4f6', text: '#6b7280' }
+                  };
+                  const color = colors[statusText] || colors['Not started'];
+                  return `<span style="background-color: ${color.bg}; color: ${color.text}; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; display: inline-block;">${statusText}</span>`;
+                };
                 
                 // Start building mobile-friendly HTML email
                 let emailBody = `
@@ -9326,27 +9340,8 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                     </tr>`;
                 }
                 
-                // Custom sort for email: Priority (high>medium>low), then Days Since (lowest first)
-                const sortTodosForEmail = (todos) => {
-                  return [...todos].sort((a, b) => {
-                    // Priority order: high=3, medium=2, low=1
-                    const priorityOrder = { 'high': 3, 'medium': 2, 'low': 1 };
-                    const aPriority = priorityOrder[a.priority] || 0;
-                    const bPriority = priorityOrder[b.priority] || 0;
-                    
-                    // First sort by priority (high to low)
-                    if (aPriority !== bPriority) {
-                      return bPriority - aPriority;
-                    }
-                    
-                    // Then sort by days since entered (lowest first)
-                    const aDays = calculateDaysSinceEntered(a.dateEntered);
-                    const bDays = calculateDaysSinceEntered(b.dateEntered);
-                    return aDays - bDays;
-                  });
-                };
-                
                 // Open todos section - Mobile-friendly card layout
+                // Use sortTodos to match the display order
                 if (openTodos.length > 0) {
                   emailBody += `
                     <!-- Open Todos Section -->
@@ -9355,11 +9350,11 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                         <h2 style="margin: 0 0 10px 0; color: #333; font-size: 18px; font-weight: bold;">🔥 Open Todos (${openTodos.length})</h2>
                       </td>
                     </tr>`;
-                  
-                  sortTodosForEmail(openTodos).forEach((todo, index) => {
+
+                  sortTodos(openTodos).forEach((todo, index) => {
                     const daysSince = calculateDaysSinceEntered(todo.dateEntered);
                     const bgColor = index % 2 === 0 ? '#ffffff' : '#f8f9fa';
-                    
+
                     emailBody += `
                     <tr>
                       <td style="padding: 0 15px;">
@@ -9388,6 +9383,11 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                               <strong>Task:</strong> ${todo.item}
                             </td>
                           </tr>
+                          <tr>
+                            <td colspan="2" style="font-size: 12px; color: #333; padding-top: 5px;">
+                              <strong>Status:</strong> ${getStatusBadge(todo.status)}
+                            </td>
+                          </tr>
                         </table>
                       </td>
                     </tr>`;
@@ -9395,6 +9395,7 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                 }
                 
                 // Recently closed todos section - Mobile-friendly card layout
+                // Use sortClosedTodos to match the display order
                 if (recentlyClosedTodos.length > 0) {
                   emailBody += `
                     <!-- Recently Closed Todos Section -->
@@ -9403,10 +9404,10 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                         <h2 style="margin: 0 0 10px 0; color: #333; font-size: 18px; font-weight: bold;">✅ Recently Closed - Last 7 Days (${recentlyClosedTodos.length})</h2>
                       </td>
                     </tr>`;
-                  
-                  sortTodosForEmail(recentlyClosedTodos).forEach((todo, index) => {
+
+                  sortClosedTodos(recentlyClosedTodos).forEach((todo, index) => {
                     const bgColor = index % 2 === 0 ? '#f0fff4' : '#f8fff8';
-                    
+
                     emailBody += `
                     <tr>
                       <td style="padding: 0 15px;">
@@ -9433,6 +9434,11 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                           <tr>
                             <td colspan="2" style="font-size: 13px; color: #333; padding-top: 5px; line-height: 1.4;">
                               <strong>Task:</strong> ${todo.item}
+                            </td>
+                          </tr>
+                          <tr>
+                            <td colspan="2" style="font-size: 12px; color: #333; padding-top: 5px;">
+                              <strong>Status:</strong> ${getStatusBadge(todo.status)}
                             </td>
                           </tr>
                         </table>
