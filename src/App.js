@@ -9538,51 +9538,53 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
               if (openTodos.length > 0) {
                 doc.setFontSize(12);
                 doc.text('Open Todos', 20, 50);
-                
+
                 const openTableData = sortTodos(openTodos).map(todo => [
                   todo.ticker,
                   todo.analyst,
                   formatDate(todo.dateEntered),
                   calculateDaysSinceEntered(todo.dateEntered).toString(),
                   todo.priority,
+                  todo.status || 'Not started',
                   todo.item.length > 50 ? todo.item.substring(0, 50) + '...' : todo.item
                 ]);
-                
+
                 autoTable(doc, {
                   startY: 55,
                   head: [[
-                    activeTodoDivision === 'Ops' ? 'Title' : 'Ticker', 
-                    activeTodoDivision === 'Ops' ? 'Employee' : 'Analyst', 
-                    'Date Entered', 'Days Since', 'Priority', 'Item'
+                    activeTodoDivision === 'Ops' ? 'Title' : 'Ticker',
+                    activeTodoDivision === 'Ops' ? 'Employee' : 'Who',
+                    'Entered', 'Days', 'Priority', 'Status', 'Item'
                   ]],
                   body: openTableData,
                   styles: { fontSize: 8 },
                   headStyles: { fillColor: [59, 130, 246] }
                 });
               }
-              
+
               // Recently closed todos
               if (recentlyClosedTodos.length > 0) {
                 const startY = openTodos.length > 0 ? doc.lastAutoTable.finalY + 20 : 55;
-                
+
                 doc.setFontSize(12);
                 doc.text('Recently Closed Todos (Last 7 Days)', 20, startY);
-                
+
                 const closedTableData = sortTodos(recentlyClosedTodos).map(todo => [
                   todo.ticker,
                   todo.analyst,
                   formatDate(todo.dateEntered),
                   formatDate(todo.dateClosed),
                   todo.priority,
+                  todo.status || 'Not started',
                   todo.item.length > 50 ? todo.item.substring(0, 50) + '...' : todo.item
                 ]);
-                
+
                 autoTable(doc, {
                   startY: startY + 5,
                   head: [[
-                    activeTodoDivision === 'Ops' ? 'Title' : 'Ticker', 
-                    activeTodoDivision === 'Ops' ? 'Employee' : 'Analyst', 
-                    'Date Entered', 'Date Closed', 'Priority', 'Item'
+                    activeTodoDivision === 'Ops' ? 'Title' : 'Ticker',
+                    activeTodoDivision === 'Ops' ? 'Employee' : 'Who',
+                    'Entered', 'Closed', 'Priority', 'Status', 'Item'
                   ]],
                   body: closedTableData,
                   styles: { fontSize: 8 },
@@ -9847,16 +9849,17 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     {activeTodoDivision === 'Ops' ? 'Title' : 'Ticker'}
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Analyst</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Entered</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Days Since</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
+                  <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Who</th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entered</th>
+                  <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Days</th>
+                  <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
+                  <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
                   {(userRole === 'readwrite' || userRole === 'admin') && (
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   )}
                 </tr>
               </thead>
@@ -9904,8 +9907,8 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th 
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  <th
+                    className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                     onClick={() => handleClosedSort('ticker')}
                   >
                     <div className="flex items-center">
@@ -9915,41 +9918,41 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                       )}
                     </div>
                   </th>
-                  <th 
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  <th
+                    className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                     onClick={() => handleClosedSort('analyst')}
                   >
                     <div className="flex items-center">
-                      Analyst
+                      Who
                       {closedSortField === 'analyst' && (
                         closedSortDirection === 'asc' ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />
                       )}
                     </div>
                   </th>
-                  <th 
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  <th
+                    className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                     onClick={() => handleClosedSort('dateEntered')}
                   >
                     <div className="flex items-center">
-                      Date Entered
+                      Entered
                       {closedSortField === 'dateEntered' && (
                         closedSortDirection === 'asc' ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />
                       )}
                     </div>
                   </th>
-                  <th 
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  <th
+                    className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                     onClick={() => handleClosedSort('dateClosed')}
                   >
                     <div className="flex items-center">
-                      Date Closed
+                      Closed
                       {closedSortField === 'dateClosed' && (
                         closedSortDirection === 'asc' ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />
                       )}
                     </div>
                   </th>
-                  <th 
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  <th
+                    className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                     onClick={() => handleClosedSort('priority')}
                   >
                     <div className="flex items-center">
@@ -9959,9 +9962,10 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                       )}
                     </div>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
+                  <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
                   {(userRole === 'readwrite' || userRole === 'admin') && (
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   )}
                 </tr>
               </thead>
@@ -10001,35 +10005,36 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-red-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     {activeTodoDivision === 'Ops' ? 'Title' : 'Ticker'}
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Analyst</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Entered</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Deleted</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
+                  <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Who</th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entered</th>
+                  <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deleted</th>
+                  <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
+                  <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
                   {(userRole === 'readwrite' || userRole === 'admin') && (
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   )}
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredDeletedTodos.map((todo) => (
                   <tr key={todo.id} className="bg-red-50 bg-opacity-30">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {todo.ticker}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500">
                       {todo.analyst}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
                       {formatDate(todo.dateEntered)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500">
                       {formatDate(todo.deletedAt)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-2 py-4 whitespace-nowrap">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                         todo.priority === 'high' ? 'bg-red-100 text-red-800' :
                         todo.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
@@ -10038,11 +10043,14 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                         {todo.priority}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-500 max-w-md truncate">
+                    <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {todo.status || 'Not started'}
+                    </td>
+                    <td className="px-4 py-4 text-sm text-gray-500 max-w-md truncate">
                       {todo.item}
                     </td>
                     {(userRole === 'readwrite' || userRole === 'admin') && (
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <td className="px-4 py-4 whitespace-nowrap text-sm">
                         <button
                           onClick={() => onRestoreTodo(todo.id)}
                           className="text-green-600 hover:text-green-900 text-xs font-medium border border-green-500 px-2 py-1 rounded bg-green-50 hover:bg-green-100"
@@ -10066,14 +10074,24 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
 
 // Todo Row Component with double-click editing
 const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, formatDate, userRole, hasWriteAccess, isClosed = false, tickers, onNavigateToIdeaDetail, onNavigateToInputWithData, analystEmails = [], currentUser, activeTodoDivision, isDraggable = false, isDragging = false, onDragStart, onDragOver, onDrop, onDragEnd }) => {
-  const [editingField, setEditingField] = useState(null); // 'ticker', 'priority' or 'item'
+  const [editingField, setEditingField] = useState(null); // 'ticker', 'priority', 'item', or 'status'
   const [editValue, setEditValue] = useState('');
   const [isEmailSending, setIsEmailSending] = useState(false);
+
+  // Status options
+  const statusOptions = ['Not started', 'In progress', 'Waiting', 'On hold', 'Done'];
 
   const handleDoubleClick = (field, currentValue) => {
     if (!hasWriteAccess) return;
     setEditingField(field);
     setEditValue(currentValue);
+  };
+
+  // Single click handler for status (more intuitive than double-click)
+  const handleStatusClick = (currentValue) => {
+    if (!hasWriteAccess) return;
+    setEditingField('status');
+    setEditValue(currentValue || 'Not started');
   };
 
   const handleSaveEdit = async () => {
@@ -10108,6 +10126,27 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, 
       case 'low': return 'text-green-600 bg-green-100';
       default: return 'text-gray-600 bg-gray-100';
     }
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'In progress': return 'text-blue-600 bg-blue-100';
+      case 'Waiting': return 'text-orange-600 bg-orange-100';
+      case 'On hold': return 'text-purple-600 bg-purple-100';
+      case 'Done': return 'text-green-600 bg-green-100';
+      case 'Not started':
+      default: return 'text-gray-600 bg-gray-100';
+    }
+  };
+
+  // Format status timestamp for display
+  const formatStatusTimestamp = (timestamp) => {
+    if (!timestamp) return '';
+    const date = new Date(timestamp);
+    return date.toLocaleDateString('en-US', {
+      month: 'numeric',
+      day: 'numeric'
+    });
   };
 
   // Check if ticker exists in the idea database
@@ -10237,7 +10276,7 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, 
   };
 
   return (
-    <tr 
+    <tr
       className={`${isClosed ? 'bg-white' : ''} ${isDraggable ? 'cursor-grab active:cursor-grabbing' : ''} ${isDragging ? 'opacity-50 bg-blue-50' : ''}`}
       draggable={isDraggable}
       onDragStart={onDragStart}
@@ -10245,7 +10284,7 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, 
       onDrop={onDrop}
       onDragEnd={onDragEnd}
     >
-      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+      <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
         <div className="flex items-center gap-2">
           {isDraggable && (
             <span className="text-gray-400 mr-1" title="Drag to reorder">⋮⋮</span>
@@ -10295,16 +10334,16 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, 
           )}
         </div>
       </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+      <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500">
         {todo.analyst}
       </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
         {formatDate(todo.dateEntered)}
       </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+      <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500">
         {isClosed ? formatDate(todo.dateClosed) : calculateDaysSinceEntered(todo.dateEntered)}
       </td>
-      <td className="px-6 py-4 whitespace-nowrap text-sm">
+      <td className="px-2 py-4 whitespace-nowrap text-sm">
         {editingField === 'priority' ? (
           <select
             value={editValue}
@@ -10328,7 +10367,48 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, 
           </span>
         )}
       </td>
-      <td className="px-6 py-4 text-sm text-gray-900">
+      <td className="px-2 py-4 whitespace-nowrap text-sm">
+        {editingField === 'status' ? (
+          <select
+            value={editValue}
+            onChange={(e) => {
+              setEditValue(e.target.value);
+              // Auto-save on selection
+              onUpdateTodo(todo.id, { status: e.target.value });
+              setEditingField(null);
+              setEditValue('');
+            }}
+            onBlur={() => {
+              setEditingField(null);
+              setEditValue('');
+            }}
+            autoFocus
+            className="border border-blue-300 rounded px-1 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            {statusOptions.map(status => (
+              <option key={status} value={status}>{status}</option>
+            ))}
+          </select>
+        ) : (
+          <div
+            className={`cursor-pointer ${hasWriteAccess ? 'hover:ring-2 hover:ring-blue-300 rounded' : ''}`}
+            onClick={() => handleStatusClick(todo.status)}
+            title={hasWriteAccess ? 'Click to change status' : ''}
+          >
+            <span
+              className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(todo.status || 'Not started')}`}
+            >
+              {todo.status || 'Not started'}
+            </span>
+            {todo.statusUpdatedAt && (
+              <span className="ml-1 text-xs text-gray-400">
+                {formatStatusTimestamp(todo.statusUpdatedAt)}
+              </span>
+            )}
+          </div>
+        )}
+      </td>
+      <td className="px-4 py-4 text-sm text-gray-900">
         {editingField === 'item' ? (
           <textarea
             value={editValue}
@@ -10340,7 +10420,7 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, 
             rows="2"
           />
         ) : (
-          <div 
+          <div
             className={`cursor-pointer hover:bg-gray-50 p-1 rounded break-words ${hasWriteAccess ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
             title={hasWriteAccess ? 'Double-click to edit' : ''}
             onDoubleClick={() => handleDoubleClick('item', todo.item)}
@@ -10350,7 +10430,7 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, 
         )}
       </td>
       {hasWriteAccess && (
-        <td className="px-6 py-4 whitespace-nowrap text-sm">
+        <td className="px-4 py-4 whitespace-nowrap text-sm">
           <div className="flex space-x-2">
             <button
               onClick={() => onUpdateTodo(todo.id, { isOpen: !todo.isOpen })}

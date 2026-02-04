@@ -542,24 +542,66 @@ export const DatabaseService = {
     }
   },
 
-  async updateTodo(id, updates) {
+  async updateTodo(id, updates, changedBy = null) {
     try {
       // Convert camelCase to snake_case for database
       const dbUpdates = convertToDbFormat(updates);
       dbUpdates.updated_at = new Date().toISOString();
-      
+
+      // If status is being updated, also set status_updated_at
+      if (updates.status !== undefined) {
+        dbUpdates.status_updated_at = new Date().toISOString();
+
+        // Get the current status before updating to save to history
+        const { data: currentTodo } = await supabase
+          .from('todos')
+          .select('status')
+          .eq('id', id)
+          .single();
+
+        // Save the old status to history if it exists and is different
+        if (currentTodo && currentTodo.status && currentTodo.status !== updates.status) {
+          await supabase
+            .from('todo_status_history')
+            .insert([{
+              todo_id: id,
+              status: currentTodo.status,
+              changed_at: new Date().toISOString(),
+              changed_by: changedBy
+            }]);
+        }
+      }
+
       const { data, error } = await supabase
         .from('todos')
         .update(dbUpdates)
         .eq('id', id)
         .select()
-      
+
       if (error) throw error
-      
+
       // Convert back to camelCase for JavaScript
       return convertFromDbFormat(data[0]);
     } catch (error) {
       console.error('Error updating todo:', error)
+      throw error
+    }
+  },
+
+  // Get status history for a todo
+  async getTodoStatusHistory(todoId) {
+    try {
+      const { data, error } = await supabase
+        .from('todo_status_history')
+        .select('*')
+        .eq('todo_id', todoId)
+        .order('changed_at', { ascending: false });
+
+      if (error) throw error
+
+      return (data || []).map(convertFromDbFormat);
+    } catch (error) {
+      console.error('Error fetching todo status history:', error)
       throw error
     }
   },
