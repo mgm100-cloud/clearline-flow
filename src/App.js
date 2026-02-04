@@ -9545,8 +9545,8 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                   formatDate(todo.dateEntered),
                   calculateDaysSinceEntered(todo.dateEntered).toString(),
                   todo.priority,
-                  todo.status || 'Not started',
-                  todo.item.length > 50 ? todo.item.substring(0, 50) + '...' : todo.item
+                  todo.item.length > 50 ? todo.item.substring(0, 50) + '...' : todo.item,
+                  todo.status || 'Not started'
                 ]);
 
                 autoTable(doc, {
@@ -9554,7 +9554,7 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                   head: [[
                     activeTodoDivision === 'Ops' ? 'Title' : 'Ticker',
                     activeTodoDivision === 'Ops' ? 'Employee' : 'Who',
-                    'Entered', 'Days', 'Priority', 'Status', 'Item'
+                    'Entered', 'Days', 'Priority', 'Item', 'Status'
                   ]],
                   body: openTableData,
                   styles: { fontSize: 8 },
@@ -9575,8 +9575,8 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                   formatDate(todo.dateEntered),
                   formatDate(todo.dateClosed),
                   todo.priority,
-                  todo.status || 'Not started',
-                  todo.item.length > 50 ? todo.item.substring(0, 50) + '...' : todo.item
+                  todo.item.length > 50 ? todo.item.substring(0, 50) + '...' : todo.item,
+                  todo.status || 'Not started'
                 ]);
 
                 autoTable(doc, {
@@ -9584,7 +9584,7 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                   head: [[
                     activeTodoDivision === 'Ops' ? 'Title' : 'Ticker',
                     activeTodoDivision === 'Ops' ? 'Employee' : 'Who',
-                    'Entered', 'Closed', 'Priority', 'Status', 'Item'
+                    'Entered', 'Closed', 'Priority', 'Item', 'Status'
                   ]],
                   body: closedTableData,
                   styles: { fontSize: 8 },
@@ -9856,8 +9856,8 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                   <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entered</th>
                   <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Days</th>
                   <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
-                  <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
+                  <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                   {(userRole === 'readwrite' || userRole === 'admin') && (
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   )}
@@ -9962,8 +9962,8 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                       )}
                     </div>
                   </th>
-                  <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
+                  <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                   {(userRole === 'readwrite' || userRole === 'admin') && (
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   )}
@@ -10012,8 +10012,8 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                   <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entered</th>
                   <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deleted</th>
                   <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
-                  <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
+                  <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                   {(userRole === 'readwrite' || userRole === 'admin') && (
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   )}
@@ -10043,11 +10043,11 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                         {todo.priority}
                       </span>
                     </td>
-                    <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {todo.status || 'Not started'}
-                    </td>
                     <td className="px-4 py-4 text-sm text-gray-500 max-w-md truncate">
                       {todo.item}
+                    </td>
+                    <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {todo.status || 'Not started'}
                     </td>
                     {(userRole === 'readwrite' || userRole === 'admin') && (
                       <td className="px-4 py-4 whitespace-nowrap text-sm">
@@ -10078,20 +10078,10 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, 
   const [editValue, setEditValue] = useState('');
   const [isEmailSending, setIsEmailSending] = useState(false);
 
-  // Status options
-  const statusOptions = ['Not started', 'In progress', 'Waiting', 'On hold', 'Done'];
-
   const handleDoubleClick = (field, currentValue) => {
     if (!hasWriteAccess) return;
     setEditingField(field);
     setEditValue(currentValue);
-  };
-
-  // Single click handler for status (more intuitive than double-click)
-  const handleStatusClick = (currentValue) => {
-    if (!hasWriteAccess) return;
-    setEditingField('status');
-    setEditValue(currentValue || 'Not started');
   };
 
   const handleSaveEdit = async () => {
@@ -10367,47 +10357,6 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, 
           </span>
         )}
       </td>
-      <td className="px-2 py-4 whitespace-nowrap text-sm">
-        {editingField === 'status' ? (
-          <select
-            value={editValue}
-            onChange={(e) => {
-              setEditValue(e.target.value);
-              // Auto-save on selection
-              onUpdateTodo(todo.id, { status: e.target.value });
-              setEditingField(null);
-              setEditValue('');
-            }}
-            onBlur={() => {
-              setEditingField(null);
-              setEditValue('');
-            }}
-            autoFocus
-            className="border border-blue-300 rounded px-1 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            {statusOptions.map(status => (
-              <option key={status} value={status}>{status}</option>
-            ))}
-          </select>
-        ) : (
-          <div
-            className={`cursor-pointer ${hasWriteAccess ? 'hover:ring-2 hover:ring-blue-300 rounded' : ''}`}
-            onClick={() => handleStatusClick(todo.status)}
-            title={hasWriteAccess ? 'Click to change status' : ''}
-          >
-            <span
-              className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(todo.status || 'Not started')}`}
-            >
-              {todo.status || 'Not started'}
-            </span>
-            {todo.statusUpdatedAt && (
-              <span className="ml-1 text-xs text-gray-400">
-                {formatStatusTimestamp(todo.statusUpdatedAt)}
-              </span>
-            )}
-          </div>
-        )}
-      </td>
       <td className="px-4 py-4 text-sm text-gray-900">
         {editingField === 'item' ? (
           <textarea
@@ -10426,6 +10375,37 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, 
             onDoubleClick={() => handleDoubleClick('item', todo.item)}
           >
             {todo.item}
+          </div>
+        )}
+      </td>
+      <td className="px-2 py-4 whitespace-nowrap text-sm">
+        {editingField === 'status' ? (
+          <input
+            type="text"
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onBlur={handleSaveEdit}
+            onKeyDown={handleKeyPress}
+            autoFocus
+            className="w-full border border-blue-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Enter status..."
+          />
+        ) : (
+          <div
+            className={`cursor-pointer ${hasWriteAccess ? 'hover:ring-2 hover:ring-blue-300 rounded' : ''}`}
+            onDoubleClick={() => handleDoubleClick('status', todo.status || 'Not started')}
+            title={hasWriteAccess ? 'Double-click to edit' : ''}
+          >
+            <span
+              className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(todo.status || 'Not started')}`}
+            >
+              {todo.status || 'Not started'}
+            </span>
+            {todo.statusUpdatedAt && (
+              <span className="ml-1 text-xs text-gray-400">
+                {formatStatusTimestamp(todo.statusUpdatedAt)}
+              </span>
+            )}
           </div>
         )}
       </td>
