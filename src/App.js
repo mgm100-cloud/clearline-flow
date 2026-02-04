@@ -9287,6 +9287,20 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                   const color = colors[statusText] || colors['Not started'];
                   return `<span style="background-color: ${color.bg}; color: ${color.text}; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; display: inline-block;">${statusText}</span>`;
                 };
+
+                // Helper function to format status label with date
+                const getStatusLabel = (statusUpdatedAt) => {
+                  if (statusUpdatedAt) {
+                    const date = new Date(statusUpdatedAt);
+                    const formatted = date.toLocaleDateString('en-US', {
+                      month: '2-digit',
+                      day: '2-digit',
+                      year: '2-digit'
+                    });
+                    return `Status (as of ${formatted}):`;
+                  }
+                  return 'Status:';
+                };
                 
                 // Start building mobile-friendly HTML email
                 let emailBody = `
@@ -9385,7 +9399,7 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                           </tr>
                           <tr>
                             <td colspan="2" style="font-size: 12px; color: #333; padding-top: 5px;">
-                              <strong>Status:</strong> ${getStatusBadge(todo.status)}
+                              <strong>${getStatusLabel(todo.statusUpdatedAt)}</strong> ${getStatusBadge(todo.status)}
                             </td>
                           </tr>
                         </table>
@@ -9393,7 +9407,7 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                     </tr>`;
                   });
                 }
-                
+
                 // Recently closed todos section - Mobile-friendly card layout
                 // Use sortClosedTodos to match the display order
                 if (recentlyClosedTodos.length > 0) {
@@ -9438,7 +9452,7 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                           </tr>
                           <tr>
                             <td colspan="2" style="font-size: 12px; color: #333; padding-top: 5px;">
-                              <strong>Status:</strong> ${getStatusBadge(todo.status)}
+                              <strong>${getStatusLabel(todo.statusUpdatedAt)}</strong> ${getStatusBadge(todo.status)}
                             </td>
                           </tr>
                         </table>
@@ -9446,7 +9460,7 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                     </tr>`;
                   });
                 }
-                
+
                 // Footer
                 emailBody += `
                     <!-- Footer -->
