@@ -3127,13 +3127,13 @@ const ClearlineFlow = () => {
         updates.dateClosed = null;
       }
 
-      // Update in Supabase
-      await DatabaseService.updateTodo(id, updates);
-      
-      // Update local state
-      setTodos(prev => prev.map(todo => 
-        todo.id === id 
-          ? { ...todo, ...updates }
+      // Update in Supabase and get the updated todo back
+      const updatedTodo = await DatabaseService.updateTodo(id, updates);
+
+      // Update local state with the full returned data (includes statusUpdatedAt, etc.)
+      setTodos(prev => prev.map(todo =>
+        todo.id === id
+          ? { ...todo, ...updatedTodo }
           : todo
       ));
     } catch (error) {
