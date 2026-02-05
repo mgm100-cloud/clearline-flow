@@ -10420,17 +10420,17 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, 
             className={`cursor-pointer ${hasWriteAccess ? 'hover:ring-2 hover:ring-blue-300 rounded' : ''}`}
             onDoubleClick={() => handleDoubleClick('status', todo.status || 'Not started')}
             title={hasWriteAccess ? 'Double-click to edit' : ''}
-            style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
           >
             <span
               className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(todo.status || 'Not started')}`}
+              style={{ wordBreak: 'break-word' }}
             >
               {todo.status || 'Not started'}
             </span>
             {todo.statusUpdatedAt && (
-              <span className="ml-1 text-xs text-gray-400">
+              <div className="text-xs text-gray-400 mt-1">
                 {formatStatusTimestamp(todo.statusUpdatedAt)}
-              </span>
+              </div>
             )}
           </div>
         )}
