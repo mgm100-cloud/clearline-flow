@@ -10403,7 +10403,7 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, 
           </div>
         )}
       </td>
-      <td className="px-2 py-4 text-sm max-w-[150px]">
+      <td className="px-2 py-4 text-sm">
         {editingField === 'status' ? (
           <input
             type="text"
@@ -10423,8 +10423,7 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, 
             style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
           >
             <span
-              className={`px-2 py-1 rounded text-xs font-medium inline ${getStatusColor(todo.status || 'Not started')}`}
-              style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
+              className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(todo.status || 'Not started')}`}
             >
               {todo.status || 'Not started'}
             </span>
