@@ -10107,7 +10107,12 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, 
   const handleSaveEdit = async () => {
     if (editingField && editValue !== todo[editingField]) {
       try {
-        await onUpdateTodo(todo.id, { [editingField]: editValue });
+        let valueToSave = editValue;
+        // Trim status to max 50 characters (database limit)
+        if (editingField === 'status' && valueToSave && valueToSave.length > 50) {
+          valueToSave = valueToSave.substring(0, 50);
+        }
+        await onUpdateTodo(todo.id, { [editingField]: valueToSave });
       } catch (error) {
         console.error('Error updating todo:', error);
       }
