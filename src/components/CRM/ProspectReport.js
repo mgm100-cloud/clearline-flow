@@ -34,7 +34,7 @@ const ProspectReport = ({ title, description, statuses, excludeStatuses, contact
         })
       }
 
-      query = query.order('firm_name', { ascending: true })
+      query = query.order('firm_name', { ascending: true }).limit(10000)
 
       const { data, error } = await query
 

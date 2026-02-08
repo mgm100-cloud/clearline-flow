@@ -20,6 +20,7 @@ const ActiveDiligenceReport = () => {
         .is('deleted_at', null)
         .eq('status', '2 Active Diligence')
         .order('firm_name', { ascending: true })
+        .limit(10000)
 
       if (error) throw error
 

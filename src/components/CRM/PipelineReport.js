@@ -36,6 +36,7 @@ const PipelineReport = () => {
         `)
         .is('deleted_at', null)
         .order('firm_name', { ascending: true })
+        .limit(10000)
 
       if (error) throw error
 
@@ -45,6 +46,7 @@ const PipelineReport = () => {
         .select('account_id, display_order')
         .eq('report_name', 'pipeline')
         .order('display_order', { ascending: true })
+        .limit(10000)
 
       const orderMap = {}
       if (orderData) {
