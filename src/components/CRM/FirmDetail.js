@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { ArrowLeft, Edit2, Save, X, Mail, Plus } from 'lucide-react'
+import { ArrowLeft, Edit2, Save, X, Building2, Target, MapPin, TrendingUp, Users, CalendarDays, FileText } from 'lucide-react'
 import ContactsTab from './ContactsTab'
 import TasksTab from './TasksTab'
 import {
@@ -135,16 +135,22 @@ const FirmDetail = ({ firmId, onBack, onContactClick }) => {
   const renderField = (label, field, options = {}) => {
     const { type = 'text', choices, fullWidth, rows, readOnly } = options
     const value = editing ? editedFirm?.[field] : firm?.[field]
-
-    // Always show read-only fields as display-only, even in edit mode
     const isEditable = editing && !readOnly
 
     const renderDisplay = () => {
-      if (type === 'checkbox') return <span>{value ? 'Yes' : 'No'}</span>
-      if (field === 'website' && value) return <span><a href={value.startsWith('http') ? value : `https://${value}`} target="_blank" rel="noopener noreferrer">{value}</a></span>
-      if (field === 'aum' || field === 'investment_size_min' || field === 'investment_size_max') return <span>{value ? formatCurrency(value) : '-'}</span>
-      if (field === 'created_date' || field === 'updated_date' || field === 'last_activity') return <span>{formatDate(value)}</span>
-      return <span>{value || '-'}</span>
+      if (type === 'checkbox') {
+        return <span className={`bool-pill ${value ? 'yes' : 'no'}`}>{value ? 'Yes' : 'No'}</span>
+      }
+      if (field === 'website' && value) {
+        return <span className="field-value"><a href={value.startsWith('http') ? value : `https://${value}`} target="_blank" rel="noopener noreferrer">{value}</a></span>
+      }
+      if (field === 'aum' || field === 'investment_size_min' || field === 'investment_size_max') {
+        return <span className={`field-value ${!value ? 'empty' : ''}`}>{value ? formatCurrency(value) : 'Not set'}</span>
+      }
+      if (field === 'created_date' || field === 'updated_date' || field === 'last_activity') {
+        return <span className={`field-value ${!value ? 'empty' : ''}`}>{value ? formatDate(value) : 'Not set'}</span>
+      }
+      return <span className={`field-value ${!value ? 'empty' : ''}`}>{value || 'Not set'}</span>
     }
 
     return (
@@ -176,6 +182,19 @@ const FirmDetail = ({ firmId, onBack, onContactClick }) => {
     )
   }
 
+  // Section card wrapper
+  const Section = ({ icon, iconClass, title, fullWidth, children }) => (
+    <div className={`firm-detail-section ${fullWidth ? 'full-width' : ''} ${editing ? 'is-editing' : ''}`}>
+      <div className="firm-detail-section-header">
+        <div className={`firm-detail-section-icon ${iconClass}`}>{icon}</div>
+        <h3>{title}</h3>
+      </div>
+      <div className="firm-detail-section-body">
+        {children}
+      </div>
+    </div>
+  )
+
   if (loading) {
     return (
       <div className="firm-detail-loading">
@@ -195,54 +214,83 @@ const FirmDetail = ({ firmId, onBack, onContactClick }) => {
   }
 
   const totals = calculateTotals()
+  const location = [firm.city, firm.state, firm.country].filter(Boolean).join(', ')
+  const statusChar = firm.status?.charAt(0) || ''
 
   return (
     <div className="firm-detail">
-      {/* Header */}
-      <div className="firm-detail-header">
-        <button className="firm-detail-back" onClick={onBack}>
-          <ArrowLeft size={20} />
-          Back to Firms
-        </button>
-        <div className="firm-detail-actions">
-          {!editing ? (
-            <button className="firm-detail-edit-btn" onClick={handleEdit}>
-              <Edit2 size={18} />
-              Edit
-            </button>
+      {/* ---- HERO HEADER ---- */}
+      <div className="firm-detail-hero">
+        <div className="firm-detail-hero-top">
+          <button className="firm-detail-back" onClick={onBack}>
+            <ArrowLeft size={16} />
+            Back to Firms
+          </button>
+          <div className="firm-detail-actions">
+            {!editing ? (
+              <button className="firm-detail-edit-btn" onClick={handleEdit}>
+                <Edit2 size={15} />
+                Edit Firm
+              </button>
+            ) : (
+              <>
+                <button className="firm-detail-cancel-btn" onClick={handleCancel}>
+                  <X size={15} />
+                  Cancel
+                </button>
+                <button className="firm-detail-save-btn" onClick={handleSave}>
+                  <Save size={15} />
+                  Save Changes
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="firm-detail-hero-name">
+          {editing ? (
+            <input
+              type="text"
+              className="firm-detail-title-input"
+              value={editedFirm.firm_name}
+              onChange={(e) => handleFieldChange('firm_name', e.target.value)}
+            />
           ) : (
-            <>
-              <button className="firm-detail-cancel-btn" onClick={handleCancel}>
-                <X size={18} />
-                Cancel
-              </button>
-              <button className="firm-detail-save-btn" onClick={handleSave}>
-                <Save size={18} />
-                Save
-              </button>
-            </>
+            <h1>{firm.firm_name}</h1>
           )}
+          <div className="firm-detail-hero-meta">
+            {firm.status && (
+              <span className={`hero-badge badge-${statusChar}`}>{firm.status}</span>
+            )}
+            {firm.type && <span className="hero-type">{firm.type}</span>}
+            {location && <span className="hero-type">{location}</span>}
+            {firm.focus_list && <span className="hero-flag">Focus List</span>}
+            {firm.high_quality && <span className="hero-flag">High Quality</span>}
+            {firm.pm_meeting && <span className="hero-flag">PM Meeting</span>}
+          </div>
+        </div>
+
+        <div className="firm-detail-hero-stats">
+          <div className="hero-stat">
+            <span className="hero-stat-label">AUM</span>
+            <span className="hero-stat-value">{firm.aum ? formatCurrency(firm.aum) : '-'}</span>
+          </div>
+          <div className="hero-stat">
+            <span className="hero-stat-label">Tier</span>
+            <span className="hero-stat-value">{firm.tier || '-'}</span>
+          </div>
+          <div className="hero-stat">
+            <span className="hero-stat-label">Last Activity</span>
+            <span className="hero-stat-value">{firm.last_activity ? formatDate(firm.last_activity) : '-'}</span>
+          </div>
+          <div className="hero-stat">
+            <span className="hero-stat-label">Probability</span>
+            <span className="hero-stat-value">{firm.probability_of_investment != null ? `${firm.probability_of_investment}%` : '-'}</span>
+          </div>
         </div>
       </div>
 
-      {/* Firm Name */}
-      <div className="firm-detail-title">
-        {editing ? (
-          <input
-            type="text"
-            className="firm-detail-title-input"
-            value={editedFirm.firm_name}
-            onChange={(e) => handleFieldChange('firm_name', e.target.value)}
-          />
-        ) : (
-          <h1>{firm.firm_name}</h1>
-        )}
-        {firm.status && (
-          <span className={`status-badge status-${firm.status.charAt(0)}`}>{firm.status}</span>
-        )}
-      </div>
-
-      {/* Tabs */}
+      {/* ---- TABS ---- */}
       <div className="firm-detail-tabs">
         {['overview', 'contacts', 'interactions', 'capital'].map(tab => (
           <button
@@ -255,13 +303,11 @@ const FirmDetail = ({ firmId, onBack, onContactClick }) => {
         ))}
       </div>
 
-      {/* Content */}
+      {/* ---- CONTENT ---- */}
       <div className="firm-detail-content">
         {activeTab === 'overview' && (
           <div className="firm-detail-overview">
-            {/* Basic Information */}
-            <div className="firm-detail-section">
-              <h3>Basic Information</h3>
+            <Section icon={<Building2 size={18} />} iconClass="icon-basic" title="Basic Information">
               <div className="firm-detail-fields">
                 {renderField('Type', 'type', { type: 'select', choices: ACCOUNT_TYPES })}
                 {renderField('Status', 'status', { type: 'select', choices: STATUS_OPTIONS })}
@@ -270,23 +316,20 @@ const FirmDetail = ({ firmId, onBack, onContactClick }) => {
                 {renderField('Tier', 'tier')}
                 {renderField('Category', 'category')}
               </div>
-            </div>
+            </Section>
 
-            {/* Status & Pipeline */}
-            <div className="firm-detail-section">
-              <h3>Status & Pipeline</h3>
+            <Section icon={<Target size={18} />} iconClass="icon-pipeline" title="Pipeline & Flags">
               <div className="firm-detail-fields">
-                {renderField('Status Summary', 'status_summary', { type: 'textarea', fullWidth: true, rows: 3 })}
                 {renderField('High Quality', 'high_quality', { type: 'checkbox' })}
-                {renderField('Structure Issues', 'structure_issues', { type: 'textarea', fullWidth: true, rows: 2 })}
                 {renderField('PM Meeting', 'pm_meeting', { type: 'checkbox' })}
                 {renderField('Focus List', 'focus_list', { type: 'checkbox' })}
+                {renderField('Probability', 'probability_of_investment', { type: 'number' })}
+                {renderField('Status Summary', 'status_summary', { type: 'textarea', fullWidth: true, rows: 3 })}
+                {renderField('Structure Issues', 'structure_issues', { type: 'textarea', fullWidth: true, rows: 2 })}
               </div>
-            </div>
+            </Section>
 
-            {/* Address */}
-            <div className="firm-detail-section">
-              <h3>Address</h3>
+            <Section icon={<MapPin size={18} />} iconClass="icon-address" title="Location">
               <div className="firm-detail-fields">
                 {renderField('Street', 'address', { fullWidth: true })}
                 {renderField('City', 'city')}
@@ -294,42 +337,33 @@ const FirmDetail = ({ firmId, onBack, onContactClick }) => {
                 {renderField('Country', 'country', { type: 'select', choices: COUNTRIES })}
                 {renderField('Zip Code', 'zip_code')}
               </div>
-            </div>
+            </Section>
 
-            {/* Investment Information */}
-            <div className="firm-detail-section">
-              <h3>Investment Information</h3>
+            <Section icon={<TrendingUp size={18} />} iconClass="icon-investment" title="Investment Details">
               <div className="firm-detail-fields">
                 {renderField('AUM', 'aum', { type: 'number' })}
-                {renderField('Investment Size (Min)', 'investment_size_min', { type: 'number' })}
-                {renderField('Investment Size (Max)', 'investment_size_max', { type: 'number' })}
+                {renderField('Investment Min', 'investment_size_min', { type: 'number' })}
+                {renderField('Investment Max', 'investment_size_max', { type: 'number' })}
                 {renderField('HF Investments', 'hf_investments', { type: 'number' })}
-                {renderField('Probability of Investment', 'probability_of_investment', { type: 'number' })}
               </div>
-            </div>
+            </Section>
 
-            {/* Relationship */}
-            <div className="firm-detail-section">
-              <h3>Relationship</h3>
+            <Section icon={<Users size={18} />} iconClass="icon-relationship" title="Relationship">
               <div className="firm-detail-fields">
                 {renderField('PB Introduction', 'pb_introduction')}
                 {renderField('Consultant', 'consultant')}
               </div>
-            </div>
+            </Section>
 
-            {/* Dates */}
-            <div className="firm-detail-section">
-              <h3>Dates</h3>
+            <Section icon={<CalendarDays size={18} />} iconClass="icon-dates" title="Key Dates">
               <div className="firm-detail-fields">
-                {renderField('Created Date', 'created_date', { readOnly: true })}
-                {renderField('Updated Date', 'updated_date', { readOnly: true })}
+                {renderField('Created', 'created_date', { readOnly: true })}
+                {renderField('Last Modified', 'updated_date', { readOnly: true })}
                 {renderField('Last Activity', 'last_activity', { readOnly: true })}
               </div>
-            </div>
+            </Section>
 
-            {/* Description */}
-            <div className="firm-detail-section">
-              <h3>Description</h3>
+            <Section icon={<FileText size={18} />} iconClass="icon-description" title="Description" fullWidth>
               {editing ? (
                 <textarea
                   className="firm-detail-textarea"
@@ -338,9 +372,9 @@ const FirmDetail = ({ firmId, onBack, onContactClick }) => {
                   rows={6}
                 />
               ) : (
-                <p className="firm-detail-description">{firm.description || 'No description available'}</p>
+                <p className="firm-detail-description">{firm.description || 'No description available.'}</p>
               )}
-            </div>
+            </Section>
           </div>
         )}
 
