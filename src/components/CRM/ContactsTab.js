@@ -2,7 +2,10 @@ import React, { useState, useEffect } from 'react'
 import { Plus, Filter, Mail, X, Save } from 'lucide-react'
 import DataGrid from './DataGrid'
 import { getContacts, createContact, updateContact, deleteContact, fetchAllRows } from '../../services/crmService'
+import { US_STATES, getCountryList } from './crmConstants'
 import './ContactsTab.css'
+
+const COUNTRIES = getCountryList()
 
 const WHICH_FUND_OPTIONS = ['Onshore', 'Offshore', 'TBD']
 
@@ -368,7 +371,10 @@ const ContactsTab = ({ onContactClick, accountId = null }) => {
                   </div>
                   <div className="modal-field">
                     <label>State</label>
-                    <input type="text" value={newContact.mailing_state} onChange={(e) => handleNewContactChange('mailing_state', e.target.value)} />
+                    <select value={newContact.mailing_state} onChange={(e) => handleNewContactChange('mailing_state', e.target.value)}>
+                      <option value="">Select state...</option>
+                      {US_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
                   </div>
                   <div className="modal-field">
                     <label>Postal Code</label>
@@ -376,7 +382,10 @@ const ContactsTab = ({ onContactClick, accountId = null }) => {
                   </div>
                   <div className="modal-field">
                     <label>Country</label>
-                    <input type="text" value={newContact.mailing_country} onChange={(e) => handleNewContactChange('mailing_country', e.target.value)} />
+                    <select value={newContact.mailing_country} onChange={(e) => handleNewContactChange('mailing_country', e.target.value)}>
+                      <option value="">Select country...</option>
+                      {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
                   </div>
                 </div>
               </div>

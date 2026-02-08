@@ -9,6 +9,7 @@ import {
   getClientSubscriptions,
   getClientRedemptions,
 } from '../../services/crmService'
+import { US_STATES, getCountryList } from './crmConstants'
 import './FirmDetail.css'
 
 const ACCOUNT_TYPES = [
@@ -22,6 +23,8 @@ const STATUS_OPTIONS = [
   '1 Investor', '2 Active Diligence', '3 Potential Investor in 6 Months',
   '4 High Focus', '5 Low Focus', '6 Dormant',
 ]
+
+const COUNTRIES = getCountryList()
 
 const FirmDetail = ({ firmId, onBack, onContactClick }) => {
   const [firm, setFirm] = useState(null)
@@ -92,6 +95,11 @@ const FirmDetail = ({ firmId, onBack, onContactClick }) => {
       delete payload.updated_at
       delete payload.deleted_at
       delete payload.sf_ext_id
+      delete payload.created_date  // never editable
+      delete payload.last_activity // only updated via task creation
+
+      // Auto-set updated_date to today
+      payload.updated_date = new Date().toISOString().split('T')[0]
 
       const updated = await updateAccount(firmId, payload)
       setFirm(updated)
@@ -125,13 +133,24 @@ const FirmDetail = ({ firmId, onBack, onContactClick }) => {
 
   // Render an editable field with appropriate input type
   const renderField = (label, field, options = {}) => {
-    const { type = 'text', choices, fullWidth, rows } = options
+    const { type = 'text', choices, fullWidth, rows, readOnly } = options
     const value = editing ? editedFirm?.[field] : firm?.[field]
+
+    // Always show read-only fields as display-only, even in edit mode
+    const isEditable = editing && !readOnly
+
+    const renderDisplay = () => {
+      if (type === 'checkbox') return <span>{value ? 'Yes' : 'No'}</span>
+      if (field === 'website' && value) return <span><a href={value.startsWith('http') ? value : `https://${value}`} target="_blank" rel="noopener noreferrer">{value}</a></span>
+      if (field === 'aum' || field === 'investment_size_min' || field === 'investment_size_max') return <span>{value ? formatCurrency(value) : '-'}</span>
+      if (field === 'created_date' || field === 'updated_date' || field === 'last_activity') return <span>{formatDate(value)}</span>
+      return <span>{value || '-'}</span>
+    }
 
     return (
       <div className={`firm-detail-field ${fullWidth ? 'full-width' : ''}`}>
         <label>{label}</label>
-        {editing ? (
+        {isEditable ? (
           type === 'select' ? (
             <select value={value || ''} onChange={(e) => handleFieldChange(field, e.target.value)}>
               <option value="">Select...</option>
@@ -151,17 +170,7 @@ const FirmDetail = ({ firmId, onBack, onContactClick }) => {
             <input type={type} value={value || ''} onChange={(e) => handleFieldChange(field, e.target.value)} />
           )
         ) : (
-          type === 'checkbox' ? (
-            <span>{value ? 'Yes' : 'No'}</span>
-          ) : field === 'website' && value ? (
-            <span><a href={value.startsWith('http') ? value : `https://${value}`} target="_blank" rel="noopener noreferrer">{value}</a></span>
-          ) : field === 'aum' || field === 'investment_size_min' || field === 'investment_size_max' ? (
-            <span>{value ? formatCurrency(value) : '-'}</span>
-          ) : field === 'created_date' || field === 'updated_date' || field === 'last_activity' ? (
-            <span>{formatDate(value)}</span>
-          ) : (
-            <span>{value || '-'}</span>
-          )
+          renderDisplay()
         )}
       </div>
     )
@@ -281,8 +290,8 @@ const FirmDetail = ({ firmId, onBack, onContactClick }) => {
               <div className="firm-detail-fields">
                 {renderField('Street', 'address', { fullWidth: true })}
                 {renderField('City', 'city')}
-                {renderField('State', 'state')}
-                {renderField('Country', 'country')}
+                {renderField('State', 'state', { type: 'select', choices: US_STATES })}
+                {renderField('Country', 'country', { type: 'select', choices: COUNTRIES })}
                 {renderField('Zip Code', 'zip_code')}
               </div>
             </div>
@@ -312,9 +321,9 @@ const FirmDetail = ({ firmId, onBack, onContactClick }) => {
             <div className="firm-detail-section">
               <h3>Dates</h3>
               <div className="firm-detail-fields">
-                {renderField('Created Date', 'created_date')}
-                {renderField('Updated Date', 'updated_date')}
-                {renderField('Last Activity', 'last_activity')}
+                {renderField('Created Date', 'created_date', { readOnly: true })}
+                {renderField('Updated Date', 'updated_date', { readOnly: true })}
+                {renderField('Last Activity', 'last_activity', { readOnly: true })}
               </div>
             </div>
 

@@ -2,7 +2,10 @@ import React, { useState, useEffect } from 'react'
 import { Plus, Filter, Download, X, Save } from 'lucide-react'
 import DataGrid from './DataGrid'
 import { getAccounts, createAccount, updateAccount, deleteAccount } from '../../services/crmService'
+import { US_STATES, getCountryList } from './crmConstants'
 import './FirmsTab.css'
+
+const COUNTRIES = getCountryList()
 
 const ACCOUNT_TYPES = [
   'Fund of Funds', 'Wealth Manager', 'Pension – Public', 'Family Office',
@@ -94,7 +97,10 @@ const FirmsTab = ({ onFirmClick }) => {
 
   const handleCellEdit = async (rowId, columnId, value) => {
     try {
-      await updateAccount(rowId, { [columnId]: value })
+      await updateAccount(rowId, {
+        [columnId]: value,
+        updated_date: new Date().toISOString().split('T')[0],
+      })
       await loadAccounts()
     } catch (error) {
       console.error('Error updating account:', error)
@@ -316,11 +322,17 @@ const FirmsTab = ({ onFirmClick }) => {
                   </div>
                   <div className="modal-field">
                     <label>State</label>
-                    <input type="text" value={newFirm.state} onChange={(e) => handleNewFirmChange('state', e.target.value)} />
+                    <select value={newFirm.state} onChange={(e) => handleNewFirmChange('state', e.target.value)}>
+                      <option value="">Select state...</option>
+                      {US_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
                   </div>
                   <div className="modal-field">
                     <label>Country</label>
-                    <input type="text" value={newFirm.country} onChange={(e) => handleNewFirmChange('country', e.target.value)} />
+                    <select value={newFirm.country} onChange={(e) => handleNewFirmChange('country', e.target.value)}>
+                      <option value="">Select country...</option>
+                      {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
                   </div>
                   <div className="modal-field">
                     <label>Zip Code</label>
