@@ -1,18 +1,6 @@
-// CRM Service - API calls for CRM functionality
+// CRM Service - Direct Supabase queries for CRM functionality
+// Uses the Supabase JS client directly instead of Edge Functions
 import { supabase } from '../supabaseClient'
-
-const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL
-
-// Helper to get auth headers
-const getAuthHeaders = async () => {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  return {
-    Authorization: `Bearer ${session?.access_token}`,
-    'Content-Type': 'application/json',
-  }
-}
 
 // ============================================================================
 // ACCOUNTS (FIRMS)
@@ -21,87 +9,90 @@ const getAuthHeaders = async () => {
 export const getAccounts = async (params = {}) => {
   const { page = 1, limit = 50, search = '', status = '', sortBy = 'firm_name', sortOrder = 'asc' } = params
 
-  const queryParams = new URLSearchParams({
-    page: page.toString(),
-    limit: limit.toString(),
-    search,
-    status,
-    sortBy,
-    sortOrder,
-  })
+  let query = supabase
+    .from('accounts')
+    .select('*', { count: 'exact' })
+    .is('deleted_at', null)
 
-  const headers = await getAuthHeaders()
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/crm-accounts?${queryParams}`, {
-    headers,
-  })
-
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error || 'Failed to fetch accounts')
+  // Search
+  if (search) {
+    query = query.or(`firm_name.ilike.%${search}%,website.ilike.%${search}%,description.ilike.%${search}%`)
   }
 
-  return response.json()
+  // Filter by status
+  if (status) {
+    query = query.eq('status', status)
+  }
+
+  // Sorting
+  query = query.order(sortBy, { ascending: sortOrder === 'asc' })
+
+  // Pagination
+  const from = (page - 1) * limit
+  const to = from + limit - 1
+  query = query.range(from, to)
+
+  const { data, error, count } = await query
+
+  if (error) throw error
+
+  return {
+    data,
+    pagination: {
+      page,
+      limit,
+      total: count,
+      totalPages: Math.ceil((count || 0) / limit),
+    },
+  }
 }
 
 export const getAccount = async (id) => {
-  const headers = await getAuthHeaders()
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/crm-accounts/${id}`, {
-    headers,
-  })
+  const { data, error } = await supabase
+    .from('accounts')
+    .select('*')
+    .eq('id', id)
+    .is('deleted_at', null)
+    .single()
 
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error || 'Failed to fetch account')
-  }
-
-  return response.json()
+  if (error) throw error
+  return data
 }
 
-export const createAccount = async (data) => {
-  const headers = await getAuthHeaders()
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/crm-accounts`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(data),
-  })
+export const createAccount = async (accountData) => {
+  const { data, error } = await supabase
+    .from('accounts')
+    .insert(accountData)
+    .select()
+    .single()
 
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error || 'Failed to create account')
-  }
-
-  return response.json()
+  if (error) throw error
+  return data
 }
 
-export const updateAccount = async (id, data) => {
-  const headers = await getAuthHeaders()
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/crm-accounts/${id}`, {
-    method: 'PATCH',
-    headers,
-    body: JSON.stringify(data),
-  })
+export const updateAccount = async (id, accountData) => {
+  const { data, error } = await supabase
+    .from('accounts')
+    .update(accountData)
+    .eq('id', id)
+    .is('deleted_at', null)
+    .select()
+    .single()
 
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error || 'Failed to update account')
-  }
-
-  return response.json()
+  if (error) throw error
+  return data
 }
 
 export const deleteAccount = async (id) => {
-  const headers = await getAuthHeaders()
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/crm-accounts/${id}`, {
-    method: 'DELETE',
-    headers,
-  })
+  const { data, error } = await supabase
+    .from('accounts')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', id)
+    .select()
+    .single()
 
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error || 'Failed to delete account')
-  }
-
-  return response.json()
+  if (error) throw error
+  return data
 }
 
 // ============================================================================
@@ -111,87 +102,90 @@ export const deleteAccount = async (id) => {
 export const getContacts = async (params = {}) => {
   const { page = 1, limit = 50, search = '', accountId = '', sortBy = 'last_name', sortOrder = 'asc' } = params
 
-  const queryParams = new URLSearchParams({
-    page: page.toString(),
-    limit: limit.toString(),
-    search,
-    accountId,
-    sortBy,
-    sortOrder,
-  })
+  let query = supabase
+    .from('contacts')
+    .select('*, accounts(firm_name)', { count: 'exact' })
+    .is('deleted_at', null)
 
-  const headers = await getAuthHeaders()
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/crm-contacts?${queryParams}`, {
-    headers,
-  })
-
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error || 'Failed to fetch contacts')
+  // Search
+  if (search) {
+    query = query.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%`)
   }
 
-  return response.json()
+  // Filter by account
+  if (accountId) {
+    query = query.eq('account_id', accountId)
+  }
+
+  // Sorting
+  query = query.order(sortBy, { ascending: sortOrder === 'asc' })
+
+  // Pagination
+  const from = (page - 1) * limit
+  const to = from + limit - 1
+  query = query.range(from, to)
+
+  const { data, error, count } = await query
+
+  if (error) throw error
+
+  return {
+    data,
+    pagination: {
+      page,
+      limit,
+      total: count,
+      totalPages: Math.ceil((count || 0) / limit),
+    },
+  }
 }
 
 export const getContact = async (id) => {
-  const headers = await getAuthHeaders()
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/crm-contacts/${id}`, {
-    headers,
-  })
+  const { data, error } = await supabase
+    .from('contacts')
+    .select('*, accounts(firm_name)')
+    .eq('id', id)
+    .is('deleted_at', null)
+    .single()
 
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error || 'Failed to fetch contact')
-  }
-
-  return response.json()
+  if (error) throw error
+  return data
 }
 
-export const createContact = async (data) => {
-  const headers = await getAuthHeaders()
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/crm-contacts`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(data),
-  })
+export const createContact = async (contactData) => {
+  const { data, error } = await supabase
+    .from('contacts')
+    .insert(contactData)
+    .select()
+    .single()
 
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error || 'Failed to create contact')
-  }
-
-  return response.json()
+  if (error) throw error
+  return data
 }
 
-export const updateContact = async (id, data) => {
-  const headers = await getAuthHeaders()
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/crm-contacts/${id}`, {
-    method: 'PATCH',
-    headers,
-    body: JSON.stringify(data),
-  })
+export const updateContact = async (id, contactData) => {
+  const { data, error } = await supabase
+    .from('contacts')
+    .update(contactData)
+    .eq('id', id)
+    .is('deleted_at', null)
+    .select()
+    .single()
 
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error || 'Failed to update contact')
-  }
-
-  return response.json()
+  if (error) throw error
+  return data
 }
 
 export const deleteContact = async (id) => {
-  const headers = await getAuthHeaders()
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/crm-contacts/${id}`, {
-    method: 'DELETE',
-    headers,
-  })
+  const { data, error } = await supabase
+    .from('contacts')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', id)
+    .select()
+    .single()
 
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error || 'Failed to delete contact')
-  }
-
-  return response.json()
+  if (error) throw error
+  return data
 }
 
 // ============================================================================
@@ -209,88 +203,95 @@ export const getTasks = async (params = {}) => {
     sortOrder = 'desc',
   } = params
 
-  const queryParams = new URLSearchParams({
-    page: page.toString(),
-    limit: limit.toString(),
-    accountId,
-    contactId,
-    interactionType,
-    sortBy,
-    sortOrder,
-  })
+  let query = supabase
+    .from('tasks')
+    .select('*, accounts(firm_name), contacts(first_name, last_name)', { count: 'exact' })
+    .is('deleted_at', null)
 
-  const headers = await getAuthHeaders()
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/crm-tasks?${queryParams}`, {
-    headers,
-  })
-
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error || 'Failed to fetch tasks')
+  // Filter by account
+  if (accountId) {
+    query = query.eq('related_account_id', accountId)
   }
 
-  return response.json()
+  // Filter by contact
+  if (contactId) {
+    query = query.eq('related_contact_id', contactId)
+  }
+
+  // Filter by interaction type
+  if (interactionType) {
+    query = query.eq('interaction_type', interactionType)
+  }
+
+  // Sorting
+  query = query.order(sortBy, { ascending: sortOrder === 'asc' })
+
+  // Pagination
+  const from = (page - 1) * limit
+  const to = from + limit - 1
+  query = query.range(from, to)
+
+  const { data, error, count } = await query
+
+  if (error) throw error
+
+  return {
+    data,
+    pagination: {
+      page,
+      limit,
+      total: count,
+      totalPages: Math.ceil((count || 0) / limit),
+    },
+  }
 }
 
 export const getTask = async (id) => {
-  const headers = await getAuthHeaders()
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/crm-tasks/${id}`, {
-    headers,
-  })
+  const { data, error } = await supabase
+    .from('tasks')
+    .select('*, accounts(firm_name), contacts(first_name, last_name)')
+    .eq('id', id)
+    .is('deleted_at', null)
+    .single()
 
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error || 'Failed to fetch task')
-  }
-
-  return response.json()
+  if (error) throw error
+  return data
 }
 
-export const createTask = async (data) => {
-  const headers = await getAuthHeaders()
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/crm-tasks`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(data),
-  })
+export const createTask = async (taskData) => {
+  const { data, error } = await supabase
+    .from('tasks')
+    .insert(taskData)
+    .select()
+    .single()
 
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error || 'Failed to create task')
-  }
-
-  return response.json()
+  if (error) throw error
+  return data
 }
 
-export const updateTask = async (id, data) => {
-  const headers = await getAuthHeaders()
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/crm-tasks/${id}`, {
-    method: 'PATCH',
-    headers,
-    body: JSON.stringify(data),
-  })
+export const updateTask = async (id, taskData) => {
+  const { data, error } = await supabase
+    .from('tasks')
+    .update(taskData)
+    .eq('id', id)
+    .is('deleted_at', null)
+    .select()
+    .single()
 
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error || 'Failed to update task')
-  }
-
-  return response.json()
+  if (error) throw error
+  return data
 }
 
 export const deleteTask = async (id) => {
-  const headers = await getAuthHeaders()
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/crm-tasks/${id}`, {
-    method: 'DELETE',
-    headers,
-  })
+  const { data, error } = await supabase
+    .from('tasks')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', id)
+    .select()
+    .single()
 
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error || 'Failed to delete task')
-  }
-
-  return response.json()
+  if (error) throw error
+  return data
 }
 
 // ============================================================================
@@ -298,27 +299,64 @@ export const deleteTask = async (id) => {
 // ============================================================================
 
 export const globalSearch = async (query) => {
-  const queryParams = new URLSearchParams({
-    q: query,
-    limit: '20',
-  })
-
-  const headers = await getAuthHeaders()
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/crm-search?${queryParams}`, {
-    headers,
-  })
-
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error || 'Search failed')
+  if (!query || query.length < 2) {
+    throw new Error('Query must be at least 2 characters')
   }
 
-  return response.json()
+  // Search accounts (firms)
+  const { data: accounts, error: accountsError } = await supabase
+    .from('accounts')
+    .select('id, firm_name, website, city, state, status')
+    .is('deleted_at', null)
+    .or(`firm_name.ilike.%${query}%,website.ilike.%${query}%`)
+    .limit(20)
+
+  if (accountsError) throw accountsError
+
+  // Search contacts
+  const { data: contacts, error: contactsError } = await supabase
+    .from('contacts')
+    .select('id, first_name, last_name, email, title, account_id, accounts(firm_name)')
+    .is('deleted_at', null)
+    .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%,email.ilike.%${query}%`)
+    .limit(20)
+
+  if (contactsError) throw contactsError
+
+  // Format results
+  return {
+    accounts: accounts.map((a) => ({
+      type: 'account',
+      id: a.id,
+      title: a.firm_name,
+      subtitle: [a.city, a.state].filter(Boolean).join(', '),
+      metadata: a.status,
+    })),
+    contacts: contacts.map((c) => ({
+      type: 'contact',
+      id: c.id,
+      title: `${c.first_name || ''} ${c.last_name || ''}`.trim(),
+      subtitle: c.accounts?.firm_name || '',
+      metadata: c.email,
+    })),
+  }
 }
 
 // ============================================================================
-// EMAIL
+// EMAIL (still uses Edge Functions - requires server-side email sending)
 // ============================================================================
+
+const getAuthHeaders = async () => {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+  return {
+    Authorization: `Bearer ${session?.access_token}`,
+    'Content-Type': 'application/json',
+  }
+}
+
+const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL
 
 export const sendEmail = async (data) => {
   const headers = await getAuthHeaders()
@@ -353,7 +391,7 @@ export const sendBulkEmail = async (data) => {
 }
 
 // ============================================================================
-// OUTLOOK OAUTH
+// OUTLOOK OAUTH (still uses Edge Functions - requires server-side OAuth)
 // ============================================================================
 
 export const getOutlookAuthUrl = async (redirectUri, state) => {
@@ -470,27 +508,27 @@ export const getDistributionList = async (id) => {
   return data
 }
 
-export const createDistributionList = async (data) => {
-  const { data: list, error } = await supabase
+export const createDistributionList = async (listData) => {
+  const { data, error } = await supabase
     .from('distribution_lists')
-    .insert(data)
+    .insert(listData)
     .select()
     .single()
 
   if (error) throw error
-  return list
+  return data
 }
 
-export const updateDistributionList = async (id, data) => {
-  const { data: list, error } = await supabase
+export const updateDistributionList = async (id, listData) => {
+  const { data, error } = await supabase
     .from('distribution_lists')
-    .update(data)
+    .update(listData)
     .eq('id', id)
     .select()
     .single()
 
   if (error) throw error
-  return list
+  return data
 }
 
 export const deleteDistributionList = async (id) => {
@@ -519,4 +557,3 @@ export const removeContactFromList = async (listId, contactId) => {
 
   if (error) throw error
 }
-
