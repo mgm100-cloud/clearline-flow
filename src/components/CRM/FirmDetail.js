@@ -350,8 +350,9 @@ const FirmDetail = ({ firmId, onBack, onContactClick }) => {
 
             <Section icon={<Users size={18} />} iconClass="icon-relationship" title="Relationship">
               <div className="firm-detail-fields">
-                {renderField('PB Introduction', 'pb_introduction')}
+                {renderField('Introduction Source', 'pb_introduction')}
                 {renderField('Consultant', 'consultant')}
+                {renderField('Third Party Marketer', 'third_party_marketer')}
               </div>
             </Section>
 

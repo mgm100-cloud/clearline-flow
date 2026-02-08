@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS public.staging_accounts (
     category TEXT,
     pb_introduction TEXT,
     consultant TEXT,
+    third_party_marketer TEXT,
     focus_list TEXT,
     probability_of_investment TEXT,
     pm_meeting TEXT,

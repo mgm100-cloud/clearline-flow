@@ -73,6 +73,7 @@ BEGIN
                 category,
                 pb_introduction,
                 consultant,
+                third_party_marketer,
                 focus_list,
                 probability_of_investment,
                 pm_meeting
@@ -99,6 +100,7 @@ BEGIN
                 NULLIF(TRIM(v_staging_record.category), ''),
                 NULLIF(TRIM(v_staging_record.pb_introduction), ''),
                 NULLIF(TRIM(v_staging_record.consultant), ''),
+                NULLIF(TRIM(v_staging_record.third_party_marketer), ''),
                 public.normalize_boolean(v_staging_record.focus_list),
                 public.parse_numeric(v_staging_record.probability_of_investment),
                 public.normalize_boolean(v_staging_record.pm_meeting)
