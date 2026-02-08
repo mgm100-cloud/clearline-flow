@@ -358,7 +358,12 @@ const FirmsTab = ({ onFirmClick }) => {
                   </div>
                   <div className="modal-field">
                     <label>Probability of Investment</label>
-                    <input type="number" value={newFirm.probability_of_investment} onChange={(e) => handleNewFirmChange('probability_of_investment', e.target.value)} placeholder="0-100" />
+                    <select value={newFirm.probability_of_investment} onChange={(e) => handleNewFirmChange('probability_of_investment', e.target.value)}>
+                      <option value="">Select...</option>
+                      {Array.from({length: 21}, (_, i) => 100 - i * 5).map(v => (
+                        <option key={v} value={v}>{v}</option>
+                      ))}
+                    </select>
                   </div>
                   <div className="modal-field">
                     <label>Tier</label>

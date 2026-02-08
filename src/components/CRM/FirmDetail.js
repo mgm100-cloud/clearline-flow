@@ -323,7 +323,7 @@ const FirmDetail = ({ firmId, onBack, onContactClick }) => {
                 {renderField('High Quality', 'high_quality', { type: 'checkbox' })}
                 {renderField('PM Meeting', 'pm_meeting', { type: 'checkbox' })}
                 {renderField('Focus List', 'focus_list', { type: 'checkbox' })}
-                {renderField('Probability', 'probability_of_investment', { type: 'number' })}
+                {renderField('Probability', 'probability_of_investment', { type: 'select', choices: Array.from({length: 21}, (_, i) => String(100 - i * 5)) })}
                 {renderField('Status Summary', 'status_summary', { type: 'textarea', fullWidth: true, rows: 3 })}
                 {renderField('Structure Issues', 'structure_issues', { type: 'textarea', fullWidth: true, rows: 2 })}
               </div>
