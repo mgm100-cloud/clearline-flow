@@ -37,18 +37,23 @@ const PipelineReport = () => {
       )
 
       // Load custom order from report_row_orders
-      const orderData = await fetchAllRows(
-        'report_row_orders',
-        'account_id, display_order',
-        [{ type: 'eq', col: 'report_name', val: 'pipeline' }],
-        'display_order',
-        true
-      )
+      let orderData = []
+      try {
+        orderData = await fetchAllRows(
+          'report_row_orders',
+          'firm_id, order_rank',
+          [{ type: 'eq', col: 'report_id', val: 'pipeline' }],
+          'order_rank',
+          true
+        )
+      } catch (e) {
+        console.warn('Could not load report row orders:', e)
+      }
 
       const orderMap = {}
       if (orderData) {
         orderData.forEach((item) => {
-          orderMap[item.account_id] = item.display_order
+          orderMap[item.firm_id] = item.order_rank
         })
       }
 
@@ -125,15 +130,20 @@ const PipelineReport = () => {
 
     // Save new order to database
     try {
+      const { data: { user } } = await supabase.auth.getUser()
+      const userId = user?.id
+
       await supabase
         .from('report_row_orders')
         .delete()
-        .eq('report_name', 'pipeline')
+        .eq('report_id', 'pipeline')
+        .eq('user_id', userId)
 
       const orderData = newAccounts.map((account, index) => ({
-        report_name: 'pipeline',
-        account_id: account.id,
-        display_order: index,
+        report_id: 'pipeline',
+        user_id: userId,
+        firm_id: account.id,
+        order_rank: index,
       }))
 
       const { error } = await supabase
