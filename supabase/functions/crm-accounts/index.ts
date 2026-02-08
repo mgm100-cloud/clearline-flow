@@ -28,7 +28,10 @@ serve(async (req) => {
 
     const url = new URL(req.url)
     const pathParts = url.pathname.split('/').filter(Boolean)
-    const accountId = pathParts[pathParts.length - 1]
+    const lastPart = pathParts[pathParts.length - 1]
+    // Only treat as an ID if it looks like a UUID (not the function name itself)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    const accountId = uuidRegex.test(lastPart) ? lastPart : null
 
     // GET /crm-accounts - List accounts with pagination, filtering, sorting
     if (req.method === 'GET' && !accountId) {

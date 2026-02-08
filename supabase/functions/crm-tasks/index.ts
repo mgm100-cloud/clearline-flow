@@ -28,7 +28,10 @@ serve(async (req) => {
 
     const url = new URL(req.url)
     const pathParts = url.pathname.split('/').filter(Boolean)
-    const taskId = pathParts[pathParts.length - 1]
+    const lastPart = pathParts[pathParts.length - 1]
+    // Only treat as an ID if it looks like a UUID (not the function name itself)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    const taskId = uuidRegex.test(lastPart) ? lastPart : null
 
     // GET /crm-tasks - List tasks with pagination, filtering, sorting
     if (req.method === 'GET' && !taskId) {
