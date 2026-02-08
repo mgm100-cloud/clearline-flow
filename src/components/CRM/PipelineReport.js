@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Download, GripVertical, ChevronDown, ChevronUp } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
+import { fetchAllRows } from '../../services/crmService'
 import './PipelineReport.css'
 
 const STATUS_ORDER = [
@@ -27,26 +28,22 @@ const PipelineReport = () => {
   const loadPipelineData = async () => {
     setLoading(true)
     try {
-      const { data, error } = await supabase
-        .from('accounts')
-        .select(`
-          id, firm_name, status, status_summary, pm_meeting,
-          investment_size_min, investment_size_max,
-          city, state, country, high_quality, structure_issues
-        `)
-        .is('deleted_at', null)
-        .order('firm_name', { ascending: true })
-        .limit(10000)
-
-      if (error) throw error
+      const data = await fetchAllRows(
+        'accounts',
+        'id, firm_name, status, status_summary, pm_meeting, investment_size_min, investment_size_max, city, state, country, high_quality, structure_issues',
+        [{ type: 'is', col: 'deleted_at', val: null }],
+        'firm_name',
+        true
+      )
 
       // Load custom order from report_row_orders
-      const { data: orderData } = await supabase
-        .from('report_row_orders')
-        .select('account_id, display_order')
-        .eq('report_name', 'pipeline')
-        .order('display_order', { ascending: true })
-        .limit(10000)
+      const orderData = await fetchAllRows(
+        'report_row_orders',
+        'account_id, display_order',
+        [{ type: 'eq', col: 'report_name', val: 'pipeline' }],
+        'display_order',
+        true
+      )
 
       const orderMap = {}
       if (orderData) {

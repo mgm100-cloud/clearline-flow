@@ -3,6 +3,47 @@
 import { supabase } from '../supabaseClient'
 
 // ============================================================================
+// HELPER: Fetch all rows (bypasses Supabase default 1000-row limit)
+// ============================================================================
+
+export const fetchAllRows = async (tableName, selectCols = '*', filters = [], orderCol = null, orderAsc = true) => {
+  const PAGE_SIZE = 1000
+  let allData = []
+  let from = 0
+
+  while (true) {
+    let query = supabase
+      .from(tableName)
+      .select(selectCols)
+
+    // Apply filters
+    for (const f of filters) {
+      if (f.type === 'is') query = query.is(f.col, f.val)
+      else if (f.type === 'eq') query = query.eq(f.col, f.val)
+      else if (f.type === 'neq') query = query.neq(f.col, f.val)
+      else if (f.type === 'in') query = query.in(f.col, f.val)
+    }
+
+    if (orderCol) {
+      query = query.order(orderCol, { ascending: orderAsc })
+    }
+
+    query = query.range(from, from + PAGE_SIZE - 1)
+
+    const { data, error } = await query
+    if (error) throw error
+    if (!data || data.length === 0) break
+
+    allData = allData.concat(data)
+
+    if (data.length < PAGE_SIZE) break // last page
+    from += PAGE_SIZE
+  }
+
+  return allData
+}
+
+// ============================================================================
 // ACCOUNTS (FIRMS)
 // ============================================================================
 

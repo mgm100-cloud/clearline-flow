@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Download, Calendar } from 'lucide-react'
-import { supabase } from '../../supabaseClient'
+import { fetchAllRows } from '../../services/crmService'
 import './ActiveDiligenceReport.css'
 
 const ActiveDiligenceReport = () => {
@@ -14,15 +14,16 @@ const ActiveDiligenceReport = () => {
   const loadData = async () => {
     setLoading(true)
     try {
-      const { data, error } = await supabase
-        .from('accounts')
-        .select('id, firm_name, last_activity')
-        .is('deleted_at', null)
-        .eq('status', '2 Active Diligence')
-        .order('firm_name', { ascending: true })
-        .limit(10000)
-
-      if (error) throw error
+      const data = await fetchAllRows(
+        'accounts',
+        'id, firm_name, last_activity',
+        [
+          { type: 'is', col: 'deleted_at', val: null },
+          { type: 'eq', col: 'status', val: '2 Active Diligence' },
+        ],
+        'firm_name',
+        true
+      )
 
       const now = new Date()
       const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)

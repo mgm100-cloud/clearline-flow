@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Download, Calendar } from 'lucide-react'
-import { supabase } from '../../supabaseClient'
+import { fetchAllRows } from '../../services/crmService'
 import './ActiveDiligenceReport.css' // Reuse same styles
 
 /**
@@ -20,25 +20,23 @@ const ProspectReport = ({ title, description, statuses, excludeStatuses, contact
   const loadData = async () => {
     setLoading(true)
     try {
-      let query = supabase
-        .from('accounts')
-        .select('id, firm_name, last_activity, status')
-        .is('deleted_at', null)
+      const filters = [{ type: 'is', col: 'deleted_at', val: null }]
 
       if (statuses && statuses.length > 0) {
-        query = query.in('status', statuses)
+        filters.push({ type: 'in', col: 'status', val: statuses })
       } else if (excludeStatuses && excludeStatuses.length > 0) {
-        // For "not in" filter, we need to use .not
         excludeStatuses.forEach(s => {
-          query = query.neq('status', s)
+          filters.push({ type: 'neq', col: 'status', val: s })
         })
       }
 
-      query = query.order('firm_name', { ascending: true }).limit(10000)
-
-      const { data, error } = await query
-
-      if (error) throw error
+      const data = await fetchAllRows(
+        'accounts',
+        'id, firm_name, last_activity, status',
+        filters,
+        'firm_name',
+        true
+      )
 
       const now = new Date()
       const cutoffDate = new Date(now.getTime() - contactedDays * 24 * 60 * 60 * 1000)
