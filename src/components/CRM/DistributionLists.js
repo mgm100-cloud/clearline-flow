@@ -8,7 +8,7 @@ import {
   deleteDistributionList,
   addContactToList,
   removeContactFromList,
-  getContacts,
+  fetchAllRows,
 } from '../../services/crmService'
 import './DistributionLists.css'
 
@@ -90,12 +90,18 @@ const DistributionLists = () => {
 
   const handleShowAddContacts = async () => {
     try {
-      const { data } = await getContacts({ limit: 1000 })
+      const data = await fetchAllRows(
+        'contacts',
+        'id, first_name, last_name, email, account_id',
+        [{ type: 'is', col: 'deleted_at', val: null }],
+        'last_name',
+        true
+      )
       // Filter out contacts already in the list
       const existingContactIds = new Set(
         selectedList.distribution_list_members?.map((m) => m.contact_id) || []
       )
-      const available = data.filter((c) => !existingContactIds.has(c.id) && c.email)
+      const available = (data || []).filter((c) => !existingContactIds.has(c.id) && c.email)
       setAvailableContacts(available)
       setShowAddContactsModal(true)
     } catch (error) {

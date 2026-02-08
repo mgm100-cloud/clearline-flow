@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Plus, Filter, Mail, X, Save } from 'lucide-react'
 import DataGrid from './DataGrid'
-import { getContacts, createContact, updateContact, deleteContact, getAccounts } from '../../services/crmService'
+import { getContacts, createContact, updateContact, deleteContact, fetchAllRows } from '../../services/crmService'
 import './ContactsTab.css'
 
 const WHICH_FUND_OPTIONS = ['Onshore', 'Offshore', 'TBD']
@@ -70,8 +70,14 @@ const ContactsTab = ({ onContactClick, accountId = null }) => {
 
   const loadFirms = async () => {
     try {
-      const response = await getAccounts({ limit: 500, sortBy: 'firm_name', sortOrder: 'asc' })
-      setFirmOptions(response.data || [])
+      const data = await fetchAllRows(
+        'accounts',
+        'id, firm_name',
+        [{ type: 'is', col: 'deleted_at', val: null }],
+        'firm_name',
+        true
+      )
+      setFirmOptions(data || [])
     } catch (error) {
       console.error('Error loading firms:', error)
     }

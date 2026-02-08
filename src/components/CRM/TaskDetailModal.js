@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { X, Save } from 'lucide-react'
-import { getTask, updateTask, createTask, getAccounts, getContacts, updateAccount } from '../../services/crmService'
+import { getTask, updateTask, createTask, updateAccount, fetchAllRows } from '../../services/crmService'
 import './TaskDetailModal.css'
 
 const TaskDetailModal = ({ taskId, accountId, contactId, onClose, onSave }) => {
@@ -48,8 +48,14 @@ const TaskDetailModal = ({ taskId, accountId, contactId, onClose, onSave }) => {
 
   const loadFirms = async () => {
     try {
-      const response = await getAccounts({ limit: 500, sortBy: 'firm_name', sortOrder: 'asc' })
-      setFirmOptions(response.data || [])
+      const data = await fetchAllRows(
+        'accounts',
+        'id, firm_name',
+        [{ type: 'is', col: 'deleted_at', val: null }],
+        'firm_name',
+        true
+      )
+      setFirmOptions(data || [])
     } catch (error) {
       console.error('Error loading firms:', error)
     }
@@ -57,8 +63,17 @@ const TaskDetailModal = ({ taskId, accountId, contactId, onClose, onSave }) => {
 
   const loadContactsForAccount = async (accId) => {
     try {
-      const response = await getContacts({ accountId: accId, limit: 200, sortBy: 'last_name', sortOrder: 'asc' })
-      setContactOptions(response.data || [])
+      const data = await fetchAllRows(
+        'contacts',
+        'id, first_name, last_name, email',
+        [
+          { type: 'is', col: 'deleted_at', val: null },
+          { type: 'eq', col: 'account_id', val: accId },
+        ],
+        'last_name',
+        true
+      )
+      setContactOptions(data || [])
     } catch (error) {
       console.error('Error loading contacts:', error)
     }
