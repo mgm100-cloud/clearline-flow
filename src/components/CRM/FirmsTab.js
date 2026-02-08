@@ -178,7 +178,7 @@ const FirmsTab = ({ onFirmClick }) => {
     { id: 'country', label: 'Country', sortable: true, width: '90px' },
     {
       id: 'aum', label: 'AUM', sortable: true, width: '100px',
-      render: (value) => (value ? `$${(value / 1000000).toFixed(1)}M` : '-'),
+      render: (value) => (value ? `$${Math.round(value / 1000000).toLocaleString()}mm` : '-'),
     },
     { id: 'tier', label: 'Tier', sortable: true, width: '80px' },
     {

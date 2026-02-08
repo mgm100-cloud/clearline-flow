@@ -123,7 +123,7 @@ const FirmDetail = ({ firmId, onBack, onContactClick }) => {
 
   const formatCurrency = (value) => {
     if (value === null || value === undefined) return '-'
-    return `$${(value / 1000000).toFixed(2)}M`
+    return `$${Math.round(value / 1000000).toLocaleString()}mm`
   }
 
   const formatDate = (date) => {
@@ -388,19 +388,19 @@ const FirmDetail = ({ firmId, onBack, onContactClick }) => {
               <div className="capital-summary-card">
                 <div className="capital-summary-label">Total Invested</div>
                 <div className="capital-summary-value positive">
-                  ${(totals.totalInvested / 1000000).toFixed(2)}M
+                  ${Math.round(totals.totalInvested / 1000000).toLocaleString()}mm
                 </div>
               </div>
               <div className="capital-summary-card">
                 <div className="capital-summary-label">Total Redeemed</div>
                 <div className="capital-summary-value negative">
-                  ${(totals.totalRedeemed / 1000000).toFixed(2)}M
+                  ${Math.round(totals.totalRedeemed / 1000000).toLocaleString()}mm
                 </div>
               </div>
               <div className="capital-summary-card">
                 <div className="capital-summary-label">Net Invested</div>
                 <div className="capital-summary-value">
-                  ${(totals.netInvested / 1000000).toFixed(2)}M
+                  ${Math.round(totals.netInvested / 1000000).toLocaleString()}mm
                 </div>
               </div>
             </div>
@@ -420,7 +420,7 @@ const FirmDetail = ({ firmId, onBack, onContactClick }) => {
                       {capitalData.map((row, i) => (
                         <tr key={i}>
                           <td>{new Date(row.date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</td>
-                          <td>${(parseFloat(row.current_capital) / 1000000).toFixed(2)}M</td>
+                          <td>${Math.round(parseFloat(row.current_capital) / 1000000).toLocaleString()}mm</td>
                         </tr>
                       ))}
                     </tbody>
@@ -451,7 +451,7 @@ const FirmDetail = ({ firmId, onBack, onContactClick }) => {
                           {subsData.map((row, i) => (
                             <tr key={i}>
                               <td>{new Date(row.date_subscribed).toLocaleDateString()}</td>
-                              <td>${(parseFloat(row.capital) / 1000000).toFixed(2)}M</td>
+                              <td>${Math.round(parseFloat(row.capital) / 1000000).toLocaleString()}mm</td>
                             </tr>
                           ))}
                         </tbody>
@@ -472,7 +472,7 @@ const FirmDetail = ({ firmId, onBack, onContactClick }) => {
                           {redsData.map((row, i) => (
                             <tr key={i}>
                               <td>{new Date(row.date_redeemed).toLocaleDateString()}</td>
-                              <td>${(parseFloat(row.capital) / 1000000).toFixed(2)}M</td>
+                              <td>${Math.round(parseFloat(row.capital) / 1000000).toLocaleString()}mm</td>
                             </tr>
                           ))}
                         </tbody>
