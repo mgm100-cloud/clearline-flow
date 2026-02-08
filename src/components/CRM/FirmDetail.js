@@ -11,6 +11,18 @@ import {
 } from '../../services/crmService'
 import './FirmDetail.css'
 
+const ACCOUNT_TYPES = [
+  'Fund of Funds', 'Wealth Manager', 'Pension – Public', 'Family Office',
+  'Multi Family Office', 'Endowment', 'Pension – Corporate', 'Private Bank',
+  'Consultant', 'Outsourced CIO', 'High Net Worth', 'Foundation', 'Bank',
+  'Prime Broker', 'Employee', 'Sovereign Wealth Fund', 'Insurance Company',
+]
+
+const STATUS_OPTIONS = [
+  '1 Investor', '2 Active Diligence', '3 Potential Investor in 6 Months',
+  '4 High Focus', '5 Low Focus', '6 Dormant',
+]
+
 const FirmDetail = ({ firmId, onBack, onContactClick }) => {
   const [firm, setFirm] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -67,7 +79,21 @@ const FirmDetail = ({ firmId, onBack, onContactClick }) => {
 
   const handleSave = async () => {
     try {
-      const updated = await updateAccount(firmId, editedFirm)
+      const payload = { ...editedFirm }
+      // Clean numeric fields
+      if (payload.aum !== null && payload.aum !== undefined) payload.aum = payload.aum === '' ? null : parseFloat(payload.aum)
+      if (payload.investment_size_min !== null && payload.investment_size_min !== undefined) payload.investment_size_min = payload.investment_size_min === '' ? null : parseFloat(payload.investment_size_min)
+      if (payload.investment_size_max !== null && payload.investment_size_max !== undefined) payload.investment_size_max = payload.investment_size_max === '' ? null : parseFloat(payload.investment_size_max)
+      if (payload.hf_investments !== null && payload.hf_investments !== undefined) payload.hf_investments = payload.hf_investments === '' ? null : parseInt(payload.hf_investments)
+      if (payload.probability_of_investment !== null && payload.probability_of_investment !== undefined) payload.probability_of_investment = payload.probability_of_investment === '' ? null : parseFloat(payload.probability_of_investment)
+      // Remove read-only/computed fields
+      delete payload.id
+      delete payload.created_at
+      delete payload.updated_at
+      delete payload.deleted_at
+      delete payload.sf_ext_id
+
+      const updated = await updateAccount(firmId, payload)
       setFirm(updated)
       setEditing(false)
     } catch (error) {
@@ -85,6 +111,60 @@ const FirmDetail = ({ firmId, onBack, onContactClick }) => {
     const totalRedeemed = redsData.reduce((sum, red) => sum + (parseFloat(red.capital) || 0), 0)
     const netInvested = totalInvested - totalRedeemed
     return { totalInvested, totalRedeemed, netInvested }
+  }
+
+  const formatCurrency = (value) => {
+    if (value === null || value === undefined) return '-'
+    return `$${(value / 1000000).toFixed(2)}M`
+  }
+
+  const formatDate = (date) => {
+    if (!date) return '-'
+    return new Date(date).toLocaleDateString()
+  }
+
+  // Render an editable field with appropriate input type
+  const renderField = (label, field, options = {}) => {
+    const { type = 'text', choices, fullWidth, rows } = options
+    const value = editing ? editedFirm?.[field] : firm?.[field]
+
+    return (
+      <div className={`firm-detail-field ${fullWidth ? 'full-width' : ''}`}>
+        <label>{label}</label>
+        {editing ? (
+          type === 'select' ? (
+            <select value={value || ''} onChange={(e) => handleFieldChange(field, e.target.value)}>
+              <option value="">Select...</option>
+              {choices.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          ) : type === 'checkbox' ? (
+            <input type="checkbox" checked={value || false} onChange={(e) => handleFieldChange(field, e.target.checked)} />
+          ) : type === 'textarea' ? (
+            <textarea
+              value={value || ''}
+              onChange={(e) => handleFieldChange(field, e.target.value)}
+              rows={rows || 3}
+            />
+          ) : type === 'number' ? (
+            <input type="number" value={value ?? ''} onChange={(e) => handleFieldChange(field, e.target.value)} />
+          ) : (
+            <input type={type} value={value || ''} onChange={(e) => handleFieldChange(field, e.target.value)} />
+          )
+        ) : (
+          type === 'checkbox' ? (
+            <span>{value ? 'Yes' : 'No'}</span>
+          ) : field === 'website' && value ? (
+            <span><a href={value.startsWith('http') ? value : `https://${value}`} target="_blank" rel="noopener noreferrer">{value}</a></span>
+          ) : field === 'aum' || field === 'investment_size_min' || field === 'investment_size_max' ? (
+            <span>{value ? formatCurrency(value) : '-'}</span>
+          ) : field === 'created_date' || field === 'updated_date' || field === 'last_activity' ? (
+            <span>{formatDate(value)}</span>
+          ) : (
+            <span>{value || '-'}</span>
+          )
+        )}
+      </div>
+    )
   }
 
   if (loading) {
@@ -116,10 +196,6 @@ const FirmDetail = ({ firmId, onBack, onContactClick }) => {
           Back to Firms
         </button>
         <div className="firm-detail-actions">
-          <button className="firm-detail-email-btn" onClick={() => alert('Email coming soon')}>
-            <Mail size={18} />
-            Send Email
-          </button>
           {!editing ? (
             <button className="firm-detail-edit-btn" onClick={handleEdit}>
               <Edit2 size={18} />
@@ -159,202 +235,90 @@ const FirmDetail = ({ firmId, onBack, onContactClick }) => {
 
       {/* Tabs */}
       <div className="firm-detail-tabs">
-        <button
-          className={`firm-detail-tab ${activeTab === 'overview' ? 'active' : ''}`}
-          onClick={() => setActiveTab('overview')}
-        >
-          Overview
-        </button>
-        <button
-          className={`firm-detail-tab ${activeTab === 'contacts' ? 'active' : ''}`}
-          onClick={() => setActiveTab('contacts')}
-        >
-          Contacts
-        </button>
-        <button
-          className={`firm-detail-tab ${activeTab === 'interactions' ? 'active' : ''}`}
-          onClick={() => setActiveTab('interactions')}
-        >
-          Interactions
-        </button>
-        <button
-          className={`firm-detail-tab ${activeTab === 'capital' ? 'active' : ''}`}
-          onClick={() => setActiveTab('capital')}
-        >
-          Client Capital
-        </button>
+        {['overview', 'contacts', 'interactions', 'capital'].map(tab => (
+          <button
+            key={tab}
+            className={`firm-detail-tab ${activeTab === tab ? 'active' : ''}`}
+            onClick={() => setActiveTab(tab)}
+          >
+            {tab === 'capital' ? 'Client Capital' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+          </button>
+        ))}
       </div>
 
       {/* Content */}
       <div className="firm-detail-content">
         {activeTab === 'overview' && (
           <div className="firm-detail-overview">
+            {/* Basic Information */}
             <div className="firm-detail-section">
               <h3>Basic Information</h3>
               <div className="firm-detail-fields">
-                <div className="firm-detail-field">
-                  <label>Type</label>
-                  {editing ? (
-                    <input
-                      type="text"
-                      value={editedFirm.type || ''}
-                      onChange={(e) => handleFieldChange('type', e.target.value)}
-                    />
-                  ) : (
-                    <span>{firm.type || '-'}</span>
-                  )}
-                </div>
-                <div className="firm-detail-field">
-                  <label>Website</label>
-                  {editing ? (
-                    <input
-                      type="text"
-                      value={editedFirm.website || ''}
-                      onChange={(e) => handleFieldChange('website', e.target.value)}
-                    />
-                  ) : (
-                    <span>
-                      {firm.website ? (
-                        <a href={firm.website} target="_blank" rel="noopener noreferrer">
-                          {firm.website}
-                        </a>
-                      ) : (
-                        '-'
-                      )}
-                    </span>
-                  )}
-                </div>
-                <div className="firm-detail-field">
-                  <label>Phone</label>
-                  {editing ? (
-                    <input
-                      type="text"
-                      value={editedFirm.phone_number || ''}
-                      onChange={(e) => handleFieldChange('phone_number', e.target.value)}
-                    />
-                  ) : (
-                    <span>{firm.phone_number || '-'}</span>
-                  )}
-                </div>
+                {renderField('Type', 'type', { type: 'select', choices: ACCOUNT_TYPES })}
+                {renderField('Status', 'status', { type: 'select', choices: STATUS_OPTIONS })}
+                {renderField('Website', 'website')}
+                {renderField('Phone', 'phone_number')}
+                {renderField('Tier', 'tier')}
+                {renderField('Category', 'category')}
               </div>
             </div>
 
+            {/* Status & Pipeline */}
+            <div className="firm-detail-section">
+              <h3>Status & Pipeline</h3>
+              <div className="firm-detail-fields">
+                {renderField('Status Summary', 'status_summary', { type: 'textarea', fullWidth: true, rows: 3 })}
+                {renderField('High Quality', 'high_quality', { type: 'checkbox' })}
+                {renderField('Structure Issues', 'structure_issues', { type: 'textarea', fullWidth: true, rows: 2 })}
+                {renderField('PM Meeting', 'pm_meeting', { type: 'checkbox' })}
+                {renderField('Focus List', 'focus_list', { type: 'checkbox' })}
+              </div>
+            </div>
+
+            {/* Address */}
             <div className="firm-detail-section">
               <h3>Address</h3>
               <div className="firm-detail-fields">
-                <div className="firm-detail-field full-width">
-                  <label>Street</label>
-                  {editing ? (
-                    <input
-                      type="text"
-                      value={editedFirm.address || ''}
-                      onChange={(e) => handleFieldChange('address', e.target.value)}
-                    />
-                  ) : (
-                    <span>{firm.address || '-'}</span>
-                  )}
-                </div>
-                <div className="firm-detail-field">
-                  <label>City</label>
-                  {editing ? (
-                    <input
-                      type="text"
-                      value={editedFirm.city || ''}
-                      onChange={(e) => handleFieldChange('city', e.target.value)}
-                    />
-                  ) : (
-                    <span>{firm.city || '-'}</span>
-                  )}
-                </div>
-                <div className="firm-detail-field">
-                  <label>State</label>
-                  {editing ? (
-                    <input
-                      type="text"
-                      value={editedFirm.state || ''}
-                      onChange={(e) => handleFieldChange('state', e.target.value)}
-                    />
-                  ) : (
-                    <span>{firm.state || '-'}</span>
-                  )}
-                </div>
-                <div className="firm-detail-field">
-                  <label>Country</label>
-                  {editing ? (
-                    <input
-                      type="text"
-                      value={editedFirm.country || ''}
-                      onChange={(e) => handleFieldChange('country', e.target.value)}
-                    />
-                  ) : (
-                    <span>{firm.country || '-'}</span>
-                  )}
-                </div>
+                {renderField('Street', 'address', { fullWidth: true })}
+                {renderField('City', 'city')}
+                {renderField('State', 'state')}
+                {renderField('Country', 'country')}
+                {renderField('Zip Code', 'zip_code')}
               </div>
             </div>
 
+            {/* Investment Information */}
             <div className="firm-detail-section">
               <h3>Investment Information</h3>
               <div className="firm-detail-fields">
-                <div className="firm-detail-field">
-                  <label>AUM</label>
-                  {editing ? (
-                    <input
-                      type="number"
-                      value={editedFirm.aum || ''}
-                      onChange={(e) => handleFieldChange('aum', e.target.value)}
-                    />
-                  ) : (
-                    <span>{firm.aum ? `$${(firm.aum / 1000000).toFixed(1)}M` : '-'}</span>
-                  )}
-                </div>
-                <div className="firm-detail-field">
-                  <label>Investment Size (Min)</label>
-                  {editing ? (
-                    <input
-                      type="number"
-                      value={editedFirm.investment_size_min || ''}
-                      onChange={(e) => handleFieldChange('investment_size_min', e.target.value)}
-                    />
-                  ) : (
-                    <span>
-                      {firm.investment_size_min
-                        ? `$${(firm.investment_size_min / 1000000).toFixed(1)}M`
-                        : '-'}
-                    </span>
-                  )}
-                </div>
-                <div className="firm-detail-field">
-                  <label>Investment Size (Max)</label>
-                  {editing ? (
-                    <input
-                      type="number"
-                      value={editedFirm.investment_size_max || ''}
-                      onChange={(e) => handleFieldChange('investment_size_max', e.target.value)}
-                    />
-                  ) : (
-                    <span>
-                      {firm.investment_size_max
-                        ? `$${(firm.investment_size_max / 1000000).toFixed(1)}M`
-                        : '-'}
-                    </span>
-                  )}
-                </div>
-                <div className="firm-detail-field">
-                  <label>HF Investments</label>
-                  {editing ? (
-                    <input
-                      type="number"
-                      value={editedFirm.hf_investments || ''}
-                      onChange={(e) => handleFieldChange('hf_investments', e.target.value)}
-                    />
-                  ) : (
-                    <span>{firm.hf_investments || '-'}</span>
-                  )}
-                </div>
+                {renderField('AUM', 'aum', { type: 'number' })}
+                {renderField('Investment Size (Min)', 'investment_size_min', { type: 'number' })}
+                {renderField('Investment Size (Max)', 'investment_size_max', { type: 'number' })}
+                {renderField('HF Investments', 'hf_investments', { type: 'number' })}
+                {renderField('Probability of Investment', 'probability_of_investment', { type: 'number' })}
               </div>
             </div>
 
+            {/* Relationship */}
+            <div className="firm-detail-section">
+              <h3>Relationship</h3>
+              <div className="firm-detail-fields">
+                {renderField('PB Introduction', 'pb_introduction')}
+                {renderField('Consultant', 'consultant')}
+              </div>
+            </div>
+
+            {/* Dates */}
+            <div className="firm-detail-section">
+              <h3>Dates</h3>
+              <div className="firm-detail-fields">
+                {renderField('Created Date', 'created_date')}
+                {renderField('Updated Date', 'updated_date')}
+                {renderField('Last Activity', 'last_activity')}
+              </div>
+            </div>
+
+            {/* Description */}
             <div className="firm-detail-section">
               <h3>Description</h3>
               {editing ? (
@@ -398,14 +362,80 @@ const FirmDetail = ({ firmId, onBack, onContactClick }) => {
               </div>
             </div>
 
-            {capitalData.length > 0 && (
+            {capitalData.length > 0 ? (
               <div className="firm-detail-capital-chart">
                 <h3>Monthly Capital</h3>
-                <div className="capital-chart-placeholder">
-                  <p>Chart visualization coming soon</p>
-                  <p className="capital-chart-note">
-                    Will display monthly capital balances with S&P 500 benchmark comparison
-                  </p>
+                <div className="capital-chart-container">
+                  <table className="capital-data-table">
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Current Capital</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {capitalData.map((row, i) => (
+                        <tr key={i}>
+                          <td>{new Date(row.date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</td>
+                          <td>${(parseFloat(row.current_capital) / 1000000).toFixed(2)}M</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              <div className="firm-detail-capital-empty">
+                <p>No capital data available for this firm.</p>
+              </div>
+            )}
+
+            {(subsData.length > 0 || redsData.length > 0) && (
+              <div className="firm-detail-capital-transactions">
+                <h3>Subscriptions & Redemptions</h3>
+                <div className="capital-transactions-grid">
+                  {subsData.length > 0 && (
+                    <div className="capital-transaction-section">
+                      <h4>Subscriptions (Investments)</h4>
+                      <table className="capital-data-table">
+                        <thead>
+                          <tr>
+                            <th>Date Subscribed</th>
+                            <th>Capital</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {subsData.map((row, i) => (
+                            <tr key={i}>
+                              <td>{new Date(row.date_subscribed).toLocaleDateString()}</td>
+                              <td>${(parseFloat(row.capital) / 1000000).toFixed(2)}M</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  {redsData.length > 0 && (
+                    <div className="capital-transaction-section">
+                      <h4>Redemptions</h4>
+                      <table className="capital-data-table">
+                        <thead>
+                          <tr>
+                            <th>Date Redeemed</th>
+                            <th>Capital</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {redsData.map((row, i) => (
+                            <tr key={i}>
+                              <td>{new Date(row.date_redeemed).toLocaleDateString()}</td>
+                              <td>${(parseFloat(row.capital) / 1000000).toFixed(2)}M</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -417,4 +447,3 @@ const FirmDetail = ({ firmId, onBack, onContactClick }) => {
 }
 
 export default FirmDetail
-

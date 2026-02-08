@@ -196,6 +196,7 @@ export const getTasks = async (params = {}) => {
   const {
     page = 1,
     limit = 50,
+    search = '',
     accountId = '',
     contactId = '',
     interactionType = '',
@@ -208,14 +209,19 @@ export const getTasks = async (params = {}) => {
     .select('*, accounts(firm_name), contacts(first_name, last_name)', { count: 'exact' })
     .is('deleted_at', null)
 
+  // Search
+  if (search) {
+    query = query.or(`subject.ilike.%${search}%,description.ilike.%${search}%`)
+  }
+
   // Filter by account
   if (accountId) {
-    query = query.eq('related_account_id', accountId)
+    query = query.eq('account_id', accountId)
   }
 
   // Filter by contact
   if (contactId) {
-    query = query.eq('related_contact_id', contactId)
+    query = query.eq('contact_id', contactId)
   }
 
   // Filter by interaction type

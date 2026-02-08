@@ -12,4 +12,5 @@ export { default as DistributionLists } from './DistributionLists'
 export { default as EmailCompose } from './EmailCompose'
 export { default as PipelineReport } from './PipelineReport'
 export { default as ActiveDiligenceReport } from './ActiveDiligenceReport'
+export { default as ProspectReport } from './ProspectReport'
 

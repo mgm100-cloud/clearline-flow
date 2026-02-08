@@ -9,6 +9,7 @@ import ContactDetail from './ContactDetail'
 import DistributionLists from './DistributionLists'
 import PipelineReport from './PipelineReport'
 import ActiveDiligenceReport from './ActiveDiligenceReport'
+import ProspectReport from './ProspectReport'
 import './CRM.css'
 
 const CRM = () => {
@@ -34,7 +35,6 @@ const CRM = () => {
         return
       }
 
-      // Check user's division
       const { data: profile } = await supabase
         .from('user_profiles')
         .select('division')
@@ -135,10 +135,44 @@ const CRM = () => {
       
       {activeTab === 'active-diligence' && <ActiveDiligenceReport />}
       
+      {activeTab === 'active-hot-pipeline' && (
+        <ProspectReport
+          title="Active Hot Pipeline Report"
+          description='Firms with status "2 Active Diligence" or "3 Potential Investor in 6 Months"'
+          statuses={['2 Active Diligence', '3 Potential Investor in 6 Months']}
+          contactedLabel="Contacted This Month?"
+          contactedDays={30}
+        />
+      )}
+      
+      {activeTab === 'active-pipeline' && (
+        <ProspectReport
+          title="Active Pipeline Report"
+          description='Firms with status 2, 3, 4, or 5'
+          statuses={[
+            '2 Active Diligence',
+            '3 Potential Investor in 6 Months',
+            '4 High Focus',
+            '5 Low Focus',
+          ]}
+          contactedLabel="Contacted This Quarter?"
+          contactedDays={90}
+        />
+      )}
+      
+      {activeTab === 'full-prospect' && (
+        <ProspectReport
+          title="Full Prospect Report"
+          description='All firms except "1 Investor"'
+          excludeStatuses={['1 Investor']}
+          contactedLabel="Contacted This Year?"
+          contactedDays={360}
+        />
+      )}
+      
       {activeTab === 'distribution' && <DistributionLists />}
     </CRMLayout>
   )
 }
 
 export default CRM
-

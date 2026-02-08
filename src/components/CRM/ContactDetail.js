@@ -388,21 +388,37 @@ const ContactDetail = ({ contactId, onBack, onFirmClick }) => {
               </div>
             </div>
 
-            {contact.description && (
-              <div className="contact-detail-section">
-                <h3>Description</h3>
-                {editing ? (
-                  <textarea
-                    className="contact-detail-textarea"
-                    value={editedContact.description || ''}
-                    onChange={(e) => handleFieldChange('description', e.target.value)}
-                    rows={4}
-                  />
-                ) : (
-                  <p className="contact-detail-description">{contact.description}</p>
-                )}
+            <div className="contact-detail-section">
+              <h3>Description</h3>
+              {editing ? (
+                <textarea
+                  className="contact-detail-textarea"
+                  value={editedContact.description || ''}
+                  onChange={(e) => handleFieldChange('description', e.target.value)}
+                  rows={4}
+                />
+              ) : (
+                <p className="contact-detail-description">{contact.description || 'No description available'}</p>
+              )}
+            </div>
+
+            <div className="contact-detail-section">
+              <h3>Dates</h3>
+              <div className="contact-detail-fields">
+                <div className="contact-detail-field">
+                  <label>Created Date</label>
+                  <span>{contact.created_date ? new Date(contact.created_date).toLocaleDateString() : '-'}</span>
+                </div>
+                <div className="contact-detail-field">
+                  <label>Updated Date</label>
+                  <span>{contact.updated_date ? new Date(contact.updated_date).toLocaleDateString() : '-'}</span>
+                </div>
+                <div className="contact-detail-field">
+                  <label>Last Activity</label>
+                  <span>{contact.last_activity ? new Date(contact.last_activity).toLocaleDateString() : '-'}</span>
+                </div>
               </div>
-            )}
+            </div>
           </div>
         )}
 

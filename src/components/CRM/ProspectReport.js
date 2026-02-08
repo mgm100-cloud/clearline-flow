@@ -1,9 +1,15 @@
 import React, { useState, useEffect } from 'react'
 import { Download, Calendar } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
-import './ActiveDiligenceReport.css'
+import './ActiveDiligenceReport.css' // Reuse same styles
 
-const ActiveDiligenceReport = () => {
+/**
+ * Reusable report component for:
+ * - Active Hot Pipeline (status in 2,3 | contacted this month = 30 days)
+ * - Active Pipeline (status in 2,3,4,5 | contacted this quarter = 90 days)
+ * - Full Prospect (status != 1 Investor | contacted this year = 360 days)
+ */
+const ProspectReport = ({ title, description, statuses, excludeStatuses, contactedLabel, contactedDays }) => {
   const [accounts, setAccounts] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -14,43 +20,54 @@ const ActiveDiligenceReport = () => {
   const loadData = async () => {
     setLoading(true)
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('accounts')
-        .select('id, firm_name, last_activity')
+        .select('id, firm_name, last_activity, status')
         .is('deleted_at', null)
-        .eq('status', '2 Active Diligence')
-        .order('firm_name', { ascending: true })
+
+      if (statuses && statuses.length > 0) {
+        query = query.in('status', statuses)
+      } else if (excludeStatuses && excludeStatuses.length > 0) {
+        // For "not in" filter, we need to use .not
+        excludeStatuses.forEach(s => {
+          query = query.neq('status', s)
+        })
+      }
+
+      query = query.order('firm_name', { ascending: true })
+
+      const { data, error } = await query
 
       if (error) throw error
 
       const now = new Date()
-      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+      const cutoffDate = new Date(now.getTime() - contactedDays * 24 * 60 * 60 * 1000)
 
       const processed = (data || []).map(account => {
         const lastActivity = account.last_activity ? new Date(account.last_activity) : null
-        const contactedThisWeek = lastActivity && lastActivity >= sevenDaysAgo
-        return { ...account, contactedThisWeek }
+        const contacted = lastActivity && lastActivity >= cutoffDate
+        return { ...account, contacted }
       })
 
       // Sort: No first, then by firm name
       processed.sort((a, b) => {
-        if (a.contactedThisWeek !== b.contactedThisWeek) {
-          return a.contactedThisWeek ? 1 : -1 // No first
+        if (a.contacted !== b.contacted) {
+          return a.contacted ? 1 : -1 // No first
         }
         return (a.firm_name || '').localeCompare(b.firm_name || '')
       })
 
       setAccounts(processed)
     } catch (error) {
-      console.error('Error loading active diligence data:', error)
-      alert('Failed to load active diligence data')
+      console.error(`Error loading ${title} data:`, error)
+      alert(`Failed to load ${title} data`)
     } finally {
       setLoading(false)
     }
   }
 
   const handleExportPDF = () => {
-    alert('PDF export will generate a formatted Active Diligence report. Requires server-side setup.')
+    alert(`PDF export for ${title} requires server-side rendering setup.`)
   }
 
   const formatDate = (date) => {
@@ -62,13 +79,13 @@ const ActiveDiligenceReport = () => {
     })
   }
 
-  const contactedCount = accounts.filter(a => a.contactedThisWeek).length
+  const contactedCount = accounts.filter(a => a.contacted).length
   const notContactedCount = accounts.length - contactedCount
 
   if (loading) {
     return (
       <div className="active-diligence-report">
-        <div className="active-diligence-loading">Loading active diligence...</div>
+        <div className="active-diligence-loading">Loading {title}...</div>
       </div>
     )
   }
@@ -78,10 +95,10 @@ const ActiveDiligenceReport = () => {
       {/* Header */}
       <div className="active-diligence-header">
         <div className="active-diligence-header-left">
-          <h2>Active Diligence Report</h2>
+          <h2>{title}</h2>
           <p className="active-diligence-subtitle">
             <Calendar size={16} />
-            Firms with status "2 Active Diligence" — {accounts.length} firms
+            {description} — {accounts.length} firms
           </p>
         </div>
         <div className="active-diligence-header-right">
@@ -96,11 +113,11 @@ const ActiveDiligenceReport = () => {
       <div className="active-diligence-stats">
         <div className="active-diligence-stat-card active-diligence-stat-success">
           <div className="active-diligence-stat-value">{contactedCount}</div>
-          <div className="active-diligence-stat-label">Contacted This Week</div>
+          <div className="active-diligence-stat-label">{contactedLabel}: Yes</div>
         </div>
         <div className="active-diligence-stat-card active-diligence-stat-warning">
           <div className="active-diligence-stat-value">{notContactedCount}</div>
-          <div className="active-diligence-stat-label">Not Contacted</div>
+          <div className="active-diligence-stat-label">{contactedLabel}: No</div>
         </div>
       </div>
 
@@ -110,25 +127,25 @@ const ActiveDiligenceReport = () => {
           <div className="active-diligence-table-header">
             <div className="ad-col-firm">Firm Name</div>
             <div className="ad-col-activity">Last Activity</div>
-            <div className="ad-col-contacted">Contacted This Week?</div>
+            <div className="ad-col-contacted">{contactedLabel}</div>
           </div>
 
           {accounts.length === 0 ? (
             <div className="active-diligence-empty">
-              No firms with status "2 Active Diligence"
+              No firms match the criteria for this report
             </div>
           ) : (
             accounts.map((account) => (
               <div
                 key={account.id}
                 className={`active-diligence-table-row ${
-                  account.contactedThisWeek ? 'ad-row-yes' : 'ad-row-no'
+                  account.contacted ? 'ad-row-yes' : 'ad-row-no'
                 }`}
               >
                 <div className="ad-col-firm">{account.firm_name}</div>
                 <div className="ad-col-activity">{formatDate(account.last_activity)}</div>
                 <div className="ad-col-contacted">
-                  {account.contactedThisWeek ? (
+                  {account.contacted ? (
                     <span className="ad-contacted-yes">Yes</span>
                   ) : (
                     <span className="ad-contacted-no">No</span>
@@ -143,4 +160,4 @@ const ActiveDiligenceReport = () => {
   )
 }
 
-export default ActiveDiligenceReport
+export default ProspectReport

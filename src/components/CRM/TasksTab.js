@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
-import { Plus, Filter, Calendar } from 'lucide-react'
+import { Plus, Filter, Search } from 'lucide-react'
 import DataGrid from './DataGrid'
+import TaskDetailModal from './TaskDetailModal'
 import { getTasks, updateTask, deleteTask } from '../../services/crmService'
 import './TasksTab.css'
 
@@ -9,6 +10,7 @@ const TasksTab = ({ onTaskClick, accountId = null, contactId = null }) => {
   const [loading, setLoading] = useState(true)
   const [pagination, setPagination] = useState(null)
   const [filters, setFilters] = useState({
+    search: '',
     accountId: accountId || '',
     contactId: contactId || '',
     interactionType: '',
@@ -18,6 +20,8 @@ const TasksTab = ({ onTaskClick, accountId = null, contactId = null }) => {
     sortOrder: 'desc',
   })
   const [showFilters, setShowFilters] = useState(false)
+  const [showTaskModal, setShowTaskModal] = useState(false)
+  const [selectedTaskId, setSelectedTaskId] = useState(null)
 
   useEffect(() => {
     loadTasks()
@@ -56,6 +60,11 @@ const TasksTab = ({ onTaskClick, accountId = null, contactId = null }) => {
     setFilters({ ...filters, sortBy, sortOrder, page: 1 })
   }
 
+  const handleSearch = (e) => {
+    const search = e.target.value
+    setFilters({ ...filters, search, page: 1 })
+  }
+
   const handleInteractionTypeFilter = (e) => {
     const interactionType = e.target.value
     setFilters({ ...filters, interactionType, page: 1 })
@@ -81,87 +90,62 @@ const TasksTab = ({ onTaskClick, accountId = null, contactId = null }) => {
     }
   }
 
+  const handleAddTask = () => {
+    setSelectedTaskId(null)
+    setShowTaskModal(true)
+  }
+
+  const handleRowClick = (row) => {
+    setSelectedTaskId(row.id)
+    setShowTaskModal(true)
+  }
+
+  const handleTaskSaved = () => {
+    loadTasks()
+  }
+
   const interactionTypes = [
-    'SentEmail',
-    'ReceivedEmail',
-    'OutgoingCall',
-    'ConnectedCall',
-    'VideoCall',
-    'InPersonOffice',
-    'InPersonVisit',
-    'ConferenceMeeting',
-    'UpdatedInfo',
+    'SentEmail', 'ReceivedEmail', 'OutgoingCall', 'ConnectedCall',
+    'VideoCall', 'InPersonOffice', 'InPersonVisit', 'ConferenceMeeting', 'UpdatedInfo',
   ]
 
   const getInteractionIcon = (type) => {
     const icons = {
-      SentEmail: '📤',
-      ReceivedEmail: '📥',
-      OutgoingCall: '📞',
-      ConnectedCall: '☎️',
-      VideoCall: '📹',
-      InPersonOffice: '🏢',
-      InPersonVisit: '🚗',
-      ConferenceMeeting: '🎤',
-      UpdatedInfo: '📝',
+      SentEmail: '📤', ReceivedEmail: '📥', OutgoingCall: '📞',
+      ConnectedCall: '☎️', VideoCall: '📹', InPersonOffice: '🏢',
+      InPersonVisit: '🚗', ConferenceMeeting: '🎤', UpdatedInfo: '📝',
     }
     return icons[type] || '📝'
   }
 
   const columns = [
     {
-      id: 'activity_date',
-      label: 'Date',
-      sortable: true,
-      editable: true,
-      width: '120px',
+      id: 'activity_date', label: 'Date', sortable: true, editable: true, width: '110px',
       render: (value) => (value ? new Date(value).toLocaleDateString() : '-'),
     },
     {
-      id: 'interaction_type',
-      label: 'Type',
-      sortable: true,
-      width: '150px',
-      render: (value) =>
-        value ? (
-          <span className="interaction-type">
-            <span className="interaction-icon">{getInteractionIcon(value)}</span>
-            {value.replace(/([A-Z])/g, ' $1').trim()}
-          </span>
-        ) : (
-          '-'
-        ),
+      id: 'interaction_type', label: 'Type', sortable: true, width: '150px',
+      render: (value) => value ? (
+        <span className="interaction-type">
+          <span className="interaction-icon">{getInteractionIcon(value)}</span>
+          {value.replace(/([A-Z])/g, ' $1').trim()}
+        </span>
+      ) : '-',
     },
+    { id: 'subject', label: 'Subject', sortable: true, editable: true, width: '280px' },
     {
-      id: 'subject',
-      label: 'Subject',
-      sortable: true,
-      editable: true,
-      width: '300px',
-    },
-    {
-      id: 'accounts',
-      label: 'Firm',
-      sortable: false,
-      width: '200px',
+      id: 'accounts', label: 'Firm', sortable: false, width: '180px',
       render: (value) => value?.firm_name || '-',
     },
     {
-      id: 'contacts',
-      label: 'Contact',
-      sortable: false,
-      width: '180px',
-      render: (value) =>
-        value ? `${value.first_name || ''} ${value.last_name || ''}`.trim() || '-' : '-',
+      id: 'contacts', label: 'Contact', sortable: false, width: '160px',
+      render: (value) => value ? `${value.first_name || ''} ${value.last_name || ''}`.trim() || '-' : '-',
     },
     {
-      id: 'description',
-      label: 'Description',
-      sortable: false,
-      width: '250px',
+      id: 'description', label: 'Description', sortable: false, width: '220px',
       render: (value) => {
         if (!value) return '-'
-        const preview = value.length > 100 ? value.substring(0, 100) + '...' : value
+        const preview = value.length > 80 ? value.substring(0, 80) + '...' : value
         return <span className="task-description">{preview}</span>
       },
     },
@@ -172,6 +156,16 @@ const TasksTab = ({ onTaskClick, accountId = null, contactId = null }) => {
       {/* Toolbar */}
       <div className="tasks-toolbar">
         <div className="tasks-toolbar-left">
+          <div className="tasks-search-wrapper">
+            <Search size={16} className="tasks-search-icon" />
+            <input
+              type="text"
+              className="tasks-search"
+              placeholder="Search tasks..."
+              value={filters.search}
+              onChange={handleSearch}
+            />
+          </div>
           <button
             className={`tasks-filter-btn ${showFilters ? 'active' : ''}`}
             onClick={() => setShowFilters(!showFilters)}
@@ -181,7 +175,7 @@ const TasksTab = ({ onTaskClick, accountId = null, contactId = null }) => {
           </button>
         </div>
         <div className="tasks-toolbar-right">
-          <button className="tasks-add-btn" onClick={() => alert('Add task coming soon')}>
+          <button className="tasks-add-btn" onClick={handleAddTask}>
             <Plus size={18} />
             Add Task
           </button>
@@ -196,9 +190,7 @@ const TasksTab = ({ onTaskClick, accountId = null, contactId = null }) => {
             <select value={filters.interactionType} onChange={handleInteractionTypeFilter}>
               <option value="">All Types</option>
               {interactionTypes.map((type) => (
-                <option key={type} value={type}>
-                  {type.replace(/([A-Z])/g, ' $1').trim()}
-                </option>
+                <option key={type} value={type}>{type.replace(/([A-Z])/g, ' $1').trim()}</option>
               ))}
             </select>
           </div>
@@ -224,15 +216,25 @@ const TasksTab = ({ onTaskClick, accountId = null, contactId = null }) => {
         pagination={pagination}
         onPageChange={handlePageChange}
         onSort={handleSort}
-        onRowClick={(row) => onTaskClick && onTaskClick(row.id)}
+        onRowClick={handleRowClick}
         onCellEdit={handleCellEdit}
         onDelete={handleDelete}
         sortBy={filters.sortBy}
         sortOrder={filters.sortOrder}
       />
+
+      {/* Task Detail Modal */}
+      {showTaskModal && (
+        <TaskDetailModal
+          taskId={selectedTaskId}
+          accountId={accountId}
+          contactId={contactId}
+          onClose={() => setShowTaskModal(false)}
+          onSave={handleTaskSaved}
+        />
+      )}
     </div>
   )
 }
 
 export default TasksTab
-

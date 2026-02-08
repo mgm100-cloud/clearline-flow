@@ -23,6 +23,32 @@
   flex-direction: column;
 }
 
+.task-modal.task-modal-wide {
+  max-width: 800px;
+}
+
+.task-modal-search-input {
+  padding: 6px 10px;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+  font-size: 13px;
+  margin-bottom: 4px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.task-modal-search-input:focus {
+  outline: none;
+  border-color: #2563eb;
+}
+
+.task-modal-hint {
+  font-size: 13px;
+  color: #999;
+  padding: 8px 0;
+  font-style: italic;
+}
+
 .task-modal-header {
   display: flex;
   justify-content: space-between;

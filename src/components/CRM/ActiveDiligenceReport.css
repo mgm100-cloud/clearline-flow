@@ -62,7 +62,7 @@
 /* Stats */
 .active-diligence-stats {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 16px;
   margin-bottom: 24px;
 }
@@ -116,7 +116,7 @@
 
 .active-diligence-table-header {
   display: grid;
-  grid-template-columns: 40px 2fr 0.8fr 1.2fr 1fr 1fr 0.8fr 1fr 0.8fr;
+  grid-template-columns: 2fr 1fr 1fr;
   gap: 12px;
   padding: 12px 20px;
   background: #f8f9fa;
@@ -130,7 +130,7 @@
 
 .active-diligence-table-row {
   display: grid;
-  grid-template-columns: 40px 2fr 0.8fr 1.2fr 1fr 1fr 0.8fr 1fr 0.8fr;
+  grid-template-columns: 2fr 1fr 1fr;
   gap: 12px;
   padding: 16px 20px;
   border-bottom: 1px solid #e0e0e0;
@@ -278,6 +278,51 @@
   font-weight: 500;
 }
 
+/* Simplified columns for 3-column reports */
+.ad-col-firm {
+  font-weight: 500;
+  color: #1a1a1a;
+  font-size: 14px;
+}
+
+.ad-col-activity {
+  font-size: 14px;
+  color: #333;
+}
+
+.ad-col-contacted {
+  font-size: 14px;
+}
+
+.ad-contacted-yes {
+  color: #10b981;
+  font-weight: 500;
+}
+
+.ad-contacted-no {
+  color: #dc2626;
+  font-weight: 700;
+  background: #fef2f2;
+  padding: 4px 12px;
+  border-radius: 4px;
+}
+
+.ad-row-yes {
+  background: white;
+}
+
+.ad-row-yes:hover {
+  background: #f8f9fa;
+}
+
+.ad-row-no {
+  background: #fffbeb;
+}
+
+.ad-row-no:hover {
+  background: #fef3c7;
+}
+
 /* Empty State */
 .active-diligence-empty {
   padding: 40px 20px;
@@ -318,37 +363,6 @@
 }
 
 /* Responsive */
-@media (max-width: 1400px) {
-  .active-diligence-stats {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .active-diligence-table-header,
-  .active-diligence-table-row {
-    grid-template-columns: 40px 2fr 0.8fr 1fr 0.8fr 1fr 0.8fr;
-    gap: 8px;
-    font-size: 13px;
-  }
-
-  .active-diligence-col-category,
-  .active-diligence-col-investment {
-    display: none;
-  }
-}
-
-@media (max-width: 1024px) {
-  .active-diligence-table-header,
-  .active-diligence-table-row {
-    grid-template-columns: 40px 2fr 0.8fr 1fr 0.8fr;
-    gap: 8px;
-  }
-
-  .active-diligence-col-aum,
-  .active-diligence-col-probability {
-    display: none;
-  }
-}
-
 @media (max-width: 768px) {
   .active-diligence-report {
     padding: 16px;
@@ -368,31 +382,15 @@
     grid-template-columns: 1fr;
   }
 
-  .active-diligence-table-header {
-    display: none;
-  }
-
+  .active-diligence-table-header,
   .active-diligence-table-row {
-    grid-template-columns: 40px 1fr;
-    gap: 12px;
-    padding: 12px;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    font-size: 13px;
   }
 
-  .active-diligence-col-firm {
-    grid-column: 2;
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .active-diligence-col-tier,
-  .active-diligence-col-interactions,
-  .active-diligence-col-last-activity {
+  .ad-col-contacted {
     display: none;
-  }
-
-  .active-diligence-legend {
-    flex-direction: column;
-    gap: 12px;
   }
 }
 

@@ -21,6 +21,35 @@
   gap: 12px;
 }
 
+.tasks-search-wrapper {
+  position: relative;
+  width: 280px;
+}
+
+.tasks-search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #999;
+}
+
+.tasks-search {
+  width: 100%;
+  padding: 8px 12px 8px 32px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: all 0.2s;
+  box-sizing: border-box;
+}
+
+.tasks-search:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
 .tasks-filter-btn,
 .tasks-add-btn {
   display: flex;

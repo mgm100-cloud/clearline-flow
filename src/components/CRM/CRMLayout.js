@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Search, Building2, Users, FileText, Mail, BarChart3 } from 'lucide-react'
+import { Search, Building2, Users, FileText, Mail, BarChart3, TrendingUp, ClipboardList, UserCheck } from 'lucide-react'
 import { globalSearch } from '../../services/crmService'
 import './CRMLayout.css'
 
@@ -50,8 +50,11 @@ const CRMLayout = ({ children, activeTab, onTabChange }) => {
     { id: 'contacts', label: 'Contacts', icon: Users },
     { id: 'notes', label: 'Notes', icon: FileText },
     { id: 'pipeline', label: 'Pipeline', icon: BarChart3 },
-    { id: 'active-diligence', label: 'Active Diligence', icon: BarChart3 },
-    { id: 'distribution', label: 'Distribution Lists', icon: Mail },
+    { id: 'active-diligence', label: 'Active Diligence', icon: UserCheck },
+    { id: 'active-hot-pipeline', label: 'Hot Pipeline', icon: TrendingUp },
+    { id: 'active-pipeline', label: 'Active Pipeline', icon: ClipboardList },
+    { id: 'full-prospect', label: 'Full Prospect', icon: Users },
+    { id: 'distribution', label: 'Distribution', icon: Mail },
   ]
 
   return (
@@ -145,7 +148,7 @@ const CRMLayout = ({ children, activeTab, onTabChange }) => {
                 className={`crm-tab ${activeTab === tab.id ? 'active' : ''}`}
                 onClick={() => onTabChange(tab.id)}
               >
-                <Icon size={18} />
+                <Icon size={16} />
                 <span>{tab.label}</span>
               </button>
             )
@@ -162,4 +165,3 @@ const CRMLayout = ({ children, activeTab, onTabChange }) => {
 }
 
 export default CRMLayout
-

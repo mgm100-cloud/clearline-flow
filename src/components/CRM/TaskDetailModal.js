@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react'
 import { X, Save } from 'lucide-react'
-import { getTask, updateTask, createTask } from '../../services/crmService'
+import { getTask, updateTask, createTask, getAccounts, getContacts, updateAccount } from '../../services/crmService'
 import './TaskDetailModal.css'
 
 const TaskDetailModal = ({ taskId, accountId, contactId, onClose, onSave }) => {
   const [task, setTask] = useState(null)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [firmOptions, setFirmOptions] = useState([])
+  const [contactOptions, setContactOptions] = useState([])
+  const [firmSearch, setFirmSearch] = useState('')
+  const [contactSearch, setContactSearch] = useState('')
 
   useEffect(() => {
     if (taskId) {
@@ -14,14 +18,16 @@ const TaskDetailModal = ({ taskId, accountId, contactId, onClose, onSave }) => {
     } else {
       // New task
       setTask({
-        account_id: accountId || null,
-        contact_id: contactId || null,
+        account_id: accountId || '',
+        contact_id: contactId || '',
         subject: '',
         activity_date: new Date().toISOString().split('T')[0],
         description: '',
         extra_info: '',
         interaction_type: 'UpdatedInfo',
       })
+      loadFirms()
+      if (accountId) loadContactsForAccount(accountId)
     }
   }, [taskId, accountId, contactId])
 
@@ -30,6 +36,8 @@ const TaskDetailModal = ({ taskId, accountId, contactId, onClose, onSave }) => {
     try {
       const data = await getTask(taskId)
       setTask(data)
+      loadFirms()
+      if (data.account_id) loadContactsForAccount(data.account_id)
     } catch (error) {
       console.error('Error loading task:', error)
       alert('Failed to load task: ' + error.message)
@@ -38,8 +46,31 @@ const TaskDetailModal = ({ taskId, accountId, contactId, onClose, onSave }) => {
     }
   }
 
+  const loadFirms = async () => {
+    try {
+      const response = await getAccounts({ limit: 500, sortBy: 'firm_name', sortOrder: 'asc' })
+      setFirmOptions(response.data || [])
+    } catch (error) {
+      console.error('Error loading firms:', error)
+    }
+  }
+
+  const loadContactsForAccount = async (accId) => {
+    try {
+      const response = await getContacts({ accountId: accId, limit: 200, sortBy: 'last_name', sortOrder: 'asc' })
+      setContactOptions(response.data || [])
+    } catch (error) {
+      console.error('Error loading contacts:', error)
+    }
+  }
+
   const handleFieldChange = (field, value) => {
-    setTask({ ...task, [field]: value })
+    const updated = { ...task, [field]: value }
+    if (field === 'account_id' && value) {
+      loadContactsForAccount(value)
+      updated.contact_id = '' // Reset contact when firm changes
+    }
+    setTask(updated)
   }
 
   const handleSave = async () => {
@@ -50,12 +81,39 @@ const TaskDetailModal = ({ taskId, accountId, contactId, onClose, onSave }) => {
 
     setSaving(true)
     try {
+      const payload = { ...task }
+      // Clean up: remove relationship data
+      delete payload.accounts
+      delete payload.contacts
+      delete payload.id
+      delete payload.created_at
+      delete payload.updated_at
+      delete payload.deleted_at
+      delete payload.sf_ext_id
+      delete payload.created_date
+      delete payload.updated_date
+      // Remove empty string fields  
+      if (!payload.account_id) delete payload.account_id
+      if (!payload.contact_id) delete payload.contact_id
+      if (!payload.extra_info) delete payload.extra_info
+
       let savedTask
       if (taskId) {
-        savedTask = await updateTask(taskId, task)
+        savedTask = await updateTask(taskId, payload)
       } else {
-        savedTask = await createTask(task)
+        savedTask = await createTask(payload)
       }
+
+      // Business rule: update accounts.last_activity unless SentEmail or OutgoingCall
+      if (payload.account_id && payload.activity_date &&
+          payload.interaction_type !== 'SentEmail' && payload.interaction_type !== 'OutgoingCall') {
+        try {
+          await updateAccount(payload.account_id, { last_activity: payload.activity_date })
+        } catch (e) {
+          console.error('Failed to update last_activity on account:', e)
+        }
+      }
+
       onSave && onSave(savedTask)
       onClose()
     } catch (error) {
@@ -67,16 +125,27 @@ const TaskDetailModal = ({ taskId, accountId, contactId, onClose, onSave }) => {
   }
 
   const interactionTypes = [
-    'SentEmail',
-    'ReceivedEmail',
-    'OutgoingCall',
-    'ConnectedCall',
-    'VideoCall',
-    'InPersonOffice',
-    'InPersonVisit',
-    'ConferenceMeeting',
-    'UpdatedInfo',
+    { value: 'SentEmail', label: 'Sent Email' },
+    { value: 'ReceivedEmail', label: 'Received Email' },
+    { value: 'OutgoingCall', label: 'Outgoing Call' },
+    { value: 'ConnectedCall', label: 'Connected Call' },
+    { value: 'VideoCall', label: 'Video Call' },
+    { value: 'InPersonOffice', label: 'In Person (Office)' },
+    { value: 'InPersonVisit', label: 'In Person (Visit)' },
+    { value: 'ConferenceMeeting', label: 'Conference Meeting' },
+    { value: 'UpdatedInfo', label: 'Updated Info' },
   ]
+
+  const filteredFirms = firmSearch
+    ? firmOptions.filter(f => f.firm_name.toLowerCase().includes(firmSearch.toLowerCase()))
+    : firmOptions
+
+  const filteredContacts = contactSearch
+    ? contactOptions.filter(c =>
+        `${c.first_name} ${c.last_name}`.toLowerCase().includes(contactSearch.toLowerCase()) ||
+        c.email?.toLowerCase().includes(contactSearch.toLowerCase())
+      )
+    : contactOptions
 
   if (loading) {
     return (
@@ -95,7 +164,7 @@ const TaskDetailModal = ({ taskId, accountId, contactId, onClose, onSave }) => {
 
   return (
     <div className="task-modal-overlay" onClick={onClose}>
-      <div className="task-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="task-modal task-modal-wide" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="task-modal-header">
           <h2>{taskId ? 'Edit Task' : 'New Task'}</h2>
@@ -133,11 +202,59 @@ const TaskDetailModal = ({ taskId, accountId, contactId, onClose, onSave }) => {
                 onChange={(e) => handleFieldChange('interaction_type', e.target.value)}
               >
                 {interactionTypes.map((type) => (
-                  <option key={type} value={type}>
-                    {type.replace(/([A-Z])/g, ' $1').trim()}
-                  </option>
+                  <option key={type.value} value={type.value}>{type.label}</option>
                 ))}
               </select>
+            </div>
+          </div>
+
+          <div className="task-modal-row">
+            <div className="task-modal-field">
+              <label>Firm</label>
+              <input
+                type="text"
+                placeholder="Search firms..."
+                value={firmSearch}
+                onChange={(e) => setFirmSearch(e.target.value)}
+                className="task-modal-search-input"
+              />
+              <select
+                value={task.account_id || ''}
+                onChange={(e) => handleFieldChange('account_id', e.target.value)}
+              >
+                <option value="">-- No Firm --</option>
+                {filteredFirms.map(f => (
+                  <option key={f.id} value={f.id}>{f.firm_name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="task-modal-field">
+              <label>Contact</label>
+              {task.account_id ? (
+                <>
+                  <input
+                    type="text"
+                    placeholder="Search contacts..."
+                    value={contactSearch}
+                    onChange={(e) => setContactSearch(e.target.value)}
+                    className="task-modal-search-input"
+                  />
+                  <select
+                    value={task.contact_id || ''}
+                    onChange={(e) => handleFieldChange('contact_id', e.target.value)}
+                  >
+                    <option value="">-- No Contact --</option>
+                    {filteredContacts.map(c => (
+                      <option key={c.id} value={c.id}>
+                        {c.first_name} {c.last_name}{c.email ? ` (${c.email})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              ) : (
+                <div className="task-modal-hint">Select a firm first to choose a contact</div>
+              )}
             </div>
           </div>
 
@@ -160,18 +277,6 @@ const TaskDetailModal = ({ taskId, accountId, contactId, onClose, onSave }) => {
               placeholder="Enter additional information"
             />
           </div>
-
-          {task.accounts && (
-            <div className="task-modal-info">
-              <strong>Firm:</strong> {task.accounts.firm_name}
-            </div>
-          )}
-
-          {task.contacts && (
-            <div className="task-modal-info">
-              <strong>Contact:</strong> {task.contacts.first_name} {task.contacts.last_name}
-            </div>
-          )}
         </div>
 
         {/* Footer */}
@@ -190,4 +295,3 @@ const TaskDetailModal = ({ taskId, accountId, contactId, onClose, onSave }) => {
 }
 
 export default TaskDetailModal
-

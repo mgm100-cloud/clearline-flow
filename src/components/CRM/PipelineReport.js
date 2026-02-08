@@ -1,64 +1,41 @@
 import React, { useState, useEffect } from 'react'
-import { Download, GripVertical, ChevronDown, ChevronUp, Filter } from 'lucide-react'
+import { Download, GripVertical, ChevronDown, ChevronUp } from 'lucide-react'
 import { supabase } from '../../supabaseClient'
 import './PipelineReport.css'
+
+const STATUS_ORDER = [
+  '1 Investor',
+  '2 Active Diligence',
+  '3 Potential Investor in 6 Months',
+  '4 High Focus',
+  '5 Low Focus',
+  '6 Dormant',
+]
 
 const PipelineReport = () => {
   const [accounts, setAccounts] = useState([])
   const [loading, setLoading] = useState(true)
   const [draggedItem, setDraggedItem] = useState(null)
-  const [filters, setFilters] = useState({
-    tier: 'all',
-    category: 'all',
-    probability: 'all',
-  })
-  const [showFilters, setShowFilters] = useState(false)
-  const [expandedSections, setExpandedSections] = useState({
-    tier1: true,
-    tier2: true,
-    tier3: true,
-  })
+  const [expandedSections, setExpandedSections] = useState(
+    Object.fromEntries(STATUS_ORDER.map(s => [s, true]))
+  )
 
   useEffect(() => {
     loadPipelineData()
-  }, [filters])
+  }, [])
 
   const loadPipelineData = async () => {
     setLoading(true)
     try {
-      // Build query
-      let query = supabase
+      const { data, error } = await supabase
         .from('accounts')
         .select(`
-          id,
-          firm_name,
-          type,
-          tier,
-          category,
-          aum,
-          investment_size,
-          probability_of_investment,
-          pm_meeting,
-          focus_list,
-          last_activity,
-          created_at
+          id, firm_name, status, status_summary, pm_meeting,
+          investment_size_min, investment_size_max,
+          city, state, country, high_quality, structure_issues
         `)
         .is('deleted_at', null)
-        .in('type', ['Prospect', 'Investor'])
-        .order('tier', { ascending: true })
-
-      // Apply filters
-      if (filters.tier !== 'all') {
-        query = query.eq('tier', filters.tier)
-      }
-      if (filters.category !== 'all') {
-        query = query.eq('category', filters.category)
-      }
-      if (filters.probability !== 'all') {
-        query = query.eq('probability_of_investment', filters.probability)
-      }
-
-      const { data, error } = await query
+        .order('firm_name', { ascending: true })
 
       if (error) throw error
 
@@ -69,20 +46,24 @@ const PipelineReport = () => {
         .eq('report_name', 'pipeline')
         .order('display_order', { ascending: true })
 
-      // Create order map
       const orderMap = {}
       if (orderData) {
-        orderData.forEach((item, index) => {
-          orderMap[item.account_id] = index
+        orderData.forEach((item) => {
+          orderMap[item.account_id] = item.display_order
         })
       }
 
-      // Sort by custom order if available, otherwise by tier
-      const sorted = data.sort((a, b) => {
-        const orderA = orderMap[a.id] !== undefined ? orderMap[a.id] : 9999
-        const orderB = orderMap[b.id] !== undefined ? orderMap[b.id] : 9999
+      // Sort: by Status order first, then by custom order or firm_name within each status
+      const sorted = (data || []).sort((a, b) => {
+        const statusA = STATUS_ORDER.indexOf(a.status) === -1 ? 99 : STATUS_ORDER.indexOf(a.status)
+        const statusB = STATUS_ORDER.indexOf(b.status) === -1 ? 99 : STATUS_ORDER.indexOf(b.status)
+        if (statusA !== statusB) return statusA - statusB
+
+        const orderA = orderMap[a.id] !== undefined ? orderMap[a.id] : 99999
+        const orderB = orderMap[b.id] !== undefined ? orderMap[b.id] : 99999
         if (orderA !== orderB) return orderA - orderB
-        return (a.tier || 'Tier 3').localeCompare(b.tier || 'Tier 3')
+
+        return (a.firm_name || '').localeCompare(b.firm_name || '')
       })
 
       setAccounts(sorted)
@@ -94,8 +75,25 @@ const PipelineReport = () => {
     }
   }
 
-  const handleDragStart = (e, account, index) => {
-    setDraggedItem({ account, index })
+  const groupByStatus = () => {
+    const groups = {}
+    STATUS_ORDER.forEach(s => { groups[s] = [] })
+    groups['No Status'] = []
+
+    accounts.forEach(account => {
+      const status = account.status || 'No Status'
+      if (groups[status]) {
+        groups[status].push(account)
+      } else {
+        groups['No Status'].push(account)
+      }
+    })
+
+    return groups
+  }
+
+  const handleDragStart = (e, account, globalIndex) => {
+    setDraggedItem({ account, globalIndex })
     e.dataTransfer.effectAllowed = 'move'
   }
 
@@ -104,29 +102,35 @@ const PipelineReport = () => {
     e.dataTransfer.dropEffect = 'move'
   }
 
-  const handleDrop = async (e, targetIndex) => {
+  const handleDrop = async (e, targetGlobalIndex) => {
     e.preventDefault()
-    
-    if (!draggedItem || draggedItem.index === targetIndex) {
+    if (!draggedItem || draggedItem.globalIndex === targetGlobalIndex) {
       setDraggedItem(null)
       return
     }
 
-    // Reorder accounts
+    // Only allow reorder within same status
+    const draggedStatus = draggedItem.account.status || 'No Status'
+    const targetAccount = accounts[targetGlobalIndex]
+    const targetStatus = targetAccount?.status || 'No Status'
+
+    if (draggedStatus !== targetStatus) {
+      setDraggedItem(null)
+      return
+    }
+
     const newAccounts = [...accounts]
-    const [removed] = newAccounts.splice(draggedItem.index, 1)
-    newAccounts.splice(targetIndex, 0, removed)
+    const [removed] = newAccounts.splice(draggedItem.globalIndex, 1)
+    newAccounts.splice(targetGlobalIndex, 0, removed)
     setAccounts(newAccounts)
 
     // Save new order to database
     try {
-      // Delete existing orders for this report
       await supabase
         .from('report_row_orders')
         .delete()
         .eq('report_name', 'pipeline')
 
-      // Insert new orders
       const orderData = newAccounts.map((account, index) => ({
         report_name: 'pipeline',
         account_id: account.id,
@@ -140,64 +144,33 @@ const PipelineReport = () => {
       if (error) throw error
     } catch (error) {
       console.error('Error saving order:', error)
-      alert('Failed to save order')
-      // Reload to get correct order
       loadPipelineData()
     }
 
     setDraggedItem(null)
   }
 
-  const handleExportPDF = async () => {
-    alert('PDF export requires Playwright setup on the server. This will generate a PDF of the current pipeline report.')
-    // In production, this would call an Edge Function that uses Playwright
-    // to render the report and generate a PDF
+  const handleExportPDF = () => {
+    alert('PDF export requires server-side rendering setup. This will generate a landscape PDF of the pipeline report.')
   }
 
-  const toggleSection = (section) => {
-    setExpandedSections({
-      ...expandedSections,
-      [section]: !expandedSections[section],
-    })
-  }
-
-  const groupByTier = () => {
-    const groups = {
-      'Tier 1': [],
-      'Tier 2': [],
-      'Tier 3': [],
-    }
-
-    accounts.forEach(account => {
-      const tier = account.tier || 'Tier 3'
-      if (groups[tier]) {
-        groups[tier].push(account)
-      }
-    })
-
-    return groups
+  const toggleSection = (status) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [status]: !prev[status],
+    }))
   }
 
   const formatCurrency = (value) => {
-    if (!value) return 'N/A'
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value)
+    if (!value) return '-'
+    return `$${(value / 1000000).toFixed(1)}M`
   }
 
-  const formatDate = (date) => {
-    if (!date) return 'N/A'
-    return new Date(date).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    })
+  const formatLocation = (account) => {
+    return [account.city, account.state, account.country].filter(Boolean).join(', ') || '-'
   }
 
-  const tierGroups = groupByTier()
+  const statusGroups = groupByStatus()
 
   if (loading) {
     return (
@@ -214,17 +187,10 @@ const PipelineReport = () => {
         <div className="pipeline-header-left">
           <h2>Pipeline Report</h2>
           <p className="pipeline-subtitle">
-            {accounts.length} firms • Drag to reorder
+            {accounts.length} firms — Grouped by Status. Drag to reorder within each status.
           </p>
         </div>
         <div className="pipeline-header-right">
-          <button
-            className="pipeline-filter-btn"
-            onClick={() => setShowFilters(!showFilters)}
-          >
-            <Filter size={18} />
-            Filters
-          </button>
           <button className="pipeline-export-btn" onClick={handleExportPDF}>
             <Download size={18} />
             Export PDF
@@ -232,71 +198,19 @@ const PipelineReport = () => {
         </div>
       </div>
 
-      {/* Filters */}
-      {showFilters && (
-        <div className="pipeline-filters">
-          <div className="pipeline-filter-group">
-            <label>Tier:</label>
-            <select
-              value={filters.tier}
-              onChange={(e) => setFilters({ ...filters, tier: e.target.value })}
-            >
-              <option value="all">All Tiers</option>
-              <option value="Tier 1">Tier 1</option>
-              <option value="Tier 2">Tier 2</option>
-              <option value="Tier 3">Tier 3</option>
-            </select>
-          </div>
-          <div className="pipeline-filter-group">
-            <label>Category:</label>
-            <select
-              value={filters.category}
-              onChange={(e) => setFilters({ ...filters, category: e.target.value })}
-            >
-              <option value="all">All Categories</option>
-              <option value="Hedge Fund">Hedge Fund</option>
-              <option value="Fund of Funds">Fund of Funds</option>
-              <option value="Family Office">Family Office</option>
-              <option value="Endowment">Endowment</option>
-              <option value="Foundation">Foundation</option>
-              <option value="Pension">Pension</option>
-              <option value="Insurance">Insurance</option>
-              <option value="Wealth Manager">Wealth Manager</option>
-              <option value="Consultant">Consultant</option>
-            </select>
-          </div>
-          <div className="pipeline-filter-group">
-            <label>Probability:</label>
-            <select
-              value={filters.probability}
-              onChange={(e) => setFilters({ ...filters, probability: e.target.value })}
-            >
-              <option value="all">All Probabilities</option>
-              <option value="High">High</option>
-              <option value="Medium">Medium</option>
-              <option value="Low">Low</option>
-            </select>
-          </div>
-        </div>
-      )}
-
-      {/* Pipeline by Tier */}
+      {/* Pipeline by Status */}
       <div className="pipeline-content">
-        {Object.entries(tierGroups).map(([tier, tierAccounts]) => {
-          const sectionKey = tier.toLowerCase().replace(' ', '')
-          const isExpanded = expandedSections[sectionKey]
+        {[...STATUS_ORDER, 'No Status'].map((status) => {
+          const statusAccounts = statusGroups[status] || []
+          if (statusAccounts.length === 0) return null
+          const isExpanded = expandedSections[status] !== false
 
           return (
-            <div key={tier} className="pipeline-tier-section">
-              <div
-                className="pipeline-tier-header"
-                onClick={() => toggleSection(sectionKey)}
-              >
+            <div key={status} className="pipeline-tier-section">
+              <div className="pipeline-tier-header" onClick={() => toggleSection(status)}>
                 <div className="pipeline-tier-header-left">
-                  <h3>{tier}</h3>
-                  <span className="pipeline-tier-count">
-                    {tierAccounts.length} firms
-                  </span>
+                  <h3>{status}</h3>
+                  <span className="pipeline-tier-count">{statusAccounts.length} firms</span>
                 </div>
                 <button className="pipeline-tier-toggle">
                   {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
@@ -305,65 +219,66 @@ const PipelineReport = () => {
 
               {isExpanded && (
                 <div className="pipeline-tier-content">
-                  {tierAccounts.length === 0 ? (
-                    <div className="pipeline-empty">No firms in this tier</div>
-                  ) : (
-                    <div className="pipeline-table">
-                      <div className="pipeline-table-header">
-                        <div className="pipeline-col-drag"></div>
-                        <div className="pipeline-col-firm">Firm Name</div>
-                        <div className="pipeline-col-category">Category</div>
-                        <div className="pipeline-col-aum">AUM</div>
-                        <div className="pipeline-col-investment">Investment Size</div>
-                        <div className="pipeline-col-probability">Probability</div>
-                        <div className="pipeline-col-pm">PM Meeting</div>
-                        <div className="pipeline-col-last-activity">Last Activity</div>
-                      </div>
-                      {tierAccounts.map((account, index) => {
-                        const globalIndex = accounts.indexOf(account)
-                        return (
-                          <div
-                            key={account.id}
-                            className="pipeline-table-row"
-                            draggable
-                            onDragStart={(e) => handleDragStart(e, account, globalIndex)}
-                            onDragOver={handleDragOver}
-                            onDrop={(e) => handleDrop(e, globalIndex)}
-                          >
-                            <div className="pipeline-col-drag">
-                              <GripVertical size={16} className="pipeline-drag-handle" />
-                            </div>
-                            <div className="pipeline-col-firm">
-                              <span className="pipeline-firm-name">{account.firm_name}</span>
-                              {account.focus_list && (
-                                <span className="pipeline-badge pipeline-badge-focus">Focus</span>
-                              )}
-                            </div>
-                            <div className="pipeline-col-category">{account.category || 'N/A'}</div>
-                            <div className="pipeline-col-aum">{formatCurrency(account.aum)}</div>
-                            <div className="pipeline-col-investment">
-                              {formatCurrency(account.investment_size)}
-                            </div>
-                            <div className="pipeline-col-probability">
-                              {account.probability_of_investment ? (
-                                <span className={`pipeline-badge pipeline-badge-${account.probability_of_investment.toLowerCase()}`}>
-                                  {account.probability_of_investment}
-                                </span>
-                              ) : (
-                                'N/A'
-                              )}
-                            </div>
-                            <div className="pipeline-col-pm">
-                              {account.pm_meeting ? 'Yes' : 'No'}
-                            </div>
-                            <div className="pipeline-col-last-activity">
-                              {formatDate(account.last_activity)}
-                            </div>
-                          </div>
-                        )
-                      })}
+                  <div className="pipeline-table">
+                    <div className="pipeline-table-header">
+                      <div className="pipeline-col-drag"></div>
+                      <div className="pipeline-col-firm">Firm Name</div>
+                      <div className="pipeline-col-pm">PM Mtg</div>
+                      <div className="pipeline-col-summary">Status Summary</div>
+                      <div className="pipeline-col-status">Status</div>
+                      <div className="pipeline-col-inv-min">Inv Min</div>
+                      <div className="pipeline-col-inv-max">Inv Max</div>
+                      <div className="pipeline-col-location">Location</div>
+                      <div className="pipeline-col-hq">HQ</div>
+                      <div className="pipeline-col-issues">Structure Issues</div>
                     </div>
-                  )}
+                    {statusAccounts.map((account) => {
+                      const globalIndex = accounts.indexOf(account)
+                      return (
+                        <div
+                          key={account.id}
+                          className="pipeline-table-row"
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, account, globalIndex)}
+                          onDragOver={handleDragOver}
+                          onDrop={(e) => handleDrop(e, globalIndex)}
+                        >
+                          <div className="pipeline-col-drag">
+                            <GripVertical size={16} className="pipeline-drag-handle" />
+                          </div>
+                          <div className="pipeline-col-firm">
+                            <span className="pipeline-firm-name">{account.firm_name}</span>
+                          </div>
+                          <div className="pipeline-col-pm">{account.pm_meeting ? 'Yes' : ''}</div>
+                          <div className="pipeline-col-summary">
+                            {account.status_summary
+                              ? (account.status_summary.length > 60
+                                  ? account.status_summary.substring(0, 60) + '...'
+                                  : account.status_summary)
+                              : '-'}
+                          </div>
+                          <div className="pipeline-col-status">
+                            <span className={`status-badge status-${account.status?.charAt(0) || ''}`}>
+                              {account.status || '-'}
+                            </span>
+                          </div>
+                          <div className="pipeline-col-inv-min">{formatCurrency(account.investment_size_min)}</div>
+                          <div className="pipeline-col-inv-max">{formatCurrency(account.investment_size_max)}</div>
+                          <div className="pipeline-col-location">{formatLocation(account)}</div>
+                          <div className="pipeline-col-hq">
+                            {account.high_quality ? <span className="pipeline-hq-yes">Yes</span> : ''}
+                          </div>
+                          <div className="pipeline-col-issues">
+                            {account.structure_issues
+                              ? (account.structure_issues.length > 40
+                                  ? account.structure_issues.substring(0, 40) + '...'
+                                  : account.structure_issues)
+                              : '-'}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
               )}
             </div>
@@ -373,7 +288,7 @@ const PipelineReport = () => {
 
       {accounts.length === 0 && (
         <div className="pipeline-empty-state">
-          <p>No firms match the current filters</p>
+          <p>No firms found. Add firms to see them in the pipeline.</p>
         </div>
       )}
     </div>
@@ -381,4 +296,3 @@ const PipelineReport = () => {
 }
 
 export default PipelineReport
-
