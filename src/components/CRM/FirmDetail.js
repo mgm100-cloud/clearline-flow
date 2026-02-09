@@ -123,7 +123,7 @@ const FirmDetail = ({ firmId, onBack, onContactClick }) => {
 
   const formatCurrency = (value) => {
     if (value === null || value === undefined) return '-'
-    return `$${(value / 1000000).toFixed(2)}M`
+    return `$${Math.round(value / 1000000).toLocaleString()}mm`
   }
 
   const formatDate = (date) => {
@@ -323,7 +323,7 @@ const FirmDetail = ({ firmId, onBack, onContactClick }) => {
                 {renderField('High Quality', 'high_quality', { type: 'checkbox' })}
                 {renderField('PM Meeting', 'pm_meeting', { type: 'checkbox' })}
                 {renderField('Focus List', 'focus_list', { type: 'checkbox' })}
-                {renderField('Probability', 'probability_of_investment', { type: 'number' })}
+                {renderField('Probability', 'probability_of_investment', { type: 'select', choices: Array.from({length: 21}, (_, i) => String(100 - i * 5)) })}
                 {renderField('Status Summary', 'status_summary', { type: 'textarea', fullWidth: true, rows: 3 })}
                 {renderField('Structure Issues', 'structure_issues', { type: 'textarea', fullWidth: true, rows: 2 })}
               </div>
@@ -350,8 +350,9 @@ const FirmDetail = ({ firmId, onBack, onContactClick }) => {
 
             <Section icon={<Users size={18} />} iconClass="icon-relationship" title="Relationship">
               <div className="firm-detail-fields">
-                {renderField('PB Introduction', 'pb_introduction')}
+                {renderField('Introduction Source', 'pb_introduction')}
                 {renderField('Consultant', 'consultant')}
+                {renderField('Third Party Marketer', 'third_party_marketer')}
               </div>
             </Section>
 
@@ -388,19 +389,19 @@ const FirmDetail = ({ firmId, onBack, onContactClick }) => {
               <div className="capital-summary-card">
                 <div className="capital-summary-label">Total Invested</div>
                 <div className="capital-summary-value positive">
-                  ${(totals.totalInvested / 1000000).toFixed(2)}M
+                  ${Math.round(totals.totalInvested / 1000000).toLocaleString()}mm
                 </div>
               </div>
               <div className="capital-summary-card">
                 <div className="capital-summary-label">Total Redeemed</div>
                 <div className="capital-summary-value negative">
-                  ${(totals.totalRedeemed / 1000000).toFixed(2)}M
+                  ${Math.round(totals.totalRedeemed / 1000000).toLocaleString()}mm
                 </div>
               </div>
               <div className="capital-summary-card">
                 <div className="capital-summary-label">Net Invested</div>
                 <div className="capital-summary-value">
-                  ${(totals.netInvested / 1000000).toFixed(2)}M
+                  ${Math.round(totals.netInvested / 1000000).toLocaleString()}mm
                 </div>
               </div>
             </div>
@@ -420,7 +421,7 @@ const FirmDetail = ({ firmId, onBack, onContactClick }) => {
                       {capitalData.map((row, i) => (
                         <tr key={i}>
                           <td>{new Date(row.date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</td>
-                          <td>${(parseFloat(row.current_capital) / 1000000).toFixed(2)}M</td>
+                          <td>${Math.round(parseFloat(row.current_capital) / 1000000).toLocaleString()}mm</td>
                         </tr>
                       ))}
                     </tbody>
@@ -451,7 +452,7 @@ const FirmDetail = ({ firmId, onBack, onContactClick }) => {
                           {subsData.map((row, i) => (
                             <tr key={i}>
                               <td>{new Date(row.date_subscribed).toLocaleDateString()}</td>
-                              <td>${(parseFloat(row.capital) / 1000000).toFixed(2)}M</td>
+                              <td>${Math.round(parseFloat(row.capital) / 1000000).toLocaleString()}mm</td>
                             </tr>
                           ))}
                         </tbody>
@@ -472,7 +473,7 @@ const FirmDetail = ({ firmId, onBack, onContactClick }) => {
                           {redsData.map((row, i) => (
                             <tr key={i}>
                               <td>{new Date(row.date_redeemed).toLocaleDateString()}</td>
-                              <td>${(parseFloat(row.capital) / 1000000).toFixed(2)}M</td>
+                              <td>${Math.round(parseFloat(row.capital) / 1000000).toLocaleString()}mm</td>
                             </tr>
                           ))}
                         </tbody>

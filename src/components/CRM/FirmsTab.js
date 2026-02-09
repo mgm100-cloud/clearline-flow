@@ -178,7 +178,7 @@ const FirmsTab = ({ onFirmClick }) => {
     { id: 'country', label: 'Country', sortable: true, width: '90px' },
     {
       id: 'aum', label: 'AUM', sortable: true, width: '100px',
-      render: (value) => (value ? `$${(value / 1000000).toFixed(1)}M` : '-'),
+      render: (value) => (value ? `$${Math.round(value / 1000000).toLocaleString()}mm` : '-'),
     },
     { id: 'tier', label: 'Tier', sortable: true, width: '80px' },
     {
@@ -358,7 +358,12 @@ const FirmsTab = ({ onFirmClick }) => {
                   </div>
                   <div className="modal-field">
                     <label>Probability of Investment</label>
-                    <input type="number" value={newFirm.probability_of_investment} onChange={(e) => handleNewFirmChange('probability_of_investment', e.target.value)} placeholder="0-100" />
+                    <select value={newFirm.probability_of_investment} onChange={(e) => handleNewFirmChange('probability_of_investment', e.target.value)}>
+                      <option value="">Select...</option>
+                      {Array.from({length: 21}, (_, i) => 100 - i * 5).map(v => (
+                        <option key={v} value={v}>{v}</option>
+                      ))}
+                    </select>
                   </div>
                   <div className="modal-field">
                     <label>Tier</label>

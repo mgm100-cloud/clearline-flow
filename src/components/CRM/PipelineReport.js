@@ -172,7 +172,7 @@ const PipelineReport = () => {
 
   const formatCurrency = (value) => {
     if (!value) return '-'
-    return `$${(value / 1000000).toFixed(1)}M`
+    return `$${Math.round(value / 1000000).toLocaleString()}mm`
   }
 
   const formatLocation = (account) => {

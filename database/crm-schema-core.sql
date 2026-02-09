@@ -68,6 +68,7 @@ CREATE TABLE IF NOT EXISTS public.accounts (
     -- Relationship information
     pb_introduction TEXT,
     consultant TEXT,
+    third_party_marketer TEXT,
     focus_list BOOLEAN,
     probability_of_investment NUMERIC,
     pm_meeting BOOLEAN,
