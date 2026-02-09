@@ -3069,8 +3069,10 @@ const ClearlineFlow = () => {
         todoDivision = activeTodoDivision;
       } else if (userDivision === 'Ops') {
         todoDivision = 'Ops';
+      } else if (userDivision === 'Marketing') {
+        todoDivision = 'Marketing';
       } else {
-        // Investment, Admin, Marketing default to Investment
+        // Investment, Admin default to Investment
         todoDivision = 'Investment';
       }
       
@@ -3100,8 +3102,10 @@ const ClearlineFlow = () => {
         divisionToFetch = activeTodoDivision;
       } else if (userDivision === 'Ops') {
         divisionToFetch = 'Ops';
+      } else if (userDivision === 'Marketing') {
+        divisionToFetch = 'Marketing';
       } else {
-        // Investment, Admin, Marketing see Investment todos
+        // Investment, Admin default to Investment
         divisionToFetch = 'Investment';
       }
       
@@ -3309,6 +3313,8 @@ const ClearlineFlow = () => {
             divisionToFetch = activeTodoDivision;
           } else if (userDivision === 'Ops') {
             divisionToFetch = 'Ops';
+          } else if (userDivision === 'Marketing') {
+            divisionToFetch = 'Marketing';
           } else {
             divisionToFetch = 'Investment';
           }
@@ -8904,14 +8910,19 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
       // Super users see analysts based on the active todo division
       if (activeTodoDivision === 'Ops') {
         divisionsToInclude = ['Ops', 'Super'];
+      } else if (activeTodoDivision === 'Marketing') {
+        divisionsToInclude = ['Marketing', 'Super'];
       } else {
         divisionsToInclude = ['Investment', 'Super'];
       }
     } else if (userDivision === 'Ops') {
       // Ops users see Ops and Super analysts
       divisionsToInclude = ['Ops', 'Super'];
+    } else if (userDivision === 'Marketing') {
+      // Marketing users see Marketing and Super analysts
+      divisionsToInclude = ['Marketing', 'Super'];
     } else {
-      // Investment, Admin, Marketing see Investment and Super analysts
+      // Investment, Admin see Investment and Super analysts
       divisionsToInclude = ['Investment', 'Super'];
     }
     
@@ -9213,6 +9224,16 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                 }`}
               >
                 Ops Todos
+              </button>
+              <button
+                onClick={() => onSetActiveTodoDivision('Marketing')}
+                className={`px-3 py-1 text-sm font-medium rounded-md ${
+                  activeTodoDivision === 'Marketing'
+                    ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                Marketing Todos
               </button>
             </div>
           )}
