@@ -73,6 +73,7 @@ class TwelveDataWebSocketService {
       'SZ': ':SHZ',      // China Shenzhen Stock Exchange
       'IN': ':NSE',      // India National Stock Exchange (NSE more common)
       'KS': ':KRX',      // South Korea Seoul Stock Exchange
+      'KP': ':KRX',      // South Korea KOSPI
       'TB': ':SET',      // Thailand Bangkok Stock Exchange (SET for WebSocket)
       'MK': ':KLSE',     // Malaysia Kuala Lumpur Stock Exchange
       'SP': ':SGX',      // Singapore Stock Exchange
