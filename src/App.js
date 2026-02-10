@@ -3105,11 +3105,15 @@ const ClearlineFlow = () => {
     }
   };
 
-  const refreshTodos = useCallback(async () => {
+  const refreshTodos = useCallback(async (overrideDivision) => {
     try {
       // Determine which division todos to fetch based on user division and active tab
+      // overrideDivision allows callers to pass the target division directly,
+      // avoiding stale closure issues when called immediately after a state change
       let divisionToFetch;
-      if (userDivision === 'Super') {
+      if (overrideDivision) {
+        divisionToFetch = overrideDivision;
+      } else if (userDivision === 'Super') {
         // For Super users, fetch based on active todo division tab
         divisionToFetch = activeTodoDivision;
       } else if (userDivision === 'Ops') {
@@ -3120,10 +3124,10 @@ const ClearlineFlow = () => {
         // Investment, Admin default to Investment
         divisionToFetch = 'Investment';
       }
-      
+
       const todosData = await DatabaseService.getTodos(divisionToFetch);
       setTodos(todosData);
-      
+
       // Also refresh deleted todos
       const deletedTodosData = await DatabaseService.getDeletedTodos(divisionToFetch);
       setDeletedTodos(deletedTodosData);
@@ -8966,8 +8970,32 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
     }
   }, [onRefreshTodos]);
 
-  // Refresh todos when division changes (for Super users)
+  // Track whether division change was handled explicitly by the click handler
+  const divisionChangeHandledRef = useRef(false);
+
+  // Handle division tab change: reset analyst filter and refresh todos
+  const handleDivisionChange = async (newDivision) => {
+    if (newDivision === activeTodoDivision) return;
+    divisionChangeHandledRef.current = true;
+    onSetActiveTodoDivision(newDivision);
+    onSelectTodoAnalyst(''); // Reset analyst filter for the new division
+    setIsRefreshing(true);
+    try {
+      // Pass the new division directly to avoid stale closure issues
+      await onRefreshTodos(newDivision);
+    } catch (error) {
+      console.error('Error refreshing todos for division:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Fallback: refresh todos when division changes via means other than the click handler
   useEffect(() => {
+    if (divisionChangeHandledRef.current) {
+      divisionChangeHandledRef.current = false;
+      return; // Already handled by handleDivisionChange
+    }
     if (!isFirstMount.current && userDivision === 'Super') {
       onRefreshTodos();
     }
@@ -9218,7 +9246,7 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
           {userDivision === 'Super' && (
             <div className="mt-2 flex space-x-1">
               <button
-                onClick={() => onSetActiveTodoDivision('Investment')}
+                onClick={() => handleDivisionChange('Investment')}
                 className={`px-3 py-1 text-sm font-medium rounded-md ${
                   activeTodoDivision === 'Investment'
                     ? 'bg-blue-100 text-blue-700 border border-blue-300'
@@ -9228,7 +9256,7 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                 Investment Todos
               </button>
               <button
-                onClick={() => onSetActiveTodoDivision('Ops')}
+                onClick={() => handleDivisionChange('Ops')}
                 className={`px-3 py-1 text-sm font-medium rounded-md ${
                   activeTodoDivision === 'Ops'
                     ? 'bg-blue-100 text-blue-700 border border-blue-300'
@@ -9238,7 +9266,7 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                 Ops Todos
               </button>
               <button
-                onClick={() => onSetActiveTodoDivision('Marketing')}
+                onClick={() => handleDivisionChange('Marketing')}
                 className={`px-3 py-1 text-sm font-medium rounded-md ${
                   activeTodoDivision === 'Marketing'
                     ? 'bg-blue-100 text-blue-700 border border-blue-300'
