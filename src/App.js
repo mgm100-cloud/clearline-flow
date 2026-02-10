@@ -2051,13 +2051,24 @@ const ClearlineFlow = () => {
         
         // Try to load todos data, but don't fail if table doesn't exist
         try {
-          console.log('📡 Calling DatabaseService.getTodos()...');
-          const todosData = await DatabaseService.getTodos();
+          // Determine which division todos to fetch based on user division and active tab
+          let todoDivisionToFetch;
+          if (userDivision === 'Super') {
+            todoDivisionToFetch = activeTodoDivision;
+          } else if (userDivision === 'Ops') {
+            todoDivisionToFetch = 'Ops';
+          } else if (userDivision === 'Marketing') {
+            todoDivisionToFetch = 'Marketing';
+          } else {
+            todoDivisionToFetch = 'Investment';
+          }
+          console.log('📡 Calling DatabaseService.getTodos() with division:', todoDivisionToFetch);
+          const todosData = await DatabaseService.getTodos(todoDivisionToFetch);
           console.log('✅ Successfully loaded todos from Supabase:', todosData);
           setTodos(todosData);
-          
+
           // Also load deleted todos
-          const deletedTodosData = await DatabaseService.getDeletedTodos();
+          const deletedTodosData = await DatabaseService.getDeletedTodos(todoDivisionToFetch);
           console.log('✅ Successfully loaded deleted todos from Supabase:', deletedTodosData);
           setDeletedTodos(deletedTodosData);
         } catch (todosError) {
@@ -2118,7 +2129,7 @@ const ClearlineFlow = () => {
     if (isAuthenticated) {
       loadData();
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated]); // eslint-disable-line react-hooks/exhaustive-deps -- userDivision and activeTodoDivision are set before isAuthenticated, division tab changes are handled by refreshTodos
 
   // Keep tickersRef in sync with tickers state for use in callbacks
   useEffect(() => {
