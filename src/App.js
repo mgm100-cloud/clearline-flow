@@ -10375,7 +10375,7 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, 
                   >
                     {todo.ticker}
                   </span>
-                  {(userRole === 'readwrite' || userRole === 'admin') && onNavigateToInputWithData && todo.ticker.length <= 6 && activeTodoDivision !== 'Ops' && (
+                  {(userRole === 'readwrite' || userRole === 'admin') && onNavigateToInputWithData && todo.ticker.length <= 6 && activeTodoDivision !== 'Ops' && activeTodoDivision !== 'Marketing' && (
                     <button
                       onClick={() => onNavigateToInputWithData(todo.ticker, todo.analyst)}
                       className="px-2 py-1 text-xs border border-blue-300 text-blue-600 rounded hover:border-blue-400 hover:text-blue-700 hover:bg-blue-50 transition-colors"

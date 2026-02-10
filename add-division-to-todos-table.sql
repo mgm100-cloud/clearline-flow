@@ -1,9 +1,9 @@
 -- Add division column to todos table
--- This field will store the division that the todo belongs to (Investment, Ops)
+-- This field will store the division that the todo belongs to (Investment, Ops, Marketing)
 -- The division is determined by the creator's user_profiles.division at creation time
 
-ALTER TABLE public.todos 
-ADD COLUMN IF NOT EXISTS division TEXT CHECK (division IN ('Investment', 'Ops'));
+ALTER TABLE public.todos
+ADD COLUMN IF NOT EXISTS division TEXT CHECK (division IN ('Investment', 'Ops', 'Marketing'));
 
 -- Create index for better performance on division filtering
 CREATE INDEX IF NOT EXISTS idx_todos_division ON public.todos(division);
@@ -50,4 +50,4 @@ ALTER COLUMN division SET DEFAULT 'Investment';
 -- Drop the helper function as it's no longer needed
 DROP FUNCTION IF EXISTS public.determine_todo_division(TEXT);
 
-COMMENT ON COLUMN public.todos.division IS 'Todo division: Investment or Ops - determined by creator''s division';
+COMMENT ON COLUMN public.todos.division IS 'Todo division: Investment, Ops, or Marketing - determined by creator''s division';
