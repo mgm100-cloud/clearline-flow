@@ -19,10 +19,11 @@ const DataGrid = ({
   const [editingCell, setEditingCell] = useState(null)
   const [editValue, setEditValue] = useState('')
 
-  const handleSort = (columnId) => {
+  const handleSort = (column) => {
     if (onSort) {
-      const newOrder = sortBy === columnId && sortOrder === 'asc' ? 'desc' : 'asc'
-      onSort(columnId, newOrder)
+      const field = column.sortField || column.id
+      const newOrder = sortBy === field && sortOrder === 'asc' ? 'desc' : 'asc'
+      onSort(field, newOrder)
     }
   }
 
@@ -91,11 +92,11 @@ const DataGrid = ({
                   key={column.id}
                   className={`data-grid-th ${column.sortable ? 'sortable' : ''}`}
                   style={{ width: column.width }}
-                  onClick={() => column.sortable && handleSort(column.id)}
+                  onClick={() => column.sortable && handleSort(column)}
                 >
                   <div className="data-grid-th-content">
                     <span>{column.label}</span>
-                    {column.sortable && sortBy === column.id && (
+                    {column.sortable && sortBy === (column.sortField || column.id) && (
                       <span className="data-grid-sort-icon">
                         {sortOrder === 'asc' ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                       </span>

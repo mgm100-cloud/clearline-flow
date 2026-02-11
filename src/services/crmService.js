@@ -48,7 +48,11 @@ export const fetchAllRows = async (tableName, selectCols = '*', filters = [], or
 // ============================================================================
 
 export const getAccounts = async (params = {}) => {
-  const { page = 1, limit = 50, search = '', status = '', sortBy = 'firm_name', sortOrder = 'asc' } = params
+  const {
+    page = 1, limit = 50, search = '', status = '', type = '',
+    pm_meeting = false, focus_list = false, high_quality = false,
+    sortBy = 'firm_name', sortOrder = 'asc',
+  } = params
 
   let query = supabase
     .from('accounts')
@@ -63,6 +67,22 @@ export const getAccounts = async (params = {}) => {
   // Filter by status
   if (status) {
     query = query.eq('status', status)
+  }
+
+  // Filter by type
+  if (type) {
+    query = query.eq('type', type)
+  }
+
+  // Filter by flags
+  if (pm_meeting) {
+    query = query.eq('pm_meeting', true)
+  }
+  if (focus_list) {
+    query = query.eq('focus_list', true)
+  }
+  if (high_quality) {
+    query = query.eq('high_quality', true)
   }
 
   // Sorting

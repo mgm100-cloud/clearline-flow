@@ -26,6 +26,10 @@ const FirmsTab = ({ onFirmClick }) => {
   const [filters, setFilters] = useState({
     search: '',
     status: '',
+    type: '',
+    pm_meeting: false,
+    focus_list: false,
+    high_quality: false,
     page: 1,
     limit: 50,
     sortBy: 'firm_name',
@@ -173,9 +177,14 @@ const FirmsTab = ({ onFirmClick }) => {
       ),
     },
     { id: 'type', label: 'Type', sortable: true, width: '150px' },
-    { id: 'city', label: 'City', sortable: true, editable: true, width: '110px' },
-    { id: 'state', label: 'State', sortable: true, editable: true, width: '70px' },
-    { id: 'country', label: 'Country', sortable: true, width: '90px' },
+    {
+      id: 'location', label: 'Location', sortable: true, sortField: 'city', width: '200px',
+      render: (_, row) => {
+        const parts = [row.city, row.state].filter(Boolean).join(', ')
+        const location = [parts, row.country].filter(Boolean).join(' ')
+        return location || '-'
+      },
+    },
     {
       id: 'aum', label: 'AUM', sortable: true, width: '100px',
       render: (value) => (value ? `$${Math.round(value / 1000000).toLocaleString()}mm` : '-'),
@@ -238,6 +247,48 @@ const FirmsTab = ({ onFirmClick }) => {
                 <option key={status} value={status}>{status}</option>
               ))}
             </select>
+          </div>
+          <div className="firms-filter-group">
+            <label>Investor Type</label>
+            <select
+              value={filters.type}
+              onChange={(e) => setFilters({ ...filters, type: e.target.value, page: 1 })}
+            >
+              <option value="">All Types</option>
+              {ACCOUNT_TYPES.map((type) => (
+                <option key={type} value={type}>{type}</option>
+              ))}
+            </select>
+          </div>
+          <div className="firms-filter-group firms-filter-checkbox">
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={filters.pm_meeting}
+                onChange={(e) => setFilters({ ...filters, pm_meeting: e.target.checked, page: 1 })}
+              />
+              PM Mtg
+            </label>
+          </div>
+          <div className="firms-filter-group firms-filter-checkbox">
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={filters.focus_list}
+                onChange={(e) => setFilters({ ...filters, focus_list: e.target.checked, page: 1 })}
+              />
+              Focus List
+            </label>
+          </div>
+          <div className="firms-filter-group firms-filter-checkbox">
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={filters.high_quality}
+                onChange={(e) => setFilters({ ...filters, high_quality: e.target.checked, page: 1 })}
+              />
+              High Quality
+            </label>
           </div>
           <div className="firms-filter-group">
             <label>Results per page</label>
