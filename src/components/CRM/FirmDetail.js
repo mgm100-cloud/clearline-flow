@@ -26,6 +26,20 @@ const STATUS_OPTIONS = [
 
 const COUNTRIES = getCountryList()
 
+// Section card wrapper — defined outside FirmDetail so React keeps a stable
+// component identity across parent re-renders (prevents unmounting open dropdowns).
+const Section = ({ icon, iconClass, title, fullWidth, editing, children }) => (
+  <div className={`firm-detail-section ${fullWidth ? 'full-width' : ''} ${editing ? 'is-editing' : ''}`}>
+    <div className="firm-detail-section-header">
+      <div className={`firm-detail-section-icon ${iconClass}`}>{icon}</div>
+      <h3>{title}</h3>
+    </div>
+    <div className="firm-detail-section-body">
+      {children}
+    </div>
+  </div>
+)
+
 const FirmDetail = ({ firmId, onBack, onContactClick }) => {
   const [firm, setFirm] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -182,19 +196,6 @@ const FirmDetail = ({ firmId, onBack, onContactClick }) => {
     )
   }
 
-  // Section card wrapper
-  const Section = ({ icon, iconClass, title, fullWidth, children }) => (
-    <div className={`firm-detail-section ${fullWidth ? 'full-width' : ''} ${editing ? 'is-editing' : ''}`}>
-      <div className="firm-detail-section-header">
-        <div className={`firm-detail-section-icon ${iconClass}`}>{icon}</div>
-        <h3>{title}</h3>
-      </div>
-      <div className="firm-detail-section-body">
-        {children}
-      </div>
-    </div>
-  )
-
   if (loading) {
     return (
       <div className="firm-detail-loading">
@@ -307,7 +308,7 @@ const FirmDetail = ({ firmId, onBack, onContactClick }) => {
       <div className="firm-detail-content">
         {activeTab === 'overview' && (
           <div className="firm-detail-overview">
-            <Section icon={<Building2 size={18} />} iconClass="icon-basic" title="Basic Information">
+            <Section icon={<Building2 size={18} />} iconClass="icon-basic" title="Basic Information" editing={editing}>
               <div className="firm-detail-fields">
                 {renderField('Type', 'type', { type: 'select', choices: ACCOUNT_TYPES })}
                 {renderField('Status', 'status', { type: 'select', choices: STATUS_OPTIONS })}
@@ -318,7 +319,7 @@ const FirmDetail = ({ firmId, onBack, onContactClick }) => {
               </div>
             </Section>
 
-            <Section icon={<Target size={18} />} iconClass="icon-pipeline" title="Pipeline & Flags">
+            <Section icon={<Target size={18} />} iconClass="icon-pipeline" title="Pipeline & Flags" editing={editing}>
               <div className="firm-detail-fields">
                 {renderField('High Quality', 'high_quality', { type: 'checkbox' })}
                 {renderField('PM Meeting', 'pm_meeting', { type: 'checkbox' })}
@@ -329,7 +330,7 @@ const FirmDetail = ({ firmId, onBack, onContactClick }) => {
               </div>
             </Section>
 
-            <Section icon={<MapPin size={18} />} iconClass="icon-address" title="Location">
+            <Section icon={<MapPin size={18} />} iconClass="icon-address" title="Location" editing={editing}>
               <div className="firm-detail-fields">
                 {renderField('Street', 'address', { fullWidth: true })}
                 {renderField('City', 'city')}
@@ -339,7 +340,7 @@ const FirmDetail = ({ firmId, onBack, onContactClick }) => {
               </div>
             </Section>
 
-            <Section icon={<TrendingUp size={18} />} iconClass="icon-investment" title="Investment Details">
+            <Section icon={<TrendingUp size={18} />} iconClass="icon-investment" title="Investment Details" editing={editing}>
               <div className="firm-detail-fields">
                 {renderField('AUM', 'aum', { type: 'number' })}
                 {renderField('Investment Min', 'investment_size_min', { type: 'number' })}
@@ -348,7 +349,7 @@ const FirmDetail = ({ firmId, onBack, onContactClick }) => {
               </div>
             </Section>
 
-            <Section icon={<Users size={18} />} iconClass="icon-relationship" title="Relationship">
+            <Section icon={<Users size={18} />} iconClass="icon-relationship" title="Relationship" editing={editing}>
               <div className="firm-detail-fields">
                 {renderField('Introduction Source', 'pb_introduction')}
                 {renderField('Consultant', 'consultant')}
@@ -356,7 +357,7 @@ const FirmDetail = ({ firmId, onBack, onContactClick }) => {
               </div>
             </Section>
 
-            <Section icon={<CalendarDays size={18} />} iconClass="icon-dates" title="Key Dates">
+            <Section icon={<CalendarDays size={18} />} iconClass="icon-dates" title="Key Dates" editing={editing}>
               <div className="firm-detail-fields">
                 {renderField('Created', 'created_date', { readOnly: true })}
                 {renderField('Last Modified', 'updated_date', { readOnly: true })}
@@ -364,7 +365,7 @@ const FirmDetail = ({ firmId, onBack, onContactClick }) => {
               </div>
             </Section>
 
-            <Section icon={<FileText size={18} />} iconClass="icon-description" title="Description" fullWidth>
+            <Section icon={<FileText size={18} />} iconClass="icon-description" title="Description" fullWidth editing={editing}>
               {editing ? (
                 <textarea
                   className="firm-detail-textarea"

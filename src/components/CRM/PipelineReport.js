@@ -30,7 +30,7 @@ const PipelineReport = () => {
     try {
       const data = await fetchAllRows(
         'accounts',
-        'id, firm_name, status, status_summary, pm_meeting, investment_size_min, investment_size_max, city, state, country, high_quality, structure_issues',
+        'id, firm_name, status, status_summary, pm_meeting, investment_size_min, investment_size_max, city, state, country, high_quality, structure_issues, last_activity',
         [{ type: 'is', col: 'deleted_at', val: null }],
         'firm_name',
         true
@@ -175,8 +175,22 @@ const PipelineReport = () => {
     return `$${Math.round(value / 1000000).toLocaleString()}mm`
   }
 
+  const formatSize = (account) => {
+    const min = account.investment_size_min
+    const max = account.investment_size_max
+    if (!min && !max) return '-'
+    const minStr = min ? formatCurrency(min) : '-'
+    const maxStr = max ? formatCurrency(max) : '-'
+    return `${minStr} - ${maxStr}`
+  }
+
   const formatLocation = (account) => {
     return [account.city, account.state, account.country].filter(Boolean).join(', ') || '-'
+  }
+
+  const formatDate = (date) => {
+    if (!date) return '-'
+    return new Date(date).toLocaleDateString()
   }
 
   const statusGroups = groupByStatus()
@@ -233,13 +247,11 @@ const PipelineReport = () => {
                       <div className="pipeline-col-drag"></div>
                       <div className="pipeline-col-firm">Firm Name</div>
                       <div className="pipeline-col-pm">PM Mtg</div>
-                      <div className="pipeline-col-summary">Status Summary</div>
                       <div className="pipeline-col-status">Status</div>
-                      <div className="pipeline-col-inv-min">Inv Min</div>
-                      <div className="pipeline-col-inv-max">Inv Max</div>
+                      <div className="pipeline-col-summary">Status Summary</div>
+                      <div className="pipeline-col-size">Size</div>
                       <div className="pipeline-col-location">Location</div>
-                      <div className="pipeline-col-hq">HQ</div>
-                      <div className="pipeline-col-issues">Structure Issues</div>
+                      <div className="pipeline-col-activity">Last Activity</div>
                     </div>
                     {statusAccounts.map((account) => {
                       const globalIndex = accounts.indexOf(account)
@@ -259,6 +271,11 @@ const PipelineReport = () => {
                             <span className="pipeline-firm-name">{account.firm_name}</span>
                           </div>
                           <div className="pipeline-col-pm">{account.pm_meeting ? 'Yes' : ''}</div>
+                          <div className="pipeline-col-status">
+                            <span className={`status-badge status-${account.status?.charAt(0) || ''}`}>
+                              {account.status || '-'}
+                            </span>
+                          </div>
                           <div className="pipeline-col-summary">
                             {account.status_summary
                               ? (account.status_summary.length > 60
@@ -266,24 +283,9 @@ const PipelineReport = () => {
                                   : account.status_summary)
                               : '-'}
                           </div>
-                          <div className="pipeline-col-status">
-                            <span className={`status-badge status-${account.status?.charAt(0) || ''}`}>
-                              {account.status || '-'}
-                            </span>
-                          </div>
-                          <div className="pipeline-col-inv-min">{formatCurrency(account.investment_size_min)}</div>
-                          <div className="pipeline-col-inv-max">{formatCurrency(account.investment_size_max)}</div>
+                          <div className="pipeline-col-size">{formatSize(account)}</div>
                           <div className="pipeline-col-location">{formatLocation(account)}</div>
-                          <div className="pipeline-col-hq">
-                            {account.high_quality ? <span className="pipeline-hq-yes">Yes</span> : ''}
-                          </div>
-                          <div className="pipeline-col-issues">
-                            {account.structure_issues
-                              ? (account.structure_issues.length > 40
-                                  ? account.structure_issues.substring(0, 40) + '...'
-                                  : account.structure_issues)
-                              : '-'}
-                          </div>
+                          <div className="pipeline-col-activity">{formatDate(account.last_activity)}</div>
                         </div>
                       )
                     })}
