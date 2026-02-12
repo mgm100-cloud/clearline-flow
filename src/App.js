@@ -1712,6 +1712,7 @@ const ClearlineFlow = () => {
   const [deletedTodos, setDeletedTodos] = useState([]);
   const [selectedTodoAnalyst, _setSelectedTodoAnalyst] = useState(() => getStoredValue('selectedTodoAnalyst', ''));
   const [activeTodoDivision, _setActiveTodoDivision] = useState(() => getStoredValue('activeTodoDivision', 'Investment'));
+  const [selectedOwnershipAnalyst, _setSelectedOwnershipAnalyst] = useState(() => getStoredValue('selectedOwnershipAnalyst', 'All'));
   
   // More persistent state setters
   const setSelectedEarningsAnalyst = useCallback((value) => {
@@ -1728,7 +1729,12 @@ const ClearlineFlow = () => {
     _setActiveTodoDivision(value);
     setStoredValue('activeTodoDivision', value);
   }, []);
-  
+
+  const setSelectedOwnershipAnalyst = useCallback((value) => {
+    _setSelectedOwnershipAnalyst(value);
+    setStoredValue('selectedOwnershipAnalyst', value);
+  }, []);
+
   // Data refresh state
   const [isRefreshingData, setIsRefreshingData] = useState(false);
   const [lastDataRefresh, setLastDataRefresh] = useState(null);
@@ -4100,10 +4106,12 @@ const ClearlineFlow = () => {
           />
         )}
         {activeTab === 'ownership' && (userDivision === 'Ops' || userDivision === 'Investment' || userDivision === 'Super') && (
-          <OwnershipPage 
+          <OwnershipPage
             tickers={tickers}
             analysts={getInvestmentSuperAnalysts()}
             onNavigateToIdeaDetail={navigateToIdeaDetail}
+            selectedAnalystFilter={selectedOwnershipAnalyst}
+            onSelectAnalystFilter={setSelectedOwnershipAnalyst}
           />
         )}
         {activeTab === 'todos' && (
@@ -7401,8 +7409,8 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
 };
 
 // Ownership Page Component
-const OwnershipPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
-  const [selectedAnalystFilter, setSelectedAnalystFilter] = useState('All');
+const OwnershipPage = ({ tickers, analysts, onNavigateToIdeaDetail, selectedAnalystFilter, onSelectAnalystFilter }) => {
+  const setSelectedAnalystFilter = onSelectAnalystFilter;
   
   // Filter tickers to only include Portfolio status with Long or Short position
   const portfolioTickers = tickers.filter(ticker => 
