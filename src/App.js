@@ -4203,7 +4203,10 @@ const InputPage = ({ onAddTicker, analysts, currentUser, prefilledData, onPrefil
     tariffWinner: false,
     tariffLoser: false,
     trumpWinner: false,
-    trumpLoser: false
+    trumpLoser: false,
+    aiLoserSeatBased: false,
+    aiLoserDecliningEmployees: false,
+    aiLoserUnemploymentSpike: false
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -4360,9 +4363,12 @@ const InputPage = ({ onAddTicker, analysts, currentUser, prefilledData, onPrefil
         tariffWinner: false,
         tariffLoser: false,
         trumpWinner: false,
-        trumpLoser: false
+        trumpLoser: false,
+        aiLoserSeatBased: false,
+        aiLoserDecliningEmployees: false,
+        aiLoserUnemploymentSpike: false
       };
-      
+
       setFormData(resetData);
       
       setTimeout(() => {
@@ -4723,7 +4729,10 @@ const InputPage = ({ onAddTicker, analysts, currentUser, prefilledData, onPrefil
                       { key: 'tariffWinner', label: 'Tariff Winner' },
                       { key: 'tariffLoser', label: 'Tariff Loser' },
                       { key: 'trumpWinner', label: 'Trump Winner' },
-                      { key: 'trumpLoser', label: 'Trump Loser' }
+                      { key: 'trumpLoser', label: 'Trump Loser' },
+                      { key: 'aiLoserSeatBased', label: 'AI Loser - Seat Based Model' },
+                      { key: 'aiLoserDecliningEmployees', label: 'AI Loser - Declining Employee Count' },
+                      { key: 'aiLoserUnemploymentSpike', label: 'AI Loser - Unemployment Spike' }
                     ].map(({ key, label }) => (
                       <div key={key} className="flex items-center">
                         <input
@@ -5387,7 +5396,10 @@ const DatabaseDetailedPage = ({ tickers, onSort, sortField, sortDirection, onUpd
                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tariff Loser</th>
                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trump Winner</th>
                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trump Loser</th>
-                 
+                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">AI Loser - Seat Based</th>
+                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">AI Loser - Decl Emp</th>
+                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">AI Loser - Unemp Spike</th>
+
                  {/* Thesis */}
                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '450px', minWidth: '450px' }}>Thesis</th>
                 
@@ -5894,6 +5906,33 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
             type="checkbox"
             checked={editData.trumpLoser || false}
             onChange={(e) => setEditData({...editData, trumpLoser: e.target.checked})}
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          />
+        </td>
+        {/* AI Loser - Seat Based Model */}
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.aiLoserSeatBased || false}
+            onChange={(e) => setEditData({...editData, aiLoserSeatBased: e.target.checked})}
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          />
+        </td>
+        {/* AI Loser - Declining Employee Count */}
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.aiLoserDecliningEmployees || false}
+            onChange={(e) => setEditData({...editData, aiLoserDecliningEmployees: e.target.checked})}
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          />
+        </td>
+        {/* AI Loser - Unemployment Spike */}
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.aiLoserUnemploymentSpike || false}
+            onChange={(e) => setEditData({...editData, aiLoserUnemploymentSpike: e.target.checked})}
             className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
           />
         </td>
@@ -6507,12 +6546,39 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
          </div>
        </td>
        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-         <div 
+         <div
            className={`cursor-pointer hover:bg-gray-50 p-1 rounded ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
            title={onUpdate ? 'Double-click to toggle' : ''}
            onDoubleClick={() => handleDoubleClick('trumpLoser', ticker.trumpLoser)}
          >
            {formatBoolean(ticker.trumpLoser)}
+         </div>
+       </td>
+       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+         <div
+           className={`cursor-pointer hover:bg-gray-50 p-1 rounded ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+           title={onUpdate ? 'Double-click to toggle' : ''}
+           onDoubleClick={() => handleDoubleClick('aiLoserSeatBased', ticker.aiLoserSeatBased)}
+         >
+           {formatBoolean(ticker.aiLoserSeatBased)}
+         </div>
+       </td>
+       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+         <div
+           className={`cursor-pointer hover:bg-gray-50 p-1 rounded ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+           title={onUpdate ? 'Double-click to toggle' : ''}
+           onDoubleClick={() => handleDoubleClick('aiLoserDecliningEmployees', ticker.aiLoserDecliningEmployees)}
+         >
+           {formatBoolean(ticker.aiLoserDecliningEmployees)}
+         </div>
+       </td>
+       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+         <div
+           className={`cursor-pointer hover:bg-gray-50 p-1 rounded ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+           title={onUpdate ? 'Double-click to toggle' : ''}
+           onDoubleClick={() => handleDoubleClick('aiLoserUnemploymentSpike', ticker.aiLoserUnemploymentSpike)}
+         >
+           {formatBoolean(ticker.aiLoserUnemploymentSpike)}
          </div>
        </td>
        {/* Thesis */}
@@ -11951,8 +12017,11 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdateSelec
                   { key: 'tariffWinner', label: 'Tariff Winner' },
                   { key: 'tariffLoser', label: 'Tariff Loser' },
                   { key: 'trumpWinner', label: 'Trump Winner' },
-                  { key: 'trumpLoser', label: 'Trump Loser' }
-                ].map(({ key, label }) => 
+                  { key: 'trumpLoser', label: 'Trump Loser' },
+                  { key: 'aiLoserSeatBased', label: 'AI Loser - Seat Based Model' },
+                  { key: 'aiLoserDecliningEmployees', label: 'AI Loser - Declining Employee Count' },
+                  { key: 'aiLoserUnemploymentSpike', label: 'AI Loser - Unemployment Spike' }
+                ].map(({ key, label }) =>
                   renderBooleanFieldInSection(label, key, ticker[key])
                 )}
               </div>
@@ -12779,7 +12848,10 @@ const IdeaScreeningPage = ({ tickers, quotes, onNavigateToIdeaDetail }) => {
     tariffWinner: false,
     tariffLoser: false,
     trumpWinner: false,
-    trumpLoser: false
+    trumpLoser: false,
+    aiLoserSeatBased: false,
+    aiLoserDecliningEmployees: false,
+    aiLoserUnemploymentSpike: false
   });
 
   // Sorting state
@@ -12939,7 +13011,10 @@ const IdeaScreeningPage = ({ tickers, quotes, onNavigateToIdeaDetail }) => {
         { key: 'tariffWinner', label: 'Tariff Winner' },
         { key: 'tariffLoser', label: 'Tariff Loser' },
         { key: 'trumpWinner', label: 'Trump Winner' },
-        { key: 'trumpLoser', label: 'Trump Loser' }
+        { key: 'trumpLoser', label: 'Trump Loser' },
+        { key: 'aiLoserSeatBased', label: 'AI Loser - Seat Based Model' },
+        { key: 'aiLoserDecliningEmployees', label: 'AI Loser - Declining Employee Count' },
+        { key: 'aiLoserUnemploymentSpike', label: 'AI Loser - Unemployment Spike' }
       ]
     }
   };
