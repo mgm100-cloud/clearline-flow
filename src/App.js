@@ -4205,6 +4205,7 @@ const InputPage = ({ onAddTicker, analysts, currentUser, prefilledData, onPrefil
     strongDollar: false,
     extremeValuation: false,
     crapco: false,
+    terminalShort: false,
     // Theme
     aiWinner: false,
     aiLoser: false,
@@ -4366,6 +4367,7 @@ const InputPage = ({ onAddTicker, analysts, currentUser, prefilledData, onPrefil
         strongDollar: false,
         extremeValuation: false,
         crapco: false,
+        terminalShort: false,
         aiWinner: false,
         aiLoser: false,
         tariffWinner: false,
@@ -4712,7 +4714,8 @@ const InputPage = ({ onAddTicker, analysts, currentUser, prefilledData, onPrefil
                       { key: 'rateExposure', label: 'Rate Exposure' },
                       { key: 'strongDollar', label: 'Strong Dollar Beneficiary' },
                       { key: 'extremeValuation', label: 'Extreme Valuation' },
-                      { key: 'crapco', label: 'Crapco' }
+                      { key: 'crapco', label: 'Crapco' },
+                      { key: 'terminalShort', label: 'Terminal Short' }
                     ].map(({ key, label }) => (
                       <div key={key} className="flex items-center">
                         <input
@@ -5396,7 +5399,8 @@ const DatabaseDetailedPage = ({ tickers, onSort, sortField, sortDirection, onUpd
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Strong Dollar</th>
                                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Extreme Val</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Crapco</th>
-                 
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Terminal Short</th>
+
                  {/* Theme */}
                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">AI Winner</th>
                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">AI Loser</th>
@@ -5860,6 +5864,15 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
             type="checkbox"
             checked={editData.crapco || false}
             onChange={(e) => setEditData({...editData, crapco: e.target.checked})}
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          />
+        </td>
+        {/* Terminal Short */}
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.terminalShort || false}
+            onChange={(e) => setEditData({...editData, terminalShort: e.target.checked})}
             className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
           />
         </td>
@@ -6505,6 +6518,15 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
           onDoubleClick={() => handleDoubleClick('crapco', ticker.crapco)}
         >
           {formatBoolean(ticker.crapco)}
+        </div>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+        <div
+          className={`cursor-pointer hover:bg-gray-50 p-1 rounded ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+          title={onUpdate ? 'Double-click to toggle' : ''}
+          onDoubleClick={() => handleDoubleClick('terminalShort', ticker.terminalShort)}
+        >
+          {formatBoolean(ticker.terminalShort)}
         </div>
       </td>
        {/* Theme */}
@@ -12008,8 +12030,9 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdateSelec
                   { key: 'rateExposure', label: 'Rate Exposure' },
                   { key: 'strongDollar', label: 'Strong Dollar' },
                   { key: 'extremeValuation', label: 'Extreme Valuation' },
-                  { key: 'crapco', label: 'Crapco' }
-                ].map(({ key, label }) => 
+                  { key: 'crapco', label: 'Crapco' },
+                  { key: 'terminalShort', label: 'Terminal Short' }
+                ].map(({ key, label }) =>
                   renderBooleanFieldInSection(label, key, ticker[key])
                 )}
               </div>
@@ -12850,6 +12873,7 @@ const IdeaScreeningPage = ({ tickers, quotes, onNavigateToIdeaDetail }) => {
     strongDollar: false,
     extremeValuation: false,
     crapco: false,
+    terminalShort: false,
     // Themes
     aiWinner: false,
     aiLoser: false,
@@ -13004,7 +13028,8 @@ const IdeaScreeningPage = ({ tickers, quotes, onNavigateToIdeaDetail }) => {
         { key: 'rateExposure', label: 'Rate Exposure' },
         { key: 'strongDollar', label: 'Strong Dollar' },
         { key: 'extremeValuation', label: 'Extreme Valuation' },
-        { key: 'crapco', label: 'Crapco' }
+        { key: 'crapco', label: 'Crapco' },
+        { key: 'terminalShort', label: 'Terminal Short' }
       ]
     },
     themes: {

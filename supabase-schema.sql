@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS public.tickers (
     rate_exposure BOOLEAN DEFAULT FALSE,
     strong_dollar BOOLEAN DEFAULT FALSE,
     extreme_valuation BOOLEAN DEFAULT FALSE,
+    terminal_short BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
