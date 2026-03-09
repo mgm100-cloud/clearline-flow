@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Plus, Database, Users, TrendingUp, BarChart3, LogOut, ChevronUp, ChevronDown, RefreshCw, Download, CheckSquare, User, Mail, FileText, Upload, Wifi, WifiOff, Briefcase } from 'lucide-react';
+import { Plus, Database, Users, TrendingUp, BarChart3, LogOut, ChevronUp, ChevronDown, RefreshCw, Download, CheckSquare, User, Mail, FileText, Upload, Wifi, WifiOff, Briefcase, Bot } from 'lucide-react';
 import { DatabaseService } from './databaseService';
 import { AuthService } from './services/authService';
 import { twelveDataWS } from './services/twelveDataWebSocket';
 import LoginScreen from './components/LoginScreen';
 import { CRM } from './components/CRM';
+import SuperLLMTab from './components/SuperLLMTab';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
@@ -3945,6 +3946,19 @@ const ClearlineFlow = () => {
               Todo List
             </button>
             
+            <button
+              onClick={() => handleTabSwitch('super-llm')}
+              disabled={isTabSwitching}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'super-llm'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              } ${isTabSwitching ? 'cursor-not-allowed opacity-50' : ''}`}
+            >
+              <Bot className="inline h-4 w-4 mr-1" />
+              SuperLLM
+            </button>
+            
             {/* CRM tab for Marketing and Super divisions */}
             {(userDivision === 'Marketing' || userDivision === 'Super') && (
               <button
@@ -4136,6 +4150,9 @@ const ClearlineFlow = () => {
             activeTodoDivision={activeTodoDivision}
             onSetActiveTodoDivision={setActiveTodoDivision}
           />
+        )}
+        {activeTab === 'super-llm' && (
+          <SuperLLMTab />
         )}
         {activeTab === 'idea-detail' && (userDivision === 'Investment' || userDivision === 'Super' || userDivision === '') && (
           <IdeaDetailPage 
@@ -13498,3 +13515,4 @@ const IdeaScreeningPage = ({ tickers, quotes, onNavigateToIdeaDetail }) => {
 };
 
 export default ClearlineFlow;
+
