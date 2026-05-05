@@ -10,7 +10,7 @@ const LoginScreen = ({ onAuthSuccess, authError, isLoading }) => {
     confirmPassword: '',
     fullName: '',
     division: '',
-    role: 'readonly',
+    role: 'readwrite',
     analystCode: ''
   });
   const [showPassword, setShowPassword] = useState(false);
@@ -236,7 +236,7 @@ const LoginScreen = ({ onAuthSuccess, authError, isLoading }) => {
       confirmPassword: '',
       fullName: '',
       division: '',
-      role: 'readonly',
+      role: 'readwrite',
       analystCode: ''
     });
     setError('');
@@ -458,7 +458,7 @@ const LoginScreen = ({ onAuthSuccess, authError, isLoading }) => {
                     className={`appearance-none block w-full px-3 py-2 pl-10 border rounded-md placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
                       analystCodeError ? 'border-red-300' : 'border-gray-300'
                     }`}
-                    placeholder="e.g., JD, AB"
+                    placeholder="Use 2 letter initials (e.g. JD, AB) unless already taken"
                     maxLength={4}
                   />
                   <Tag className="h-5 w-5 text-gray-400 absolute left-3 top-2.5" />
