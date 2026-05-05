@@ -437,7 +437,6 @@ const LoginScreen = ({ onAuthSuccess, authError, isLoading }) => {
                     <option value="Ops">Ops</option>
                     <option value="Admin">Admin</option>
                     <option value="Marketing">Marketing</option>
-                    <option value="Super">Super</option>
                   </select>
                   <UserCheck className="h-5 w-5 text-gray-400 absolute left-3 top-2.5" />
                 </div>
