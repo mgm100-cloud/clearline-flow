@@ -61,11 +61,13 @@ The Idea Screening feature uses boolean fields for investment characteristics:
 **Characteristics:**
 - `fraud_risk`, `regulatory_risk`, `cyclical`, `non_cyclical`
 - `high_beta`, `momo`, `rate_exposure`, `strong_dollar`
-- `extreme_valuation`, `crapco`
+- `extreme_valuation`, `crapco`, `terminal_short`
 
 **Themes:**
 - `ai_winner`, `ai_loser`, `tariff_winner`, `tariff_loser`
+- `retatrutide_winner`, `retatrutide_loser`
 - `trump_winner`, `trump_loser`
+- `ai_loser_seat_based`, `ai_loser_declining_employees`, `ai_loser_unemployment_spike`
 
 ## Authentication
 

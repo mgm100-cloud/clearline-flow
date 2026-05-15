@@ -4226,6 +4226,8 @@ const InputPage = ({ onAddTicker, analysts, currentUser, prefilledData, onPrefil
     // Theme
     aiWinner: false,
     aiLoser: false,
+    retatrutideWinner: false,
+    retatrutideLoser: false,
     tariffWinner: false,
     tariffLoser: false,
     trumpWinner: false,
@@ -4387,6 +4389,8 @@ const InputPage = ({ onAddTicker, analysts, currentUser, prefilledData, onPrefil
         terminalShort: false,
         aiWinner: false,
         aiLoser: false,
+        retatrutideWinner: false,
+        retatrutideLoser: false,
         tariffWinner: false,
         tariffLoser: false,
         trumpWinner: false,
@@ -4754,6 +4758,8 @@ const InputPage = ({ onAddTicker, analysts, currentUser, prefilledData, onPrefil
                     {[
                       { key: 'aiWinner', label: 'AI Winner' },
                       { key: 'aiLoser', label: 'AI Loser' },
+                      { key: 'retatrutideWinner', label: 'Retatrutide Winner' },
+                      { key: 'retatrutideLoser', label: 'Retatrutide Loser' },
                       { key: 'tariffWinner', label: 'Tariff Winner' },
                       { key: 'tariffLoser', label: 'Tariff Loser' },
                       { key: 'trumpWinner', label: 'Trump Winner' },
@@ -5421,6 +5427,8 @@ const DatabaseDetailedPage = ({ tickers, onSort, sortField, sortDirection, onUpd
                  {/* Theme */}
                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">AI Winner</th>
                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">AI Loser</th>
+                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Retatrutide Winner</th>
+                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Retatrutide Loser</th>
                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tariff Winner</th>
                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tariff Loser</th>
                  <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trump Winner</th>
@@ -5908,6 +5916,24 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
             type="checkbox"
             checked={editData.aiLoser || false}
             onChange={(e) => setEditData({...editData, aiLoser: e.target.checked})}
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          />
+        </td>
+        {/* Retatrutide Winner */}
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.retatrutideWinner || false}
+            onChange={(e) => setEditData({...editData, retatrutideWinner: e.target.checked})}
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          />
+        </td>
+        {/* Retatrutide Loser */}
+        <td className="px-3 py-4 whitespace-nowrap text-center">
+          <input
+            type="checkbox"
+            checked={editData.retatrutideLoser || false}
+            onChange={(e) => setEditData({...editData, retatrutideLoser: e.target.checked})}
             className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
           />
         </td>
@@ -6563,6 +6589,24 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
            onDoubleClick={() => handleDoubleClick('aiLoser', ticker.aiLoser)}
          >
            {formatBoolean(ticker.aiLoser)}
+         </div>
+       </td>
+       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+         <div
+           className={`cursor-pointer hover:bg-gray-50 p-1 rounded ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+           title={onUpdate ? 'Double-click to toggle' : ''}
+           onDoubleClick={() => handleDoubleClick('retatrutideWinner', ticker.retatrutideWinner)}
+         >
+           {formatBoolean(ticker.retatrutideWinner)}
+         </div>
+       </td>
+       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+         <div
+           className={`cursor-pointer hover:bg-gray-50 p-1 rounded ${onUpdate ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
+           title={onUpdate ? 'Double-click to toggle' : ''}
+           onDoubleClick={() => handleDoubleClick('retatrutideLoser', ticker.retatrutideLoser)}
+         >
+           {formatBoolean(ticker.retatrutideLoser)}
          </div>
        </td>
        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
@@ -12062,6 +12106,8 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdateSelec
                 {[
                   { key: 'aiWinner', label: 'AI Winner' },
                   { key: 'aiLoser', label: 'AI Loser' },
+                  { key: 'retatrutideWinner', label: 'Retatrutide Winner' },
+                  { key: 'retatrutideLoser', label: 'Retatrutide Loser' },
                   { key: 'tariffWinner', label: 'Tariff Winner' },
                   { key: 'tariffLoser', label: 'Tariff Loser' },
                   { key: 'trumpWinner', label: 'Trump Winner' },
@@ -12894,6 +12940,8 @@ const IdeaScreeningPage = ({ tickers, quotes, onNavigateToIdeaDetail }) => {
     // Themes
     aiWinner: false,
     aiLoser: false,
+    retatrutideWinner: false,
+    retatrutideLoser: false,
     tariffWinner: false,
     tariffLoser: false,
     trumpWinner: false,
@@ -13058,6 +13106,8 @@ const IdeaScreeningPage = ({ tickers, quotes, onNavigateToIdeaDetail }) => {
       items: [
         { key: 'aiWinner', label: 'AI Winner' },
         { key: 'aiLoser', label: 'AI Loser' },
+        { key: 'retatrutideWinner', label: 'Retatrutide Winner' },
+        { key: 'retatrutideLoser', label: 'Retatrutide Loser' },
         { key: 'tariffWinner', label: 'Tariff Winner' },
         { key: 'tariffLoser', label: 'Tariff Loser' },
         { key: 'trumpWinner', label: 'Trump Winner' },

@@ -37,10 +37,24 @@ CREATE TABLE IF NOT EXISTS public.tickers (
     high_beta BOOLEAN DEFAULT FALSE,
     momo BOOLEAN DEFAULT FALSE,
     self_help BOOLEAN DEFAULT FALSE,
+    product_cycle BOOLEAN DEFAULT FALSE,
+    regulation BOOLEAN DEFAULT FALSE,
     rate_exposure BOOLEAN DEFAULT FALSE,
     strong_dollar BOOLEAN DEFAULT FALSE,
     extreme_valuation BOOLEAN DEFAULT FALSE,
+    crapco BOOLEAN DEFAULT FALSE,
     terminal_short BOOLEAN DEFAULT FALSE,
+    ai_winner BOOLEAN DEFAULT FALSE,
+    ai_loser BOOLEAN DEFAULT FALSE,
+    retatrutide_winner BOOLEAN DEFAULT FALSE,
+    retatrutide_loser BOOLEAN DEFAULT FALSE,
+    tariff_winner BOOLEAN DEFAULT FALSE,
+    tariff_loser BOOLEAN DEFAULT FALSE,
+    trump_winner BOOLEAN DEFAULT FALSE,
+    trump_loser BOOLEAN DEFAULT FALSE,
+    ai_loser_seat_based BOOLEAN DEFAULT FALSE,
+    ai_loser_declining_employees BOOLEAN DEFAULT FALSE,
+    ai_loser_unemployment_spike BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -97,4 +111,4 @@ CREATE INDEX IF NOT EXISTS idx_earnings_ticker_cyq ON public.earnings_tracking(t
 CREATE INDEX IF NOT EXISTS idx_todos_analyst ON public.todos(analyst);
 CREATE INDEX IF NOT EXISTS idx_todos_is_open ON public.todos(is_open);
 CREATE INDEX IF NOT EXISTS idx_todos_date_entered ON public.todos(date_entered);
-CREATE INDEX IF NOT EXISTS idx_todos_date_closed ON public.todos(date_closed); 
+CREATE INDEX IF NOT EXISTS idx_todos_date_closed ON public.todos(date_closed);

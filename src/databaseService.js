@@ -36,6 +36,8 @@ const toSnakeCase = (str) => {
     'terminalShort': 'terminal_short',
     'aiWinner': 'ai_winner',
     'aiLoser': 'ai_loser',
+    'retatrutideWinner': 'retatrutide_winner',
+    'retatrutideLoser': 'retatrutide_loser',
     'tariffWinner': 'tariff_winner',
     'tariffLoser': 'tariff_loser',
     'trumpWinner': 'trump_winner',
@@ -114,6 +116,8 @@ const toCamelCase = (str) => {
     'terminal_short': 'terminalShort',
     'ai_winner': 'aiWinner',
     'ai_loser': 'aiLoser',
+    'retatrutide_winner': 'retatrutideWinner',
+    'retatrutide_loser': 'retatrutideLoser',
     'tariff_winner': 'tariffWinner',
     'tariff_loser': 'tariffLoser',
     'trump_winner': 'trumpWinner',
@@ -939,4 +943,4 @@ export const DatabaseService = {
       throw error;
     }
   }
-} 
+}
