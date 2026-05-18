@@ -7199,6 +7199,31 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
    );
  };
 
+ const teamOutputColumns = [
+   ['Current', 'Long'],
+   ['Current', 'Short'],
+   ['On-Deck', 'Long'],
+   ['On-Deck', 'Short'],
+   ['Portfolio', 'Long'],
+   ['Portfolio', 'Short']
+ ];
+
+ const getAnalystRowCells = (analyst) => (
+   teamOutputColumns.map(([status, lsPosition]) => getTickersForCell(analyst, status, lsPosition))
+ );
+
+ const analystRows = analysts
+   .map(analyst => ({
+     analyst,
+     cells: getAnalystRowCells(analyst)
+   }))
+   .filter(row => row.cells.some(cellTickers => cellTickers.length > 0));
+
+ const unassignedRowCells = teamOutputColumns.map(([status, lsPosition]) => (
+   getUnassignedTickersForCell(status, lsPosition)
+ ));
+ const hasUnassignedEntries = unassignedRowCells.some(cellTickers => cellTickers.length > 0);
+
  // Helper function to render clickable ticker
  // Bolded if priority is "A" (especially visible in To Assign row)
  // PM badge if marked as PM Priority
@@ -7322,28 +7347,20 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
      // Build display data for autoTable
      const displayTableData = [];
      
-     analysts.forEach(analyst => {
+     analystRows.forEach(({ analyst, cells }) => {
        displayTableData.push([
          analyst,
-         buildCellData(getTickersForCell(analyst, 'Current', 'Long')),
-         buildCellData(getTickersForCell(analyst, 'Current', 'Short')),
-         buildCellData(getTickersForCell(analyst, 'On-Deck', 'Long')),
-         buildCellData(getTickersForCell(analyst, 'On-Deck', 'Short')),
-         buildCellData(getTickersForCell(analyst, 'Portfolio', 'Long')),
-         buildCellData(getTickersForCell(analyst, 'Portfolio', 'Short'))
+         ...cells.map(cellTickers => buildCellData(cellTickers))
        ]);
      });
      
      // Add "To Assign" row
-     displayTableData.push([
-       'To Assign',
-       buildCellData(getUnassignedTickersForCell('Current', 'Long')),
-       buildCellData(getUnassignedTickersForCell('Current', 'Short')),
-       buildCellData(getUnassignedTickersForCell('On-Deck', 'Long')),
-       buildCellData(getUnassignedTickersForCell('On-Deck', 'Short')),
-       buildCellData(getUnassignedTickersForCell('Portfolio', 'Long')),
-       buildCellData(getUnassignedTickersForCell('Portfolio', 'Short'))
-     ]);
+     if (hasUnassignedEntries) {
+       displayTableData.push([
+         'To Assign',
+         ...unassignedRowCells.map(cellTickers => buildCellData(cellTickers))
+       ]);
+     }
      
      // Create the PDF table - let autoTable handle all layout
      autoTable(doc, {
@@ -7374,7 +7391,7 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
          6: { cellWidth: 40 }
        },
        didParseCell: function(data) {
-         if (data.row.index === analysts.length) {
+         if (hasUnassignedEntries && data.row.index === analystRows.length) {
            data.cell.styles.fillColor = [254, 226, 226];
          }
          if (data.section === 'body' && data.column.index > 0 && typeof data.cell.raw === 'string') {
@@ -7546,49 +7563,49 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
              </tr>
            </thead>
            <tbody className="bg-white divide-y divide-gray-200">
-             {analysts.map((analyst) => (
+             {analystRows.map(({ analyst, cells }) => (
                <tr key={analyst}>
                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                    {analyst}
                  </td>
                  <td className="px-6 py-4 text-center">
                    <div className="flex flex-wrap gap-2 justify-center">
-                     {getTickersForCell(analyst, 'Current', 'Long').map(ticker => 
+                     {cells[0].map(ticker =>
                        renderTickerButton(ticker, 'bg-green-100', 'text-green-800')
                      )}
                    </div>
                  </td>
                  <td className="px-6 py-4 text-center">
                    <div className="flex flex-wrap gap-2 justify-center">
-                     {getTickersForCell(analyst, 'Current', 'Short').map(ticker => 
+                     {cells[1].map(ticker =>
                        renderTickerButton(ticker, 'bg-red-100', 'text-red-800')
                      )}
                    </div>
                  </td>
                  <td className="px-6 py-4 text-center">
                    <div className="flex flex-wrap gap-2 justify-center">
-                     {getTickersForCell(analyst, 'On-Deck', 'Long').map(ticker => 
+                     {cells[2].map(ticker =>
                        renderTickerButton(ticker, 'bg-green-100', 'text-green-800')
                      )}
                    </div>
                  </td>
                  <td className="px-6 py-4 text-center">
                    <div className="flex flex-wrap gap-2 justify-center">
-                     {getTickersForCell(analyst, 'On-Deck', 'Short').map(ticker => 
+                     {cells[3].map(ticker =>
                        renderTickerButton(ticker, 'bg-red-100', 'text-red-800')
                      )}
                    </div>
                  </td>
                  <td className="px-6 py-4 text-center">
                    <div className="flex flex-wrap gap-2 justify-center">
-                     {getTickersForCell(analyst, 'Portfolio', 'Long').map(ticker => 
+                     {cells[4].map(ticker =>
                        renderTickerButton(ticker, 'bg-green-100', 'text-green-800')
                      )}
                    </div>
                  </td>
                  <td className="px-6 py-4 text-center">
                    <div className="flex flex-wrap gap-2 justify-center">
-                     {getTickersForCell(analyst, 'Portfolio', 'Short').map(ticker => 
+                     {cells[5].map(ticker =>
                        renderTickerButton(ticker, 'bg-red-100', 'text-red-800')
                      )}
                    </div>
@@ -7597,53 +7614,55 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
              ))}
              
              {/* To Assign Row */}
-             <tr className="bg-gray-50">
-               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                 To Assign
-               </td>
-               <td className="px-6 py-4 text-center">
-                 <div className="flex flex-wrap gap-2 justify-center">
-                   {getUnassignedTickersForCell('Current', 'Long').map(ticker => 
-                     renderTickerButton(ticker, 'bg-green-100', 'text-green-800')
-                   )}
-                 </div>
-               </td>
-               <td className="px-6 py-4 text-center">
-                 <div className="flex flex-wrap gap-2 justify-center">
-                   {getUnassignedTickersForCell('Current', 'Short').map(ticker => 
-                     renderTickerButton(ticker, 'bg-red-100', 'text-red-800')
-                   )}
-                 </div>
-               </td>
-               <td className="px-6 py-4 text-center">
-                 <div className="flex flex-wrap gap-2 justify-center">
-                   {getUnassignedTickersForCell('On-Deck', 'Long').map(ticker => 
-                     renderTickerButton(ticker, 'bg-green-100', 'text-green-800')
-                   )}
-                 </div>
-               </td>
-               <td className="px-6 py-4 text-center">
-                 <div className="flex flex-wrap gap-2 justify-center">
-                   {getUnassignedTickersForCell('On-Deck', 'Short').map(ticker => 
-                     renderTickerButton(ticker, 'bg-red-100', 'text-red-800')
-                   )}
-                 </div>
-               </td>
-               <td className="px-6 py-4 text-center">
-                 <div className="flex flex-wrap gap-2 justify-center">
-                   {getUnassignedTickersForCell('Portfolio', 'Long').map(ticker => 
-                     renderTickerButton(ticker, 'bg-green-100', 'text-green-800')
-                   )}
-                 </div>
-               </td>
-               <td className="px-6 py-4 text-center">
-                 <div className="flex flex-wrap gap-2 justify-center">
-                   {getUnassignedTickersForCell('Portfolio', 'Short').map(ticker => 
-                     renderTickerButton(ticker, 'bg-red-100', 'text-red-800')
-                   )}
-                 </div>
-               </td>
-             </tr>
+             {hasUnassignedEntries && (
+               <tr className="bg-gray-50">
+                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                   To Assign
+                 </td>
+                 <td className="px-6 py-4 text-center">
+                   <div className="flex flex-wrap gap-2 justify-center">
+                     {unassignedRowCells[0].map(ticker =>
+                       renderTickerButton(ticker, 'bg-green-100', 'text-green-800')
+                     )}
+                   </div>
+                 </td>
+                 <td className="px-6 py-4 text-center">
+                   <div className="flex flex-wrap gap-2 justify-center">
+                     {unassignedRowCells[1].map(ticker =>
+                       renderTickerButton(ticker, 'bg-red-100', 'text-red-800')
+                     )}
+                   </div>
+                 </td>
+                 <td className="px-6 py-4 text-center">
+                   <div className="flex flex-wrap gap-2 justify-center">
+                     {unassignedRowCells[2].map(ticker =>
+                       renderTickerButton(ticker, 'bg-green-100', 'text-green-800')
+                     )}
+                   </div>
+                 </td>
+                 <td className="px-6 py-4 text-center">
+                   <div className="flex flex-wrap gap-2 justify-center">
+                     {unassignedRowCells[3].map(ticker =>
+                       renderTickerButton(ticker, 'bg-red-100', 'text-red-800')
+                     )}
+                   </div>
+                 </td>
+                 <td className="px-6 py-4 text-center">
+                   <div className="flex flex-wrap gap-2 justify-center">
+                     {unassignedRowCells[4].map(ticker =>
+                       renderTickerButton(ticker, 'bg-green-100', 'text-green-800')
+                     )}
+                   </div>
+                 </td>
+                 <td className="px-6 py-4 text-center">
+                   <div className="flex flex-wrap gap-2 justify-center">
+                     {unassignedRowCells[5].map(ticker =>
+                       renderTickerButton(ticker, 'bg-red-100', 'text-red-800')
+                     )}
+                   </div>
+                 </td>
+               </tr>
+             )}
            </tbody>
          </table>
        </div>
