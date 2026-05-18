@@ -7264,17 +7264,59 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
      
      // Build ticker lookup for formatting
      const tickerLookup = {};
+     const pdfFontSize = 8;
+     const pdfCellPadding = { top: 3, right: 3, bottom: 4, left: 3 };
+     const pdfCellContentWidth = 34;
+     const pdfLineHeight = 5.2;
+     const pdfSeparator = ', ';
+     doc.setFontSize(pdfFontSize);
+     doc.setFont('helvetica', 'normal');
+     const pdfSeparatorWidth = doc.getTextWidth(pdfSeparator);
+
+     const getPdfTokenWidth = (token) => {
+       doc.setFontSize(pdfFontSize);
+       doc.setFont('helvetica', token.bold ? 'bold' : 'normal');
+       const width = token.pmPriority ? 10 + doc.getTextWidth(token.text) : doc.getTextWidth(token.displayText);
+       doc.setFont('helvetica', 'normal');
+       return width;
+     };
      
      // Helper to build cell data
      const buildCellData = (tickers) => {
        if (!tickers || tickers.length === 0) return '-';
-       return tickers.map(t => {
+       const tokens = tickers.map(t => {
          let txt = t.ticker;
          if (t.rank) txt += `-${t.rank}`;
          const displayText = t.pmPriority ? `PM:${txt}` : txt;
-         tickerLookup[displayText] = { bold: t.priority === 'A', underline: !!t.rank, pmPriority: !!t.pmPriority, text: txt };
-         return displayText;
-       }).join(', ');
+         const token = { displayText, bold: t.priority === 'A', underline: !!t.rank, pmPriority: !!t.pmPriority, text: txt };
+         tickerLookup[displayText] = token;
+         return token;
+       });
+
+       const lines = [];
+       let currentLine = '';
+       let currentWidth = 0;
+
+       tokens.forEach(token => {
+         const tokenWidth = getPdfTokenWidth(token);
+         const nextWidth = currentLine ? currentWidth + pdfSeparatorWidth + tokenWidth : tokenWidth;
+
+         if (currentLine && nextWidth > pdfCellContentWidth) {
+           lines.push(currentLine);
+           currentLine = token.displayText;
+           currentWidth = tokenWidth;
+           return;
+         }
+
+         currentLine = currentLine ? `${currentLine}${pdfSeparator}${token.displayText}` : token.displayText;
+         currentWidth = nextWidth;
+       });
+
+       if (currentLine) {
+         lines.push(currentLine);
+       }
+
+       return lines.join('\n');
      };
      
      // Build display data for autoTable
@@ -7309,8 +7351,9 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
        body: displayTableData,
        startY: 44,
        styles: {
-         fontSize: 8,
-         cellPadding: { top: 3, right: 3, bottom: 4, left: 3 }
+         fontSize: pdfFontSize,
+         cellPadding: pdfCellPadding,
+         overflow: 'linebreak'
        },
        headStyles: {
          fillColor: [75, 85, 99],
@@ -7333,27 +7376,18 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
          if (data.row.index === analysts.length) {
            data.cell.styles.fillColor = [254, 226, 226];
          }
+         if (data.section === 'body' && data.column.index > 0 && typeof data.cell.raw === 'string') {
+           const lineCount = Math.max(1, data.cell.raw.split('\n').filter(line => line.trim() !== '').length);
+           data.cell.styles.minCellHeight = pdfCellPadding.top + pdfCellPadding.bottom + (lineCount * pdfLineHeight);
+         }
        },
        willDrawCell: function(data) {
-         // Hide autoTable's text for ticker cells - we'll draw it ourselves with formatting
+         // Hide autoTable's text for ticker cells - we'll draw chip-aware lines ourselves.
          if (data.section === 'body' && data.column.index > 0) {
-           const cellText = data.cell.text;
-           if (cellText && cellText.length > 0 && !(cellText.length === 1 && cellText[0] === '-')) {
-             // Check if any ticker needs formatting
-             let needsFormatting = false;
-             cellText.forEach(line => {
-               if (line && line !== '-') {
-                 line.split(/,\s*/).forEach(t => {
-                   const trimmed = t.trim();
-                   if (tickerLookup[trimmed]) needsFormatting = true;
-                 });
-               }
-             });
-             if (needsFormatting) {
-               // Store text and hide it
-               data.cell.customLines = [...cellText];
-               data.cell.text = [];
-             }
+           const rawText = typeof data.cell.raw === 'string' ? data.cell.raw : '';
+           if (rawText && rawText.trim() !== '-') {
+             data.cell.customLines = rawText.split('\n');
+             data.cell.text = [];
            }
          }
        },
@@ -7373,7 +7407,7 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
          const paddingTop = typeof padding === 'number' ? padding : (padding.top || 3);
          
          // Keep wrapped PDF lines readable when PM ticker chips are present.
-         const lineHeight = fontSize * 0.5;
+         const lineHeight = pdfLineHeight;
          // Always start from top of cell
          let startX = x + paddingVal;
          let startY = y + paddingTop + fontSize * 0.35;  // Top-aligned, closer to top
@@ -7404,6 +7438,7 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
              const isUnderline = style && style.underline;
              const isPmPriority = style && style.pmPriority;
              const tickerText = style && style.text ? style.text : part;
+             let partWidth;
              
              doc.setFont('helvetica', isBold ? 'bold' : 'normal');
              if (isPmPriority) {
@@ -7433,17 +7468,18 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
                doc.setFont('helvetica', isBold ? 'bold' : 'normal');
                doc.text(tickerText, tickerX, currentY);
                doc.setTextColor(0, 0, 0);
+               partWidth = chipWidth;
              } else {
                doc.text(part, currentX, currentY);
+               partWidth = doc.getTextWidth(part);
              }
-             
-             const partWidth = isPmPriority ? 10 + doc.getTextWidth(tickerText) : doc.getTextWidth(part);
              
              if (isUnderline) {
                doc.setDrawColor(0, 0, 0);
                doc.setLineWidth(0.3);
                const underlineStartX = isPmPriority ? currentX + 9 : currentX;
-               doc.line(underlineStartX, currentY + 1, currentX + partWidth, currentY + 1);
+               const underlineEndX = isPmPriority ? currentX + partWidth - 1 : currentX + partWidth;
+               doc.line(underlineStartX, currentY + 1, underlineEndX, currentY + 1);
              }
              
              currentX += partWidth;
