@@ -7350,6 +7350,7 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
        head: [['Analyst', 'Cur-Long', 'Cur-Short', 'Deck-Long', 'Deck-Short', 'Port-Long', 'Port-Short']],
        body: displayTableData,
        startY: 44,
+       rowPageBreak: 'avoid',
        styles: {
          fontSize: pdfFontSize,
          cellPadding: pdfCellPadding,
