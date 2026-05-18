@@ -7271,7 +7271,7 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
        return tickers.map(t => {
          let txt = t.ticker;
          if (t.rank) txt += `-${t.rank}`;
-         const displayText = t.pmPriority ? `PM ${txt}` : txt;
+         const displayText = t.pmPriority ? `PM:${txt}` : txt;
          tickerLookup[displayText] = { bold: t.priority === 'A', underline: !!t.rank, pmPriority: !!t.pmPriority, text: txt };
          return displayText;
        }).join(', ');
@@ -7310,7 +7310,7 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
        startY: 44,
        styles: {
          fontSize: 8,
-         cellPadding: 3
+         cellPadding: { top: 3, right: 3, bottom: 4, left: 3 }
        },
        headStyles: {
          fillColor: [75, 85, 99],
@@ -7366,16 +7366,17 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
          const lines = data.cell.customLines.filter(line => line && line.trim() !== '');
          if (lines.length === 0) return;
          
-         const { x, y, width, height } = data.cell;
+         const { x, y } = data.cell;
          const fontSize = data.cell.styles.fontSize || 8;
          const padding = data.cell.styles.cellPadding || 3;
          const paddingVal = typeof padding === 'number' ? padding : (padding.left || 3);
+         const paddingTop = typeof padding === 'number' ? padding : (padding.top || 3);
          
-         // Use tight line spacing for wrapped lines
-         const lineHeight = fontSize * 0.42;
+         // Keep wrapped PDF lines readable when PM ticker chips are present.
+         const lineHeight = fontSize * 0.5;
          // Always start from top of cell
          let startX = x + paddingVal;
-         let startY = y + paddingVal + fontSize * 0.35;  // Top-aligned, closer to top
+         let startY = y + paddingTop + fontSize * 0.35;  // Top-aligned, closer to top
          
          doc.setFontSize(fontSize);
          doc.setTextColor(0, 0, 0);
@@ -7406,26 +7407,42 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
              
              doc.setFont('helvetica', isBold ? 'bold' : 'normal');
              if (isPmPriority) {
+               const tickerWidth = doc.getTextWidth(tickerText);
+               const chipHeight = 4.4;
+               const chipPaddingX = 1;
+               const badgeWidth = 6.8;
+               const badgeGap = 1.2;
+               const chipWidth = chipPaddingX + badgeWidth + badgeGap + tickerWidth + chipPaddingX;
+               const chipY = currentY - 3.5;
+               const badgeY = chipY + 0.7;
+               const badgeHeight = chipHeight - 1.4;
+               const tickerX = currentX + chipPaddingX + badgeWidth + badgeGap;
+
+               doc.setFillColor(245, 243, 255);
+               doc.setDrawColor(124, 58, 237);
+               doc.setLineWidth(0.25);
+               doc.roundedRect(currentX, chipY, chipWidth, chipHeight, 0.9, 0.9, 'FD');
                doc.setFillColor(124, 58, 237);
-               doc.roundedRect(currentX, currentY - fontSize * 0.5, 6.8, 3.6, 0.8, 0.8, 'F');
+               doc.roundedRect(currentX + chipPaddingX, badgeY, badgeWidth, badgeHeight, 0.7, 0.7, 'F');
                doc.setFont('helvetica', 'bold');
                doc.setFontSize(6);
                doc.setTextColor(255, 255, 255);
-               doc.text('PM', currentX + 1.1, currentY - 0.1);
+               doc.text('PM', currentX + chipPaddingX + 1.1, currentY - 0.1);
                doc.setFontSize(fontSize);
-               doc.setTextColor(0, 0, 0);
+               doc.setTextColor(76, 29, 149);
                doc.setFont('helvetica', isBold ? 'bold' : 'normal');
-               doc.text(tickerText, currentX + 8.2, currentY);
+               doc.text(tickerText, tickerX, currentY);
+               doc.setTextColor(0, 0, 0);
              } else {
                doc.text(part, currentX, currentY);
              }
              
-             const partWidth = isPmPriority ? 8.2 + doc.getTextWidth(tickerText) : doc.getTextWidth(part);
+             const partWidth = isPmPriority ? 10 + doc.getTextWidth(tickerText) : doc.getTextWidth(part);
              
              if (isUnderline) {
                doc.setDrawColor(0, 0, 0);
                doc.setLineWidth(0.3);
-               const underlineStartX = isPmPriority ? currentX + 8.2 : currentX;
+               const underlineStartX = isPmPriority ? currentX + 9 : currentX;
                doc.line(underlineStartX, currentY + 1, currentX + partWidth, currentY + 1);
              }
              
@@ -7548,44 +7565,44 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
                  To Assign
                </td>
                <td className="px-6 py-4 text-center">
-                 <div className="space-y-1">
+                 <div className="flex flex-wrap gap-2 justify-center">
                    {getUnassignedTickersForCell('Current', 'Long').map(ticker => 
-                     renderTickerButton(ticker, 'bg-orange-100', 'text-orange-800')
+                     renderTickerButton(ticker, 'bg-green-100', 'text-green-800')
                    )}
                  </div>
                </td>
                <td className="px-6 py-4 text-center">
-                 <div className="space-y-1">
+                 <div className="flex flex-wrap gap-2 justify-center">
                    {getUnassignedTickersForCell('Current', 'Short').map(ticker => 
-                     renderTickerButton(ticker, 'bg-orange-100', 'text-orange-800')
+                     renderTickerButton(ticker, 'bg-red-100', 'text-red-800')
                    )}
                  </div>
                </td>
                <td className="px-6 py-4 text-center">
-                 <div className="space-y-1">
+                 <div className="flex flex-wrap gap-2 justify-center">
                    {getUnassignedTickersForCell('On-Deck', 'Long').map(ticker => 
-                     renderTickerButton(ticker, 'bg-orange-100', 'text-orange-800')
+                     renderTickerButton(ticker, 'bg-green-100', 'text-green-800')
                    )}
                  </div>
                </td>
                <td className="px-6 py-4 text-center">
-                 <div className="space-y-1">
+                 <div className="flex flex-wrap gap-2 justify-center">
                    {getUnassignedTickersForCell('On-Deck', 'Short').map(ticker => 
-                     renderTickerButton(ticker, 'bg-orange-100', 'text-orange-800')
+                     renderTickerButton(ticker, 'bg-red-100', 'text-red-800')
                    )}
                  </div>
                </td>
                <td className="px-6 py-4 text-center">
-                 <div className="space-y-1">
+                 <div className="flex flex-wrap gap-2 justify-center">
                    {getUnassignedTickersForCell('Portfolio', 'Long').map(ticker => 
-                     renderTickerButton(ticker, 'bg-orange-100', 'text-orange-800')
+                     renderTickerButton(ticker, 'bg-green-100', 'text-green-800')
                    )}
                  </div>
                </td>
                <td className="px-6 py-4 text-center">
-                 <div className="space-y-1">
+                 <div className="flex flex-wrap gap-2 justify-center">
                    {getUnassignedTickersForCell('Portfolio', 'Short').map(ticker => 
-                     renderTickerButton(ticker, 'bg-orange-100', 'text-orange-800')
+                     renderTickerButton(ticker, 'bg-red-100', 'text-red-800')
                    )}
                  </div>
                </td>
