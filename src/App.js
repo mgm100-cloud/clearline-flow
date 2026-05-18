@@ -4535,15 +4535,14 @@ const InputPage = ({ onAddTicker, analysts, currentUser, prefilledData, onPrefil
               <label className="block text-sm font-medium text-gray-700">
                 PM Priority
               </label>
-              <div className="mt-2 flex h-10 items-center">
-                <input
-                  type="checkbox"
-                  checked={formData.pmPriority}
-                  onChange={(e) => handleChange('pmPriority', e.target.checked)}
-                  className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-                />
-                <span className="ml-2 text-sm text-gray-700">Flag for PM review</span>
-              </div>
+              <select
+                value={formData.pmPriority ? 'Yes' : 'No'}
+                onChange={(e) => handleChange('pmPriority', e.target.value === 'Yes')}
+                className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              >
+                <option value="No">No</option>
+                <option value="Yes">Yes</option>
+              </select>
             </div>
 
             <div>
@@ -7202,7 +7201,7 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
 
  // Helper function to render clickable ticker
  // Bolded if priority is "A" (especially visible in To Assign row)
- // Purple wavy underline if marked as PM Priority
+ // PM badge if marked as PM Priority
  // Displays rank suffix (e.g., MDLN-1) if ticker has a rank
  // Border if ticker has a rank
  const renderTickerButton = (ticker, bgColorClass, textColorClass) => {
@@ -7219,23 +7218,20 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
    const rankInfo = hasRank ? ` (Rank ${ticker.rank})` : '';
    const pmInfo = isPmPriority ? ' (PM Priority)' : '';
    const borderClass = hasRank ? 'border-2 border-gray-800' : '';
-   const pmPriorityStyle = isPmPriority ? {
-     textDecorationLine: 'underline',
-     textDecorationStyle: 'wavy',
-     textDecorationColor: '#7c3aed',
-     textDecorationThickness: '2px',
-     textUnderlineOffset: '3px'
-   } : undefined;
 
    return (
      <button
        key={ticker.id}
        onClick={handleTickerClick}
-       style={pmPriorityStyle}
-       className={`text-xs ${bgColorClass} ${textColorClass} px-2 py-1 rounded hover:opacity-80 cursor-pointer transition-opacity ${isPriorityA ? 'font-bold' : ''} ${borderClass}`}
+       className={`inline-flex items-center gap-1 text-xs ${bgColorClass} ${textColorClass} px-2 py-1 rounded hover:opacity-80 cursor-pointer transition-opacity ${isPriorityA ? 'font-bold' : ''} ${borderClass}`}
        title={`Click to view in Idea Detail${isPriorityA ? ' (Priority A)' : ''}${pmInfo}${rankInfo}`}
      >
-       {displayText}
+       <span>{displayText}</span>
+       {isPmPriority && (
+         <span className="rounded bg-purple-700 px-1 py-0.5 text-[9px] font-bold leading-none text-white">
+           PM
+         </span>
+       )}
      </button>
    );
  };
@@ -7253,6 +7249,18 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
      // Add timestamp
      doc.setFontSize(10);
      doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
+
+     // Add PM Priority legend
+     doc.setFillColor(124, 58, 237);
+     doc.roundedRect(14, 34, 8, 4, 1, 1, 'F');
+     doc.setFontSize(7);
+     doc.setTextColor(255, 255, 255);
+     doc.setFont('helvetica', 'bold');
+     doc.text('PM', 15.3, 37);
+     doc.setFont('helvetica', 'normal');
+     doc.setFontSize(9);
+     doc.setTextColor(0, 0, 0);
+     doc.text('PM Priority', 24, 37);
      
      // Build ticker lookup for formatting
      const tickerLookup = {};
@@ -7263,8 +7271,9 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
        return tickers.map(t => {
          let txt = t.ticker;
          if (t.rank) txt += `-${t.rank}`;
-         tickerLookup[txt] = { bold: t.priority === 'A', underline: !!t.rank, pmPriority: !!t.pmPriority };
-         return txt;
+         const displayText = t.pmPriority ? `PM ${txt}` : txt;
+         tickerLookup[displayText] = { bold: t.priority === 'A', underline: !!t.rank, pmPriority: !!t.pmPriority, text: txt };
+         return displayText;
        }).join(', ');
      };
      
@@ -7298,7 +7307,7 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
      autoTable(doc, {
        head: [['Analyst', 'Cur-Long', 'Cur-Short', 'Deck-Long', 'Deck-Short', 'Port-Long', 'Port-Short']],
        body: displayTableData,
-       startY: 40,
+       startY: 44,
        styles: {
          fontSize: 8,
          cellPadding: 3
@@ -7393,28 +7402,31 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
              const isBold = style && style.bold;
              const isUnderline = style && style.underline;
              const isPmPriority = style && style.pmPriority;
+             const tickerText = style && style.text ? style.text : part;
              
              doc.setFont('helvetica', isBold ? 'bold' : 'normal');
-             doc.text(part, currentX, currentY);
+             if (isPmPriority) {
+               doc.setFillColor(124, 58, 237);
+               doc.roundedRect(currentX, currentY - fontSize * 0.5, 6.8, 3.6, 0.8, 0.8, 'F');
+               doc.setFont('helvetica', 'bold');
+               doc.setFontSize(6);
+               doc.setTextColor(255, 255, 255);
+               doc.text('PM', currentX + 1.1, currentY - 0.1);
+               doc.setFontSize(fontSize);
+               doc.setTextColor(0, 0, 0);
+               doc.setFont('helvetica', isBold ? 'bold' : 'normal');
+               doc.text(tickerText, currentX + 8.2, currentY);
+             } else {
+               doc.text(part, currentX, currentY);
+             }
              
-             const partWidth = doc.getTextWidth(part);
+             const partWidth = isPmPriority ? 8.2 + doc.getTextWidth(tickerText) : doc.getTextWidth(part);
              
              if (isUnderline) {
                doc.setDrawColor(0, 0, 0);
                doc.setLineWidth(0.3);
-               doc.line(currentX, currentY + 1, currentX + partWidth, currentY + 1);
-             }
-
-             if (isPmPriority) {
-               doc.setDrawColor(124, 58, 237);
-               doc.setLineWidth(0.25);
-               const waveY = currentY + 2;
-               const segmentWidth = 1.5;
-               for (let waveX = currentX; waveX < currentX + partWidth; waveX += segmentWidth) {
-                 const nextX = Math.min(waveX + segmentWidth, currentX + partWidth);
-                 const nextY = waveY + ((Math.floor((waveX - currentX) / segmentWidth) % 2 === 0) ? -0.6 : 0.6);
-                 doc.line(waveX, waveY, nextX, nextY);
-               }
+               const underlineStartX = isPmPriority ? currentX + 8.2 : currentX;
+               doc.line(underlineStartX, currentY + 1, currentX + partWidth, currentY + 1);
              }
              
              currentX += partWidth;
