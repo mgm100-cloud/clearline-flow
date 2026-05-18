@@ -4189,6 +4189,7 @@ const InputPage = ({ onAddTicker, analysts, currentUser, prefilledData, onPrefil
     lsPosition: 'Long',
     thesis: '',
     priority: 'A',
+    pmPriority: false,
     status: 'New',
     analyst: '',
     source: '',
@@ -4357,6 +4358,7 @@ const InputPage = ({ onAddTicker, analysts, currentUser, prefilledData, onPrefil
         lsPosition: 'Long',
         thesis: '',
         priority: 'A',
+        pmPriority: false,
         status: 'New',
         analyst: preserveAnalyst,
         source: '',
@@ -4512,7 +4514,7 @@ const InputPage = ({ onAddTicker, analysts, currentUser, prefilledData, onPrefil
           </div>
 
           {/* Optional Fields */}
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">
                 Priority
@@ -4527,6 +4529,21 @@ const InputPage = ({ onAddTicker, analysts, currentUser, prefilledData, onPrefil
                 <option value="C">C</option>
                 <option value="F">F</option>
               </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                PM Priority
+              </label>
+              <div className="mt-2 flex h-10 items-center">
+                <input
+                  type="checkbox"
+                  checked={formData.pmPriority}
+                  onChange={(e) => handleChange('pmPriority', e.target.checked)}
+                  className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                />
+                <span className="ml-2 text-sm text-gray-700">Flag for PM review</span>
+              </div>
             </div>
 
             <div>
@@ -5341,6 +5358,17 @@ const DatabaseDetailedPage = ({ tickers, onSort, sortField, sortDirection, onUpd
                     )}
                   </div>
                 </th>
+                <th
+                  className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 w-16"
+                  onClick={() => onSort('pmPriority')}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>PM PRI</span>
+                    {sortField === 'pmPriority' && (
+                      sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+                    )}
+                  </div>
+                </th>
                 <SortableHeader field="status">Status</SortableHeader>
                 <SortableHeader field="analyst">Analyst</SortableHeader>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '240px', minWidth: '240px' }}>
@@ -5500,6 +5528,12 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
 
   const handleDoubleClick = (field, currentValue) => {
     if (!onUpdate) return; // Only allow editing if onUpdate is provided
+
+    if (field === 'pmPriority') {
+      setEditingField(field);
+      setEditValue(currentValue ? 'Yes' : 'No');
+      return;
+    }
     
     // Handle boolean fields - toggle directly
     if (typeof currentValue === 'boolean') {
@@ -5520,9 +5554,11 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
   };
 
   const handleSaveEdit = async () => {
-    if (editingField && editValue !== ticker[editingField]) {
+    const valueToSave = editingField === 'pmPriority' ? editValue === 'Yes' : editValue;
+
+    if (editingField && valueToSave !== ticker[editingField]) {
       try {
-        await onUpdate(ticker.id, { [editingField]: editValue });
+        await onUpdate(ticker.id, { [editingField]: valueToSave });
       } catch (error) {
         console.error('Error updating ticker:', error);
       }
@@ -5590,6 +5626,16 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
             <option value="B">B</option>
             <option value="C">C</option>
             <option value="F">F</option>
+          </select>
+        </td>
+        <td className="px-3 py-4 whitespace-nowrap w-16">
+          <select
+            value={editData.pmPriority ? 'Yes' : 'No'}
+            onChange={(e) => setEditData({...editData, pmPriority: e.target.value === 'Yes'})}
+            className="text-xs border border-gray-300 rounded px-1 py-1 w-14"
+          >
+            <option value="No">No</option>
+            <option value="Yes">Yes</option>
           </select>
         </td>
         <td className="px-3 py-4 whitespace-nowrap">
@@ -6112,6 +6158,31 @@ const DetailedTickerRow = ({ ticker, onUpdate, analysts, quotes, onUpdateQuote, 
             onDoubleClick={() => handleDoubleClick('priority', ticker.priority || 'A')}
           >
             {ticker.priority}
+          </span>
+        )}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap w-16">
+        {editingField === 'pmPriority' ? (
+          <select
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onBlur={handleSaveEdit}
+            onKeyDown={handleKeyPress}
+            autoFocus
+            className="border border-blue-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="No">No</option>
+            <option value="Yes">Yes</option>
+          </select>
+        ) : (
+          <span
+            className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full cursor-pointer ${onUpdate ? 'hover:ring-2 hover:ring-blue-300' : ''} ${
+              ticker.pmPriority ? 'bg-purple-100 text-purple-800 ring-1 ring-purple-300' : 'bg-gray-100 text-gray-800'
+            }`}
+            title={onUpdate ? 'Double-click to edit PM Priority' : ''}
+            onDoubleClick={() => handleDoubleClick('pmPriority', Boolean(ticker.pmPriority))}
+          >
+            {ticker.pmPriority ? 'PM' : '-'}
           </span>
         )}
       </td>
@@ -7131,6 +7202,7 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
 
  // Helper function to render clickable ticker
  // Bolded if priority is "A" (especially visible in To Assign row)
+ // Purple wavy underline if marked as PM Priority
  // Displays rank suffix (e.g., MDLN-1) if ticker has a rank
  // Border if ticker has a rank
  const renderTickerButton = (ticker, bgColorClass, textColorClass) => {
@@ -7141,17 +7213,27 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
    };
 
    const isPriorityA = ticker.priority === 'A';
+   const isPmPriority = Boolean(ticker.pmPriority);
    const hasRank = ticker.rank != null;
    const displayText = hasRank ? `${ticker.ticker}-${ticker.rank}` : ticker.ticker;
    const rankInfo = hasRank ? ` (Rank ${ticker.rank})` : '';
+   const pmInfo = isPmPriority ? ' (PM Priority)' : '';
    const borderClass = hasRank ? 'border-2 border-gray-800' : '';
+   const pmPriorityStyle = isPmPriority ? {
+     textDecorationLine: 'underline',
+     textDecorationStyle: 'wavy',
+     textDecorationColor: '#7c3aed',
+     textDecorationThickness: '2px',
+     textUnderlineOffset: '3px'
+   } : undefined;
 
    return (
      <button
        key={ticker.id}
        onClick={handleTickerClick}
+       style={pmPriorityStyle}
        className={`text-xs ${bgColorClass} ${textColorClass} px-2 py-1 rounded hover:opacity-80 cursor-pointer transition-opacity ${isPriorityA ? 'font-bold' : ''} ${borderClass}`}
-       title={`Click to view in Idea Detail${isPriorityA ? ' (Priority A)' : ''}${rankInfo}`}
+       title={`Click to view in Idea Detail${isPriorityA ? ' (Priority A)' : ''}${pmInfo}${rankInfo}`}
      >
        {displayText}
      </button>
@@ -7181,7 +7263,7 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
        return tickers.map(t => {
          let txt = t.ticker;
          if (t.rank) txt += `-${t.rank}`;
-         tickerLookup[txt] = { bold: t.priority === 'A', underline: !!t.rank };
+         tickerLookup[txt] = { bold: t.priority === 'A', underline: !!t.rank, pmPriority: !!t.pmPriority };
          return txt;
        }).join(', ');
      };
@@ -7310,6 +7392,7 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
              const style = tickerLookup[trimmed];
              const isBold = style && style.bold;
              const isUnderline = style && style.underline;
+             const isPmPriority = style && style.pmPriority;
              
              doc.setFont('helvetica', isBold ? 'bold' : 'normal');
              doc.text(part, currentX, currentY);
@@ -7320,6 +7403,18 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
                doc.setDrawColor(0, 0, 0);
                doc.setLineWidth(0.3);
                doc.line(currentX, currentY + 1, currentX + partWidth, currentY + 1);
+             }
+
+             if (isPmPriority) {
+               doc.setDrawColor(124, 58, 237);
+               doc.setLineWidth(0.25);
+               const waveY = currentY + 2;
+               const segmentWidth = 1.5;
+               for (let waveX = currentX; waveX < currentX + partWidth; waveX += segmentWidth) {
+                 const nextX = Math.min(waveX + segmentWidth, currentX + partWidth);
+                 const nextY = waveY + ((Math.floor((waveX - currentX) / segmentWidth) % 2 === 0) ? -0.6 : 0.6);
+                 doc.line(waveX, waveY, nextX, nextY);
+               }
              }
              
              currentX += partWidth;
@@ -11154,6 +11249,10 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdateSelec
                 <td style="padding: 8px;"><span style="background-color: ${selectedTicker.priority === 'A' ? '#fee2e2' : selectedTicker.priority === 'B' ? '#fef3c7' : '#dbeafe'}; color: ${selectedTicker.priority === 'A' ? '#dc2626' : selectedTicker.priority === 'B' ? '#d97706' : '#2563eb'}; padding: 4px 8px; border-radius: 4px; font-size: 12px;">${selectedTicker.priority}</span></td>
               </tr>
               <tr>
+                <td style="padding: 8px; font-weight: bold; color: #6b7280;">PM Priority:</td>
+                <td style="padding: 8px;"><span style="background-color: ${selectedTicker.pmPriority ? '#f3e8ff' : '#f3f4f6'}; color: ${selectedTicker.pmPriority ? '#7c3aed' : '#6b7280'}; padding: 4px 8px; border-radius: 4px; font-size: 12px;">${selectedTicker.pmPriority ? 'Yes' : 'No'}</span></td>
+              </tr>
+              <tr>
                 <td style="padding: 8px; font-weight: bold; color: #6b7280;">Status:</td>
                 <td style="padding: 8px;"><span style="background-color: ${selectedTicker.status === 'Portfolio' ? '#dcfce7' : selectedTicker.status === 'Current' ? '#dbeafe' : selectedTicker.status === 'New' ? '#f3e8ff' : selectedTicker.status === 'On-Deck' ? '#fef3c7' : '#f3f4f6'}; color: ${selectedTicker.status === 'Portfolio' ? '#166534' : selectedTicker.status === 'Current' ? '#2563eb' : selectedTicker.status === 'New' ? '#7c3aed' : selectedTicker.status === 'On-Deck' ? '#d97706' : '#6b7280'}; padding: 4px 8px; border-radius: 4px; font-size: 12px;">${selectedTicker.status}</span></td>
               </tr>
@@ -11842,6 +11941,7 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdateSelec
                 'B': 'bg-yellow-100 text-yellow-800', 
                 'C': 'bg-blue-100 text-blue-800'
               })}
+              {renderField('PM Priority', 'pmPriority', Boolean(ticker.pmPriority))}
               {renderBadgeField('Status', 'status', ticker.status, 'select', {
                 'Portfolio': 'bg-green-100 text-green-800',
                 'Current': 'bg-blue-100 text-blue-800',

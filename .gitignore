@@ -3,6 +3,9 @@
 # dependencies
 /node_modules
 /.npm-cache
+/commit-work
+/.tmp-git-index*
+/.tmp-git-objects*
 /.pnp
 .pnp.js
 

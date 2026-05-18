@@ -63,6 +63,9 @@ The Idea Screening feature uses boolean fields for investment characteristics:
 - `high_beta`, `momo`, `rate_exposure`, `strong_dollar`
 - `extreme_valuation`, `crapco`, `terminal_short`
 
+**PM Flags:**
+- `pm_priority`
+
 **Themes:**
 - `ai_winner`, `ai_loser`, `tariff_winner`, `tariff_loser`
 - `retatrutide_winner`, `retatrutide_loser`

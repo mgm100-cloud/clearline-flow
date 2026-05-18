@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS public.tickers (
     poke_date VARCHAR(10),
     ls_position VARCHAR(10) DEFAULT 'Long',
     priority VARCHAR(5) DEFAULT 'A',
+    pm_priority BOOLEAN DEFAULT FALSE,
     status VARCHAR(20) DEFAULT 'New',
     analyst VARCHAR(10),
     source VARCHAR(255),
