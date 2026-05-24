@@ -9777,6 +9777,34 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                   }
                   return 'Status:';
                 };
+
+                // Render the task list for a todo as nested HTML rows. Falls back to the
+                // legacy item/status fields for todos that don't have task records yet.
+                const renderTasksHtml = (todo) => {
+                  const tasks = (todo.tasks && todo.tasks.length > 0)
+                    ? todo.tasks
+                    : [{
+                        description: todo.item || '',
+                        status: todo.status,
+                        statusUpdatedAt: todo.statusUpdatedAt,
+                        isComplete: !todo.isOpen,
+                      }];
+                  return tasks.map(task => {
+                    const check = task.isComplete ? '☑' : '☐';
+                    const descStyle = task.isComplete
+                      ? 'text-decoration: line-through; color: #999;'
+                      : 'color: #333;';
+                    return `
+                      <tr>
+                        <td colspan="2" style="font-size: 13px; padding-top: 6px; line-height: 1.4;">
+                          <div style="${descStyle}"><span style="margin-right: 6px;">${check}</span>${task.description || ''}</div>
+                          <div style="margin-left: 22px; margin-top: 3px; font-size: 12px;">
+                            <strong>${getStatusLabel(task.statusUpdatedAt)}</strong> ${getStatusBadge(task.status)}
+                          </div>
+                        </td>
+                      </tr>`;
+                  }).join('');
+                };
                 
                 // Start building mobile-friendly HTML email
                 let emailBody = `
@@ -9868,16 +9896,7 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                               <strong>${daysSince} days ago</strong>
                             </td>
                           </tr>
-                          <tr>
-                            <td colspan="2" style="font-size: 13px; color: #333; padding-top: 5px; line-height: 1.4;">
-                              <strong>Task:</strong> ${todo.item}
-                            </td>
-                          </tr>
-                          <tr>
-                            <td colspan="2" style="font-size: 12px; color: #333; padding-top: 5px;">
-                              <strong>${getStatusLabel(todo.statusUpdatedAt)}</strong> ${getStatusBadge(todo.status)}
-                            </td>
-                          </tr>
+                          ${renderTasksHtml(todo)}
                         </table>
                       </td>
                     </tr>`;
@@ -9921,16 +9940,7 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                               <strong>Closed:</strong> ${formatDate(todo.dateClosed)}
                             </td>
                           </tr>
-                          <tr>
-                            <td colspan="2" style="font-size: 13px; color: #333; padding-top: 5px; line-height: 1.4;">
-                              <strong>Task:</strong> ${todo.item}
-                            </td>
-                          </tr>
-                          <tr>
-                            <td colspan="2" style="font-size: 12px; color: #333; padding-top: 5px;">
-                              <strong>${getStatusLabel(todo.statusUpdatedAt)}</strong> ${getStatusBadge(todo.status)}
-                            </td>
-                          </tr>
+                          ${renderTasksHtml(todo)}
                         </table>
                       </td>
                     </tr>`;
@@ -10030,6 +10040,23 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
               doc.text(filterText, 20, 30);
               doc.text(`Generated: ${new Date().toLocaleDateString()}`, 20, 35);
               
+              // Build a multi-line "Tasks" cell showing each task with its checkbox and status.
+              // Falls back to legacy item/status for any todo that doesn't have task records yet.
+              const buildTasksCell = (todo) => {
+                const tasks = (todo.tasks && todo.tasks.length > 0)
+                  ? todo.tasks
+                  : [{
+                      description: todo.item || '',
+                      status: todo.status,
+                      isComplete: !todo.isOpen,
+                    }];
+                return tasks.map(task => {
+                  const check = task.isComplete ? '[x]' : '[ ]';
+                  const status = task.status || 'Not started';
+                  return `${check} ${task.description || ''}\n    Status: ${status}`;
+                }).join('\n');
+              };
+
               // Open todos
               if (openTodos.length > 0) {
                 doc.setFontSize(12);
@@ -10041,8 +10068,7 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                   formatDate(todo.dateEntered),
                   calculateDaysSinceEntered(todo.dateEntered).toString(),
                   todo.priority,
-                  todo.item.length > 50 ? todo.item.substring(0, 50) + '...' : todo.item,
-                  todo.status || 'Not started'
+                  buildTasksCell(todo)
                 ]);
 
                 autoTable(doc, {
@@ -10050,10 +10076,11 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                   head: [[
                     activeTodoDivision === 'Ops' ? 'Title' : 'Ticker',
                     activeTodoDivision === 'Ops' ? 'Employee' : 'Who',
-                    'Entered', 'Days', 'Priority', 'Item', 'Status'
+                    'Entered', 'Days', 'Priority', 'Tasks'
                   ]],
                   body: openTableData,
-                  styles: { fontSize: 8 },
+                  styles: { fontSize: 8, cellPadding: 2, valign: 'top' },
+                  columnStyles: { 5: { cellWidth: 'auto' } },
                   headStyles: { fillColor: [59, 130, 246] }
                 });
               }
@@ -10071,8 +10098,7 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                   formatDate(todo.dateEntered),
                   formatDate(todo.dateClosed),
                   todo.priority,
-                  todo.item.length > 50 ? todo.item.substring(0, 50) + '...' : todo.item,
-                  todo.status || 'Not started'
+                  buildTasksCell(todo)
                 ]);
 
                 autoTable(doc, {
@@ -10080,10 +10106,11 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                   head: [[
                     activeTodoDivision === 'Ops' ? 'Title' : 'Ticker',
                     activeTodoDivision === 'Ops' ? 'Employee' : 'Who',
-                    'Entered', 'Closed', 'Priority', 'Item', 'Status'
+                    'Entered', 'Closed', 'Priority', 'Tasks'
                   ]],
                   body: closedTableData,
-                  styles: { fontSize: 8 },
+                  styles: { fontSize: 8, cellPadding: 2, valign: 'top' },
+                  columnStyles: { 5: { cellWidth: 'auto' } },
                   headStyles: { fillColor: [34, 197, 94] }
                 });
               }
@@ -10854,6 +10881,30 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, on
         day: 'numeric'
       });
 
+      // Build the task list rows for the email body.
+      const emailTasks = (todo.tasks && todo.tasks.length > 0)
+        ? todo.tasks
+        : [{
+            description: todo.item || '',
+            status: todo.status,
+            isComplete: !todo.isOpen,
+          }];
+      const tasksRowsHtml = emailTasks.map(task => {
+        const check = task.isComplete ? '☑' : '☐';
+        const descStyle = task.isComplete
+          ? 'text-decoration: line-through; color: #999;'
+          : '';
+        const status = task.status || 'Not started';
+        return `
+              <tr>
+                <td style="padding: 6px 8px; border-bottom: 1px solid #f1f3f5; vertical-align: top; width: 22px;">${check}</td>
+                <td style="padding: 6px 8px; border-bottom: 1px solid #f1f3f5;">
+                  <div style="${descStyle}">${task.description || ''}</div>
+                  <div style="margin-top: 3px; font-size: 12px; color: #666;">Status: ${status}</div>
+                </td>
+              </tr>`;
+      }).join('');
+
       // Create email content
       const emailBody = `
         <!DOCTYPE html>
@@ -10876,35 +10927,35 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, on
             <p>Hello ${analystInfo.name || todo.analyst},</p>
             <p>This item was recently added to your to-do list and requires your attention.</p>
           </div>
-          
+
           <div class="content">
             <h3>Todo Details:</h3>
             <table style="width: 100%; border-collapse: collapse;">
               <tr>
                 <td style="padding: 8px; border-bottom: 1px solid #dee2e6; font-weight: bold; width: 120px;">Ticker:</td>
-                <td style="padding: 8px; border-bottom: 1px solid #dee2e6;">${todo.ticker}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #dee2e6;" colspan="2">${todo.ticker}</td>
               </tr>
               <tr>
                 <td style="padding: 8px; border-bottom: 1px solid #dee2e6; font-weight: bold;">Analyst:</td>
-                <td style="padding: 8px; border-bottom: 1px solid #dee2e6;">${todo.analyst}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #dee2e6;" colspan="2">${todo.analyst}</td>
               </tr>
               <tr>
                 <td style="padding: 8px; border-bottom: 1px solid #dee2e6; font-weight: bold;">Priority:</td>
-                <td style="padding: 8px; border-bottom: 1px solid #dee2e6;">
+                <td style="padding: 8px; border-bottom: 1px solid #dee2e6;" colspan="2">
                   <span class="priority-${todo.priority}">${todo.priority.toUpperCase()}</span>
                 </td>
               </tr>
               <tr>
                 <td style="padding: 8px; border-bottom: 1px solid #dee2e6; font-weight: bold;">Date Entered:</td>
-                <td style="padding: 8px; border-bottom: 1px solid #dee2e6;">${formatDate(todo.dateEntered)}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #dee2e6;" colspan="2">${formatDate(todo.dateEntered)}</td>
               </tr>
               <tr>
-                <td style="padding: 8px; font-weight: bold; vertical-align: top;">Task:</td>
-                <td style="padding: 8px;">${todo.item}</td>
+                <td style="padding: 8px; font-weight: bold; vertical-align: top;" colspan="3">Tasks:</td>
               </tr>
+              ${tasksRowsHtml}
             </table>
           </div>
-          
+
           <div class="footer">
             <p>This email was sent from the Clearline Flow Todo Management System.</p>
             <p>Generated on ${emailDate}</p>
