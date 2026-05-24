@@ -10465,7 +10465,7 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                   <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Days</th>
                   <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
-                  <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ minWidth: '180px' }}>Status</th>
                   {(userRole === 'readwrite' || userRole === 'admin') && (
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   )}
@@ -10574,7 +10574,7 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                     </div>
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
-                  <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ minWidth: '180px' }}>Status</th>
                   {(userRole === 'readwrite' || userRole === 'admin') && (
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   )}
@@ -10627,7 +10627,7 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                   <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deleted</th>
                   <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
-                  <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ minWidth: '180px' }}>Status</th>
                   {(userRole === 'readwrite' || userRole === 'admin') && (
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   )}
