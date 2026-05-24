@@ -9292,6 +9292,12 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
     return filtered;
   }, [analystEmails, userDivision, activeTodoDivision, analysts]);
 
+  // Effective division for the current user: Super uses the active tab, others use their own division.
+  // Mirrors the logic in addTodo() so form behavior matches what gets saved.
+  const effectiveDivision = userDivision === 'Super'
+    ? activeTodoDivision
+    : (userDivision === 'Ops' || userDivision === 'Marketing' ? userDivision : 'Investment');
+
   // Initial refresh when component is mounted - only run once
   useEffect(() => {
     if (isFirstMount.current) {
@@ -10080,7 +10086,8 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                 value={newTodo.ticker}
                 maxLength={20}
                 onChange={(e) => {
-                  const value = e.target.value.toUpperCase();
+                  const raw = e.target.value;
+                  const value = effectiveDivision === 'Investment' ? raw.toUpperCase() : raw;
                   if (value.length === 20) {
                     setTodoTitleError('Max 20 characters reached');
                   } else {
@@ -10189,7 +10196,8 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                 value={newCompletedTodo.ticker}
                 maxLength={20}
                 onChange={(e) => {
-                  const value = e.target.value.toUpperCase();
+                  const raw = e.target.value;
+                  const value = effectiveDivision === 'Investment' ? raw.toUpperCase() : raw;
                   if (value.length === 20) {
                     setCompletedTitleError('Max 20 characters reached');
                   } else {
@@ -10523,13 +10531,13 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, 
   };
 
   const handleSaveEdit = async () => {
-    if (editingField && editValue !== todo[editingField]) {
+    let valueToSave = editValue;
+    // Uppercase ticker for Investment division todos; Ops/Marketing keep capitalization
+    if (editingField === 'ticker' && valueToSave && todo.division !== 'Ops' && todo.division !== 'Marketing') {
+      valueToSave = valueToSave.toUpperCase();
+    }
+    if (editingField && valueToSave !== todo[editingField]) {
       try {
-        let valueToSave = editValue;
-        // Trim status to max 50 characters (database limit)
-        if (editingField === 'status' && valueToSave && valueToSave.length > 50) {
-          valueToSave = valueToSave.substring(0, 50);
-        }
         await onUpdateTodo(todo.id, { [editingField]: valueToSave });
       } catch (error) {
         console.error('Error updating todo:', error);
