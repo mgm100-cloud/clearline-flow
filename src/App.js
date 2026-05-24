@@ -11144,9 +11144,10 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, on
     </div>
   );
 
-  // Visual grouping: top of each todo group gets a thicker border
+  // Visual grouping: only the first row of each todo group gets a top border.
+  // The "!border-t-0" overrides the tbody's `divide-y` so inner task rows have no separator.
   const groupBorder = 'border-t-2 border-t-gray-300';
-  const taskRowBorder = 'border-t border-t-gray-100';
+  const taskRowBorder = '!border-t-0';
 
   return (
     <>
