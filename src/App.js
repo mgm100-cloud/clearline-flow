@@ -3214,11 +3214,60 @@ const ClearlineFlow = () => {
     try {
       // Permanently delete from Supabase
       await DatabaseService.permanentlyDeleteTodo(id);
-      
+
       // Remove from deleted todos
       setDeletedTodos(prev => prev.filter(todo => todo.id !== id));
     } catch (error) {
       console.error('Error permanently deleting todo:', error);
+      throw error;
+    }
+  };
+
+  const addTask = async (todoId, taskData) => {
+    try {
+      const savedTask = await DatabaseService.addTodoTask(todoId, taskData);
+      setTodos(prev => prev.map(todo =>
+        todo.id === todoId
+          ? { ...todo, tasks: [...(todo.tasks || []), savedTask] }
+          : todo
+      ));
+      return savedTask;
+    } catch (error) {
+      console.error('Error adding task:', error);
+      throw error;
+    }
+  };
+
+  const updateTask = async (todoId, taskId, updates) => {
+    try {
+      const updatedTask = await DatabaseService.updateTodoTask(taskId, updates);
+      setTodos(prev => prev.map(todo =>
+        todo.id === todoId
+          ? {
+              ...todo,
+              tasks: (todo.tasks || []).map(t =>
+                t.id === taskId ? { ...t, ...updatedTask } : t
+              )
+            }
+          : todo
+      ));
+      return updatedTask;
+    } catch (error) {
+      console.error('Error updating task:', error);
+      throw error;
+    }
+  };
+
+  const deleteTask = async (todoId, taskId) => {
+    try {
+      await DatabaseService.deleteTodoTask(taskId);
+      setTodos(prev => prev.map(todo =>
+        todo.id === todoId
+          ? { ...todo, tasks: (todo.tasks || []).filter(t => t.id !== taskId) }
+          : todo
+      ));
+    } catch (error) {
+      console.error('Error deleting task:', error);
       throw error;
     }
   };
@@ -4139,6 +4188,9 @@ const ClearlineFlow = () => {
             onDeleteTodo={deleteTodo}
             onRestoreTodo={restoreTodo}
             onPermanentlyDeleteTodo={permanentlyDeleteTodo}
+            onAddTask={addTask}
+            onUpdateTask={updateTask}
+            onDeleteTask={deleteTask}
             analysts={analysts}
             userRole={userRole}
             onRefreshTodos={refreshTodos}
@@ -9187,7 +9239,7 @@ This email and any files transmitted with it may contain privileged or confident
 };
 
 // Todo List Page Component
-const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectTodoAnalyst, onAddTodo, onUpdateTodo, onDeleteTodo, onRestoreTodo, onPermanentlyDeleteTodo, analysts, userRole, onRefreshTodos, currentUser, tickers, onNavigateToIdeaDetail, onNavigateToInputWithData, userDivision, activeTodoDivision, onSetActiveTodoDivision }) => {
+const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectTodoAnalyst, onAddTodo, onUpdateTodo, onDeleteTodo, onRestoreTodo, onPermanentlyDeleteTodo, onAddTask, onUpdateTask, onDeleteTask, analysts, userRole, onRefreshTodos, currentUser, tickers, onNavigateToIdeaDetail, onNavigateToInputWithData, userDivision, activeTodoDivision, onSetActiveTodoDivision }) => {
   const [sortField, setSortField] = useState('dateEntered');
   const [sortDirection, setSortDirection] = useState('desc');
   const [closedSortField, setClosedSortField] = useState('dateClosed');
@@ -9201,13 +9253,13 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
     ticker: '',
     analyst: '',
     priority: 'medium',
-    item: ''
+    taskInputs: ['']
   });
   const [newCompletedTodo, setNewCompletedTodo] = useState({
     ticker: '',
     analyst: '',
     priority: 'medium',
-    item: ''
+    taskInputs: ['']
   });
   const [todoTitleError, setTodoTitleError] = useState('');
   const [completedTitleError, setCompletedTitleError] = useState('');
@@ -9218,7 +9270,7 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
     ticker: '',
     analyst: currentUser ? AuthService.getUserAnalystCode(currentUser) : '',
     priority: 'medium',
-    item: ''
+    taskInputs: ['']
   });
 
   // Update forms when currentUser changes
@@ -10067,10 +10119,19 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
           <h3 className="text-lg font-medium mb-4">Add New Todo</h3>
           <form onSubmit={async (e) => {
             e.preventDefault();
-            if (!newTodo.ticker || !newTodo.analyst || !newTodo.item) return;
-            
+            const trimmedTasks = (newTodo.taskInputs || [])
+              .map(t => (t || '').trim())
+              .filter(Boolean);
+            if (!newTodo.ticker || !newTodo.analyst || trimmedTasks.length === 0) return;
+
             try {
-              await onAddTodo(newTodo);
+              await onAddTodo({
+                ticker: newTodo.ticker,
+                analyst: newTodo.analyst,
+                priority: newTodo.priority,
+                item: trimmedTasks[0],
+                tasks: trimmedTasks.map(desc => ({ description: desc }))
+              });
               setNewTodo(getInitialTodoState());
               setShowAddForm(false);
             } catch (error) {
@@ -10153,14 +10214,45 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
               </div>
             </div>
             <div className="md:col-span-2 lg:col-span-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Item Description</label>
-              <textarea
-                value={newTodo.item}
-                onChange={(e) => setNewTodo({...newTodo, item: e.target.value})}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                rows="3"
-                required
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tasks</label>
+              <div className="space-y-2">
+                {(newTodo.taskInputs || ['']).map((taskValue, idx) => (
+                  <div key={idx} className="flex gap-2">
+                    <textarea
+                      value={taskValue}
+                      onChange={(e) => {
+                        const nextInputs = [...(newTodo.taskInputs || [''])];
+                        nextInputs[idx] = e.target.value;
+                        setNewTodo({ ...newTodo, taskInputs: nextInputs });
+                      }}
+                      placeholder={`Task ${idx + 1} description`}
+                      className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm"
+                      rows="2"
+                      required={idx === 0}
+                    />
+                    {(newTodo.taskInputs || ['']).length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextInputs = (newTodo.taskInputs || ['']).filter((_, i) => i !== idx);
+                          setNewTodo({ ...newTodo, taskInputs: nextInputs.length ? nextInputs : [''] });
+                        }}
+                        className="px-2 py-1 text-xs border border-red-300 text-red-600 rounded hover:bg-red-50 self-start"
+                        title="Remove task"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setNewTodo({ ...newTodo, taskInputs: [...(newTodo.taskInputs || ['']), ''] })}
+                  className="px-3 py-1 text-sm border border-blue-300 text-blue-600 rounded hover:bg-blue-50"
+                >
+                  + Add another task
+                </button>
+              </div>
             </div>
           </form>
         </div>
@@ -10172,14 +10264,26 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
           <h3 className="text-lg font-medium mb-4">Add Completed Todo</h3>
           <form onSubmit={async (e) => {
             e.preventDefault();
-            if (!newCompletedTodo.ticker || !newCompletedTodo.analyst || !newCompletedTodo.item) return;
-            
+            const trimmedTasks = (newCompletedTodo.taskInputs || [])
+              .map(t => (t || '').trim())
+              .filter(Boolean);
+            if (!newCompletedTodo.ticker || !newCompletedTodo.analyst || trimmedTasks.length === 0) return;
+
             try {
-              // Add todo with isOpen set to false and dateClosed set to current timestamp
-              await onAddTodo({ 
-                ...newCompletedTodo, 
+              // Add todo with isOpen set to false and dateClosed set to current timestamp.
+              // Tasks are pre-completed since this is a completed todo.
+              await onAddTodo({
+                ticker: newCompletedTodo.ticker,
+                analyst: newCompletedTodo.analyst,
+                priority: newCompletedTodo.priority,
+                item: trimmedTasks[0],
                 isOpen: false,
-                dateClosed: new Date().toISOString()
+                dateClosed: new Date().toISOString(),
+                tasks: trimmedTasks.map(desc => ({
+                  description: desc,
+                  isComplete: true,
+                  status: 'Done'
+                }))
               });
               setNewCompletedTodo(getInitialTodoState());
               setShowAddCompletedForm(false);
@@ -10263,14 +10367,45 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
               </div>
             </div>
             <div className="md:col-span-2 lg:col-span-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Item Description</label>
-              <textarea
-                value={newCompletedTodo.item}
-                onChange={(e) => setNewCompletedTodo({...newCompletedTodo, item: e.target.value})}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                rows="3"
-                required
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tasks (all marked complete)</label>
+              <div className="space-y-2">
+                {(newCompletedTodo.taskInputs || ['']).map((taskValue, idx) => (
+                  <div key={idx} className="flex gap-2">
+                    <textarea
+                      value={taskValue}
+                      onChange={(e) => {
+                        const nextInputs = [...(newCompletedTodo.taskInputs || [''])];
+                        nextInputs[idx] = e.target.value;
+                        setNewCompletedTodo({ ...newCompletedTodo, taskInputs: nextInputs });
+                      }}
+                      placeholder={`Task ${idx + 1} description`}
+                      className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm"
+                      rows="2"
+                      required={idx === 0}
+                    />
+                    {(newCompletedTodo.taskInputs || ['']).length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextInputs = (newCompletedTodo.taskInputs || ['']).filter((_, i) => i !== idx);
+                          setNewCompletedTodo({ ...newCompletedTodo, taskInputs: nextInputs.length ? nextInputs : [''] });
+                        }}
+                        className="px-2 py-1 text-xs border border-red-300 text-red-600 rounded hover:bg-red-50 self-start"
+                        title="Remove task"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setNewCompletedTodo({ ...newCompletedTodo, taskInputs: [...(newCompletedTodo.taskInputs || ['']), ''] })}
+                  className="px-3 py-1 text-sm border border-blue-300 text-blue-600 rounded hover:bg-blue-50"
+                >
+                  + Add another task
+                </button>
+              </div>
             </div>
           </form>
         </div>
@@ -10311,11 +10446,14 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {sortTodos(openTodos).map((todo) => (
-                  <TodoRow 
-                    key={todo.id} 
-                    todo={todo} 
+                  <TodoRow
+                    key={todo.id}
+                    todo={todo}
                     onUpdateTodo={onUpdateTodo}
                     onDeleteTodo={onDeleteTodo}
+                    onAddTask={onAddTask}
+                    onUpdateTask={onUpdateTask}
+                    onDeleteTask={onDeleteTask}
                     calculateDaysSinceEntered={calculateDaysSinceEntered}
                     formatDate={formatDate}
                     userRole={userRole}
@@ -10417,11 +10555,14 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {sortClosedTodos(recentlyClosedTodos).map((todo) => (
-                  <TodoRow 
-                    key={todo.id} 
-                    todo={todo} 
+                  <TodoRow
+                    key={todo.id}
+                    todo={todo}
                     onUpdateTodo={onUpdateTodo}
                     onDeleteTodo={onDeleteTodo}
+                    onAddTask={onAddTask}
+                    onUpdateTask={onUpdateTask}
+                    onDeleteTask={onDeleteTask}
                     calculateDaysSinceEntered={calculateDaysSinceEntered}
                     formatDate={formatDate}
                     userRole={userRole}
@@ -10519,10 +10660,21 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
 };
 
 // Todo Row Component with double-click editing
-const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, formatDate, userRole, hasWriteAccess, isClosed = false, tickers, onNavigateToIdeaDetail, onNavigateToInputWithData, analystEmails = [], currentUser, activeTodoDivision, isDraggable = false, isDragging = false, onDragStart, onDragOver, onDrop, onDragEnd }) => {
-  const [editingField, setEditingField] = useState(null); // 'ticker', 'priority', 'item', or 'status'
+const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, onDeleteTask, calculateDaysSinceEntered, formatDate, userRole, hasWriteAccess, isClosed = false, tickers, onNavigateToIdeaDetail, onNavigateToInputWithData, analystEmails = [], currentUser, activeTodoDivision, isDraggable = false, isDragging = false, onDragStart, onDragOver, onDrop, onDragEnd }) => {
+  // Inline edit state for todo-level fields (ticker, priority)
+  const [editingField, setEditingField] = useState(null);
   const [editValue, setEditValue] = useState('');
+  // Per-task inline edit state, keyed by task id and field name
+  const [editingTask, setEditingTask] = useState(null); // { taskId, field }
+  const [taskEditValue, setTaskEditValue] = useState('');
+  // New task input shown at the bottom of an open todo group
+  const [newTaskInput, setNewTaskInput] = useState('');
+  const [isAddingTask, setIsAddingTask] = useState(false);
   const [isEmailSending, setIsEmailSending] = useState(false);
+
+  const tasks = todo.tasks || [];
+  const actionColCount = hasWriteAccess ? 1 : 0;
+  const totalCols = 7 + actionColCount;
 
   const handleDoubleClick = (field, currentValue) => {
     if (!hasWriteAccess) return;
@@ -10532,7 +10684,6 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, 
 
   const handleSaveEdit = async () => {
     let valueToSave = editValue;
-    // Uppercase ticker for Investment division todos; Ops/Marketing keep capitalization
     if (editingField === 'ticker' && valueToSave && todo.division !== 'Ops' && todo.division !== 'Marketing') {
       valueToSave = valueToSave.toUpperCase();
     }
@@ -10557,6 +10708,84 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, 
       handleSaveEdit();
     } else if (e.key === 'Escape') {
       handleCancelEdit();
+    }
+  };
+
+  const startTaskEdit = (taskId, field, currentValue) => {
+    if (!hasWriteAccess) return;
+    setEditingTask({ taskId, field });
+    setTaskEditValue(currentValue ?? '');
+  };
+
+  const cancelTaskEdit = () => {
+    setEditingTask(null);
+    setTaskEditValue('');
+  };
+
+  const saveTaskEdit = async () => {
+    if (!editingTask) return;
+    const { taskId, field } = editingTask;
+    const task = tasks.find(t => t.id === taskId);
+    const original = task ? task[field] : undefined;
+    const valueToSave = taskEditValue;
+    if (valueToSave !== original) {
+      try {
+        await onUpdateTask(todo.id, taskId, { [field]: valueToSave });
+      } catch (error) {
+        console.error('Error updating task:', error);
+      }
+    }
+    setEditingTask(null);
+    setTaskEditValue('');
+  };
+
+  const handleTaskKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      saveTaskEdit();
+    } else if (e.key === 'Escape') {
+      cancelTaskEdit();
+    }
+  };
+
+  const toggleTaskComplete = async (task) => {
+    if (!hasWriteAccess) return;
+    const willBeComplete = !task.isComplete;
+    try {
+      await onUpdateTask(todo.id, task.id, { isComplete: willBeComplete });
+      // If this was the last incomplete task and we're closing it, prompt to close the todo.
+      if (willBeComplete && todo.isOpen) {
+        const otherIncomplete = tasks.some(t => t.id !== task.id && !t.isComplete);
+        if (!otherIncomplete) {
+          if (window.confirm('All tasks complete. Close this todo?')) {
+            await onUpdateTodo(todo.id, { isOpen: false });
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling task complete:', error);
+    }
+  };
+
+  const handleAddTask = async () => {
+    const description = (newTaskInput || '').trim();
+    if (!description) {
+      setIsAddingTask(false);
+      return;
+    }
+    try {
+      await onAddTask(todo.id, { description });
+      setNewTaskInput('');
+      setIsAddingTask(false);
+    } catch (error) {
+      console.error('Error adding task:', error);
+    }
+  };
+
+  const handleDeleteTaskClick = (taskId) => {
+    if (!hasWriteAccess) return;
+    if (window.confirm('Delete this task?')) {
+      onDeleteTask(todo.id, taskId).catch(err => console.error('Error deleting task:', err));
     }
   };
 
@@ -10716,127 +10945,141 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, 
     }
   };
 
-  return (
-    <tr
-      className={`${isClosed ? 'bg-white' : ''} ${isDraggable ? 'cursor-grab active:cursor-grabbing' : ''} ${isDragging ? 'opacity-50 bg-blue-50' : ''}`}
-      draggable={isDraggable}
-      onDragStart={onDragStart}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
-      onDragEnd={onDragEnd}
-    >
-      <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-        <div className="flex items-center gap-2">
-          {isDraggable && (
-            <span className="text-gray-400 mr-1" title="Drag to reorder">⋮⋮</span>
-          )}
-          {editingField === 'ticker' ? (
-            <input
-              type="text"
-              value={editValue}
-              onChange={(e) => setEditValue(e.target.value)}
-              onBlur={handleSaveEdit}
-              onKeyPress={handleKeyPress}
-              className="w-full px-2 py-1 border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-              autoFocus
-            />
-          ) : (
-            <>
-              {tickerInDatabase ? (
-                <button
-                  onClick={handleTickerClick}
-                  onDoubleClick={() => handleDoubleClick('ticker', todo.ticker)}
-                  className="text-blue-600 hover:text-blue-800 underline hover:no-underline font-medium"
-                  title="Click to view in Idea Detail, Double-click to edit"
-                >
-                  {todo.ticker}
-                </button>
-              ) : (
-                <>
-                  <span 
-                    className="text-gray-900 cursor-pointer hover:bg-gray-100 px-1 py-0.5 rounded"
+  // Render the leading cells (ticker/who/entered/days/priority) for the first task row of each group.
+  // Subsequent task rows leave those cells empty so it's clear they belong to the same todo.
+  const renderLeadingCells = (isFirst) => (
+    <>
+      <td className={`px-4 ${isFirst ? 'py-4' : 'py-1'} align-top whitespace-nowrap text-sm font-medium text-gray-900`}>
+        {isFirst && (
+          <div className="flex items-center gap-2">
+            {isDraggable && (
+              <span className="text-gray-400 mr-1" title="Drag to reorder">⋮⋮</span>
+            )}
+            {editingField === 'ticker' ? (
+              <input
+                type="text"
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                onBlur={handleSaveEdit}
+                onKeyPress={handleKeyPress}
+                className="w-full px-2 py-1 border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                autoFocus
+              />
+            ) : (
+              <>
+                {tickerInDatabase ? (
+                  <button
+                    onClick={handleTickerClick}
                     onDoubleClick={() => handleDoubleClick('ticker', todo.ticker)}
-                    title="Double-click to edit"
+                    className="text-blue-600 hover:text-blue-800 underline hover:no-underline font-medium"
+                    title="Click to view in Idea Detail, Double-click to edit"
                   >
                     {todo.ticker}
-                  </span>
-                  {(userRole === 'readwrite' || userRole === 'admin') && onNavigateToInputWithData && todo.ticker.length <= 6 && activeTodoDivision !== 'Ops' && activeTodoDivision !== 'Marketing' && (
-                    <button
-                      onClick={() => onNavigateToInputWithData(todo.ticker, todo.analyst)}
-                      className="px-2 py-1 text-xs border border-blue-300 text-blue-600 rounded hover:border-blue-400 hover:text-blue-700 hover:bg-blue-50 transition-colors"
-                      title="Add this ticker to Idea Database"
+                  </button>
+                ) : (
+                  <>
+                    <span
+                      className="text-gray-900 cursor-pointer hover:bg-gray-100 px-1 py-0.5 rounded"
+                      onDoubleClick={() => handleDoubleClick('ticker', todo.ticker)}
+                      title="Double-click to edit"
                     >
-                      Add
-                    </button>
-                  )}
-                </>
-              )}
-            </>
-          )}
-        </div>
-      </td>
-      <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500">
-        {todo.analyst}
-      </td>
-      <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
-        {formatDate(todo.dateEntered)}
-      </td>
-      <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500">
-        {isClosed ? formatDate(todo.dateClosed) : calculateDaysSinceEntered(todo.dateEntered)}
-      </td>
-      <td className="px-2 py-4 whitespace-nowrap text-sm">
-        {editingField === 'priority' ? (
-          <select
-            value={editValue}
-            onChange={(e) => setEditValue(e.target.value)}
-            onBlur={handleSaveEdit}
-            onKeyDown={handleKeyPress}
-            autoFocus
-            className="border border-blue-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-          </select>
-        ) : (
-          <span 
-            className={`px-2 py-1 rounded-full text-xs font-medium cursor-pointer hover:opacity-80 ${getPriorityColor(todo.priority)} ${hasWriteAccess ? 'hover:ring-2 hover:ring-blue-300' : ''}`}
-            onDoubleClick={() => handleDoubleClick('priority', todo.priority)}
-            title={hasWriteAccess ? 'Double-click to edit' : ''}
-          >
-            {todo.priority}
-          </span>
-        )}
-      </td>
-      <td className="px-4 py-4 text-sm text-gray-900">
-        {editingField === 'item' ? (
-          <textarea
-            value={editValue}
-            onChange={(e) => setEditValue(e.target.value)}
-            onBlur={handleSaveEdit}
-            onKeyDown={handleKeyPress}
-            autoFocus
-            className="w-full border border-blue-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-            rows="2"
-          />
-        ) : (
-          <div
-            className={`cursor-pointer hover:bg-gray-50 p-1 rounded break-words ${hasWriteAccess ? 'hover:ring-1 hover:ring-blue-300' : ''}`}
-            title={hasWriteAccess ? 'Double-click to edit' : ''}
-            onDoubleClick={() => handleDoubleClick('item', todo.item)}
-          >
-            {todo.item}
+                      {todo.ticker}
+                    </span>
+                    {(userRole === 'readwrite' || userRole === 'admin') && onNavigateToInputWithData && todo.ticker.length <= 6 && activeTodoDivision !== 'Ops' && activeTodoDivision !== 'Marketing' && (
+                      <button
+                        onClick={() => onNavigateToInputWithData(todo.ticker, todo.analyst)}
+                        className="px-2 py-1 text-xs border border-blue-300 text-blue-600 rounded hover:border-blue-400 hover:text-blue-700 hover:bg-blue-50 transition-colors"
+                        title="Add this ticker to Idea Database"
+                      >
+                        Add
+                      </button>
+                    )}
+                  </>
+                )}
+              </>
+            )}
           </div>
         )}
       </td>
-      <td className="px-2 py-4 text-sm">
-        {editingField === 'status' ? (
+      <td className={`px-2 ${isFirst ? 'py-4' : 'py-1'} align-top whitespace-nowrap text-sm text-gray-500`}>
+        {isFirst ? todo.analyst : ''}
+      </td>
+      <td className={`px-3 ${isFirst ? 'py-4' : 'py-1'} align-top whitespace-nowrap text-sm text-gray-500`}>
+        {isFirst ? formatDate(todo.dateEntered) : ''}
+      </td>
+      <td className={`px-2 ${isFirst ? 'py-4' : 'py-1'} align-top whitespace-nowrap text-sm text-gray-500`}>
+        {isFirst ? (isClosed ? formatDate(todo.dateClosed) : calculateDaysSinceEntered(todo.dateEntered)) : ''}
+      </td>
+      <td className={`px-2 ${isFirst ? 'py-4' : 'py-1'} align-top whitespace-nowrap text-sm`}>
+        {isFirst && (
+          editingField === 'priority' ? (
+            <select
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              onBlur={handleSaveEdit}
+              onKeyDown={handleKeyPress}
+              autoFocus
+              className="border border-blue-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+            </select>
+          ) : (
+            <span
+              className={`px-2 py-1 rounded-full text-xs font-medium cursor-pointer hover:opacity-80 ${getPriorityColor(todo.priority)} ${hasWriteAccess ? 'hover:ring-2 hover:ring-blue-300' : ''}`}
+              onDoubleClick={() => handleDoubleClick('priority', todo.priority)}
+              title={hasWriteAccess ? 'Double-click to edit' : ''}
+            >
+              {todo.priority}
+            </span>
+          )
+        )}
+      </td>
+    </>
+  );
+
+  const renderTaskCells = (task) => (
+    <>
+      <td className="px-4 py-2 align-top text-sm text-gray-900">
+        <div className="flex items-start gap-2">
+          <input
+            type="checkbox"
+            checked={!!task.isComplete}
+            onChange={() => toggleTaskComplete(task)}
+            disabled={!hasWriteAccess}
+            className="mt-1 h-4 w-4 cursor-pointer"
+            title={hasWriteAccess ? 'Toggle complete' : ''}
+          />
+          {editingTask && editingTask.taskId === task.id && editingTask.field === 'description' ? (
+            <textarea
+              value={taskEditValue}
+              onChange={(e) => setTaskEditValue(e.target.value)}
+              onBlur={saveTaskEdit}
+              onKeyDown={handleTaskKeyPress}
+              autoFocus
+              className="flex-1 border border-blue-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              rows="2"
+            />
+          ) : (
+            <div
+              className={`flex-1 cursor-pointer hover:bg-gray-50 p-1 rounded break-words ${hasWriteAccess ? 'hover:ring-1 hover:ring-blue-300' : ''} ${task.isComplete ? 'line-through text-gray-400' : ''}`}
+              title={hasWriteAccess ? 'Double-click to edit' : ''}
+              onDoubleClick={() => startTaskEdit(task.id, 'description', task.description)}
+            >
+              {task.description}
+            </div>
+          )}
+        </div>
+      </td>
+      <td className="px-2 py-2 align-top text-sm">
+        {editingTask && editingTask.taskId === task.id && editingTask.field === 'status' ? (
           <input
             type="text"
-            value={editValue}
-            onChange={(e) => setEditValue(e.target.value)}
-            onBlur={handleSaveEdit}
-            onKeyDown={handleKeyPress}
+            value={taskEditValue}
+            onChange={(e) => setTaskEditValue(e.target.value)}
+            onBlur={saveTaskEdit}
+            onKeyDown={handleTaskKeyPress}
             autoFocus
             className="w-full border border-blue-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
             placeholder="Enter status..."
@@ -10844,62 +11087,181 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, calculateDaysSinceEntered, 
         ) : (
           <div
             className={`cursor-pointer ${hasWriteAccess ? 'hover:ring-2 hover:ring-blue-300 rounded' : ''}`}
-            onDoubleClick={() => handleDoubleClick('status', todo.status || 'Not started')}
+            onDoubleClick={() => startTaskEdit(task.id, 'status', task.status || 'Not started')}
             title={hasWriteAccess ? 'Double-click to edit' : ''}
           >
             <span
-              className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(todo.status || 'Not started')}`}
+              className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(task.status || 'Not started')}`}
               style={{ wordBreak: 'break-word' }}
             >
-              {todo.status || 'Not started'}
+              {task.status || 'Not started'}
             </span>
-            {todo.statusUpdatedAt && (
+            {task.statusUpdatedAt && (
               <div className="text-xs text-gray-400 mt-1">
-                {formatStatusTimestamp(todo.statusUpdatedAt)}
+                {formatStatusTimestamp(task.statusUpdatedAt)}
               </div>
             )}
           </div>
         )}
       </td>
-      {hasWriteAccess && (
-        <td className="px-4 py-4 whitespace-nowrap text-sm">
-          <div className="flex space-x-2">
-            <button
-              onClick={() => onUpdateTodo(todo.id, { isOpen: !todo.isOpen })}
-              className={`text-xs font-bold border px-2 py-1 rounded ${
-                todo.isOpen 
-                  ? 'text-green-600 hover:text-green-900 border-green-500' 
-                  : 'text-blue-600 hover:text-blue-900 border-blue-500'
-              }`}
-            >
-              {todo.isOpen ? 'Close' : 'Reopen'}
-            </button>
-            <button
-              onClick={() => {
-                if (window.confirm('Are you sure you want to delete this todo?')) {
-                  onDeleteTodo(todo.id);
-                }
-              }}
-              className="text-red-600 hover:text-red-900 text-xs font-bold border border-red-500 px-2 py-1 rounded"
-            >
-              Delete
-            </button>
-            <button
-              onClick={handleSendTodoEmail}
-              disabled={isEmailSending}
-              className={`text-xs font-bold border px-2 py-1 rounded ${
-                isEmailSending
-                  ? 'text-gray-400 border-gray-300 cursor-not-allowed'
-                  : 'text-blue-600 hover:text-blue-900 border-blue-500 hover:bg-blue-50'
-              }`}
-              title={`Send email to ${todo.analyst} about this todo`}
-            >
-              {isEmailSending ? '📧...' : '📧'}
-            </button>
-          </div>
-        </td>
+    </>
+  );
+
+  const renderTodoActions = () => (
+    <div className="flex flex-wrap gap-1">
+      <button
+        onClick={() => onUpdateTodo(todo.id, { isOpen: !todo.isOpen })}
+        className={`text-xs font-bold border px-2 py-1 rounded ${
+          todo.isOpen
+            ? 'text-green-600 hover:text-green-900 border-green-500'
+            : 'text-blue-600 hover:text-blue-900 border-blue-500'
+        }`}
+      >
+        {todo.isOpen ? 'Close' : 'Reopen'}
+      </button>
+      <button
+        onClick={() => {
+          if (window.confirm('Are you sure you want to delete this todo?')) {
+            onDeleteTodo(todo.id);
+          }
+        }}
+        className="text-red-600 hover:text-red-900 text-xs font-bold border border-red-500 px-2 py-1 rounded"
+      >
+        Delete
+      </button>
+      <button
+        onClick={handleSendTodoEmail}
+        disabled={isEmailSending}
+        className={`text-xs font-bold border px-2 py-1 rounded ${
+          isEmailSending
+            ? 'text-gray-400 border-gray-300 cursor-not-allowed'
+            : 'text-blue-600 hover:text-blue-900 border-blue-500 hover:bg-blue-50'
+        }`}
+        title={`Send email to ${todo.analyst} about this todo`}
+      >
+        {isEmailSending ? '📧...' : '📧'}
+      </button>
+    </div>
+  );
+
+  // Visual grouping: top of each todo group gets a thicker border
+  const groupBorder = 'border-t-2 border-t-gray-300';
+  const taskRowBorder = 'border-t border-t-gray-100';
+
+  return (
+    <>
+      {tasks.length === 0 && (
+        <tr
+          className={`${groupBorder} ${isClosed ? 'bg-white' : ''} ${isDraggable ? 'cursor-grab active:cursor-grabbing' : ''} ${isDragging ? 'opacity-50 bg-blue-50' : ''}`}
+          draggable={isDraggable}
+          onDragStart={onDragStart}
+          onDragOver={onDragOver}
+          onDrop={onDrop}
+          onDragEnd={onDragEnd}
+        >
+          {renderLeadingCells(true)}
+          <td className="px-4 py-4 text-sm text-gray-400 italic">No tasks yet</td>
+          <td className="px-2 py-4 text-sm" />
+          {hasWriteAccess && (
+            <td className="px-4 py-4 align-top whitespace-nowrap text-sm">
+              {renderTodoActions()}
+            </td>
+          )}
+        </tr>
       )}
-    </tr>
+      {tasks.map((task, idx) => {
+        const isFirst = idx === 0;
+        return (
+          <tr
+            key={task.id}
+            className={`${isFirst ? groupBorder : taskRowBorder} ${isClosed ? 'bg-white' : ''} ${isFirst && isDraggable ? 'cursor-grab active:cursor-grabbing' : ''} ${isFirst && isDragging ? 'opacity-50 bg-blue-50' : ''}`}
+            draggable={isFirst && isDraggable}
+            onDragStart={isFirst ? onDragStart : undefined}
+            onDragOver={isFirst ? onDragOver : undefined}
+            onDrop={isFirst ? onDrop : undefined}
+            onDragEnd={isFirst ? onDragEnd : undefined}
+          >
+            {renderLeadingCells(isFirst)}
+            {renderTaskCells(task)}
+            {hasWriteAccess && (
+              <td className={`px-4 ${isFirst ? 'py-4' : 'py-2'} align-top whitespace-nowrap text-sm`}>
+                {isFirst ? (
+                  <div className="space-y-1">
+                    {renderTodoActions()}
+                    {tasks.length > 1 && !isClosed && (
+                      <button
+                        onClick={() => handleDeleteTaskClick(task.id)}
+                        className="text-xs text-red-500 hover:text-red-700 border border-red-300 px-2 py-0.5 rounded"
+                        title="Delete this task"
+                      >
+                        Delete task
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  !isClosed && (
+                    <button
+                      onClick={() => handleDeleteTaskClick(task.id)}
+                      className="text-xs text-red-500 hover:text-red-700 border border-red-300 px-2 py-0.5 rounded"
+                      title="Delete this task"
+                    >
+                      Delete task
+                    </button>
+                  )
+                )}
+              </td>
+            )}
+          </tr>
+        );
+      })}
+      {!isClosed && hasWriteAccess && (
+        <tr className={taskRowBorder}>
+          <td colSpan={5} className="px-4 py-1" />
+          <td className="px-4 py-1" colSpan={totalCols - 5}>
+            {isAddingTask ? (
+              <div className="flex items-start gap-2">
+                <textarea
+                  value={newTaskInput}
+                  onChange={(e) => setNewTaskInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleAddTask();
+                    } else if (e.key === 'Escape') {
+                      setIsAddingTask(false);
+                      setNewTaskInput('');
+                    }
+                  }}
+                  placeholder="New task description"
+                  autoFocus
+                  className="flex-1 border border-blue-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  rows="2"
+                />
+                <button
+                  onClick={handleAddTask}
+                  className="px-2 py-1 text-xs font-bold border border-blue-500 text-blue-600 hover:bg-blue-50 rounded"
+                >
+                  Add
+                </button>
+                <button
+                  onClick={() => { setIsAddingTask(false); setNewTaskInput(''); }}
+                  className="px-2 py-1 text-xs border border-gray-300 text-gray-600 rounded hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setIsAddingTask(true)}
+                className="text-xs font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 border border-blue-300 px-2 py-1 rounded"
+              >
+                + Add task
+              </button>
+            )}
+          </td>
+        </tr>
+      )}
+    </>
   );
 };
 // Enhanced Quote Display Component - prices now stream via WebSocket

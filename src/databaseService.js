@@ -443,27 +443,27 @@ export const DatabaseService = {
       let from = 0;
       const pageSize = 1000;
       let hasMore = true;
-      
+
       while (hasMore) {
         let query = supabase
           .from('todos')
-          .select('*')
+          .select('*, todo_tasks(*)')
           .or('is_deleted.is.null,is_deleted.eq.false') // Exclude soft-deleted todos
           .order('date_entered', { ascending: false })
           .range(from, from + pageSize - 1);
-        
+
         // Filter by division if specified
         if (division) {
           query = query.eq('division', division);
         }
-        
+
         const { data, error } = await query;
-        
+
         if (error) throw error;
-        
+
         if (data && data.length > 0) {
           allData = allData.concat(data);
-          
+
           // If we got less than pageSize records, we've reached the end
           if (data.length < pageSize) {
             hasMore = false;
@@ -474,9 +474,16 @@ export const DatabaseService = {
           hasMore = false;
         }
       }
-      
-      // Convert snake_case to camelCase for JavaScript
-      return allData.map(convertFromDbFormat);
+
+      // Convert snake_case to camelCase for JavaScript and normalize nested tasks
+      return allData.map(row => {
+        const { todo_tasks: rawTasks, ...todoRow } = row;
+        const todo = convertFromDbFormat(todoRow);
+        const tasks = (rawTasks || [])
+          .map(convertFromDbFormat)
+          .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || (a.id - b.id));
+        return { ...todo, tasks };
+      });
     } catch (error) {
       console.error('Error fetching todos:', error)
       throw error
@@ -492,22 +499,29 @@ export const DatabaseService = {
       
       let query = supabase
         .from('todos')
-        .select('*')
+        .select('*, todo_tasks(*)')
         .eq('is_deleted', true)
         .gte('deleted_at', sevenDaysAgo.toISOString())
         .order('deleted_at', { ascending: false });
-      
+
       // Filter by division if specified
       if (division) {
         query = query.eq('division', division);
       }
-      
+
       const { data, error } = await query;
-      
+
       if (error) throw error
-      
-      // Convert snake_case to camelCase for JavaScript
-      return (data || []).map(convertFromDbFormat);
+
+      // Convert snake_case to camelCase for JavaScript and normalize nested tasks
+      return (data || []).map(row => {
+        const { todo_tasks: rawTasks, ...todoRow } = row;
+        const todo = convertFromDbFormat(todoRow);
+        const tasks = (rawTasks || [])
+          .map(convertFromDbFormat)
+          .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || (a.id - b.id));
+        return { ...todo, tasks };
+      });
     } catch (error) {
       console.error('Error fetching deleted todos:', error)
       throw error
@@ -519,7 +533,7 @@ export const DatabaseService = {
       // Get the minimum sort_order for this analyst's open todos
       // New todo will be placed at top (lowest sort_order)
       let newSortOrder = 1;
-      
+
       if (todo.analyst) {
         const { data: minData } = await supabase
           .from('todos')
@@ -528,28 +542,60 @@ export const DatabaseService = {
           .eq('is_open', true)
           .order('sort_order', { ascending: true })
           .limit(1);
-        
+
         if (minData && minData.length > 0 && minData[0].sort_order != null) {
           // Set new sort_order to be less than current minimum (so it appears first)
           newSortOrder = minData[0].sort_order - 1;
         }
       }
 
+      // Extract initial tasks (if provided) so they don't get serialized into todos row.
+      const { tasks: initialTasks, ...todoOnly } = todo;
+
       // Convert camelCase to snake_case for database
-      const dbTodo = convertToDbFormat(todo);
-      
+      const dbTodo = convertToDbFormat(todoOnly);
+
       // Set sort_order so new todo appears at top of list
       dbTodo.sort_order = newSortOrder;
-      
+
       const { data, error } = await supabase
         .from('todos')
         .insert([dbTodo])
         .select()
-      
+
       if (error) throw error
-      
-      // Convert back to camelCase for JavaScript
-      return convertFromDbFormat(data[0]);
+
+      const savedTodo = convertFromDbFormat(data[0]);
+
+      // Insert initial tasks if any were provided.
+      const tasksToInsert = (initialTasks || [])
+        .filter(t => t && t.description && t.description.trim())
+        .map((t, index) => {
+          const dbTask = convertToDbFormat({
+            todoId: savedTodo.id,
+            description: t.description.trim(),
+            status: t.status || 'Not started',
+            isComplete: !!t.isComplete,
+          });
+          dbTask.sort_order = index;
+          dbTask.status_updated_at = new Date().toISOString();
+          if (dbTask.is_complete) {
+            dbTask.completed_at = new Date().toISOString();
+          }
+          return dbTask;
+        });
+
+      let savedTasks = [];
+      if (tasksToInsert.length > 0) {
+        const { data: taskData, error: taskError } = await supabase
+          .from('todo_tasks')
+          .insert(tasksToInsert)
+          .select();
+        if (taskError) throw taskError;
+        savedTasks = (taskData || []).map(convertFromDbFormat);
+      }
+
+      return { ...savedTodo, tasks: savedTasks };
     } catch (error) {
       console.error('Error adding todo:', error)
       throw error
@@ -599,6 +645,83 @@ export const DatabaseService = {
     } catch (error) {
       console.error('Error updating todo:', error)
       throw error
+    }
+  },
+
+  // Add a task to a todo. Places new task at the bottom (highest sort_order).
+  async addTodoTask(todoId, task) {
+    try {
+      const { data: maxData } = await supabase
+        .from('todo_tasks')
+        .select('sort_order')
+        .eq('todo_id', todoId)
+        .order('sort_order', { ascending: false })
+        .limit(1);
+
+      const nextSortOrder = (maxData && maxData[0]?.sort_order != null)
+        ? maxData[0].sort_order + 1
+        : 0;
+
+      const dbTask = convertToDbFormat({ ...task, todoId });
+      dbTask.sort_order = dbTask.sort_order ?? nextSortOrder;
+      if (task.status !== undefined && task.statusUpdatedAt === undefined) {
+        dbTask.status_updated_at = new Date().toISOString();
+      }
+      if (task.isComplete && !task.completedAt) {
+        dbTask.completed_at = new Date().toISOString();
+      }
+
+      const { data, error } = await supabase
+        .from('todo_tasks')
+        .insert([dbTask])
+        .select();
+
+      if (error) throw error;
+      return convertFromDbFormat(data[0]);
+    } catch (error) {
+      console.error('Error adding todo task:', error);
+      throw error;
+    }
+  },
+
+  async updateTodoTask(id, updates) {
+    try {
+      const dbUpdates = convertToDbFormat(updates);
+      dbUpdates.updated_at = new Date().toISOString();
+
+      if (updates.status !== undefined) {
+        dbUpdates.status_updated_at = new Date().toISOString();
+      }
+
+      if (updates.isComplete !== undefined) {
+        dbUpdates.completed_at = updates.isComplete ? new Date().toISOString() : null;
+      }
+
+      const { data, error } = await supabase
+        .from('todo_tasks')
+        .update(dbUpdates)
+        .eq('id', id)
+        .select();
+
+      if (error) throw error;
+      return convertFromDbFormat(data[0]);
+    } catch (error) {
+      console.error('Error updating todo task:', error);
+      throw error;
+    }
+  },
+
+  async deleteTodoTask(id) {
+    try {
+      const { error } = await supabase
+        .from('todo_tasks')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error deleting todo task:', error);
+      throw error;
     }
   },
 
