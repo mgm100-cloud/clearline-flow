@@ -10444,7 +10444,7 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                   )}
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white">
                 {sortTodos(openTodos).map((todo) => (
                   <TodoRow
                     key={todo.id}
@@ -10553,7 +10553,7 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                   )}
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white">
                 {sortClosedTodos(recentlyClosedTodos).map((todo) => (
                   <TodoRow
                     key={todo.id}
@@ -11145,9 +11145,9 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, on
   );
 
   // Visual grouping: only the first row of each todo group gets a top border.
-  // The "!border-t-0" overrides the tbody's `divide-y` so inner task rows have no separator.
+  // The tbody no longer applies `divide-y`, so inner task rows have no separator.
   const groupBorder = 'border-t-2 border-t-gray-300';
-  const taskRowBorder = '!border-t-0';
+  const taskRowBorder = '';
 
   return (
     <>
