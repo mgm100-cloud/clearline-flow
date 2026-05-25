@@ -10622,16 +10622,24 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                   <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
                   <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ minWidth: '180px' }}>Status</th>
-                  {(userRole === 'readwrite' || userRole === 'admin') && (
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                  )}
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredDeletedTodos.map((todo) => (
                   <tr key={todo.id} className="bg-red-50 bg-opacity-30">
                     <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {todo.ticker}
+                      <div className="flex items-center gap-2">
+                        <span>{todo.ticker}</span>
+                        {(userRole === 'readwrite' || userRole === 'admin') && (
+                          <button
+                            onClick={() => onRestoreTodo(todo.id)}
+                            title="Restore this todo"
+                            className="p-1 rounded text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                          >
+                            <RotateCcw className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
                     </td>
                     <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500">
                       {todo.analyst}
@@ -10657,17 +10665,6 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                     <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500">
                       {todo.status || 'Not started'}
                     </td>
-                    {(userRole === 'readwrite' || userRole === 'admin') && (
-                      <td className="px-4 py-4 whitespace-nowrap text-sm">
-                        <button
-                          onClick={() => onRestoreTodo(todo.id)}
-                          className="text-green-600 hover:text-green-900 text-xs font-medium border border-green-500 px-2 py-1 rounded bg-green-50 hover:bg-green-100"
-                          title="Restore this todo"
-                        >
-                          Restore
-                        </button>
-                      </td>
-                    )}
                   </tr>
                 ))}
               </tbody>
