@@ -9856,6 +9856,30 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                   return 'Status:';
                 };
 
+                // Render a horizontal traffic light (3 dots) where only the
+                // active color is filled and the others render as colored
+                // outlines, matching the in-app UI.
+                const LIGHT_HEX = { red: '#ef4444', yellow: '#eab308', green: '#22c55e' };
+                const renderLightsHtml = (light) => {
+                  const active = light || 'red';
+                  return ['red', 'yellow', 'green'].map(c => {
+                    const hex = LIGHT_HEX[c];
+                    const style = c === active
+                      ? `display:inline-block;width:10px;height:10px;border-radius:50%;background:${hex};border:1.5px solid ${hex};vertical-align:middle;margin-right:3px;`
+                      : `display:inline-block;width:10px;height:10px;border-radius:50%;background:#ffffff;border:1.5px solid ${hex};vertical-align:middle;margin-right:3px;`;
+                    return `<span style="${style}"></span>`;
+                  }).join('');
+                };
+
+                // Map a legacy free-form status string to a default light for
+                // todos that don't have task records yet (mirrors the SQL
+                // backfill in add-todo-task-traffic-light.sql).
+                const lightFromStatusText = (status) => {
+                  if (status === 'Done') return 'green';
+                  if (status === 'In progress' || status === 'Waiting' || status === 'On hold') return 'yellow';
+                  return 'red';
+                };
+
                 // Render the task list for a todo as nested HTML rows. Falls back to the
                 // legacy item/status fields for todos that don't have task records yet.
                 const renderTasksHtml = (todo) => {
@@ -9866,18 +9890,22 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                         status: todo.status,
                         statusUpdatedAt: todo.statusUpdatedAt,
                         isComplete: !todo.isOpen,
+                        light: lightFromStatusText(todo.status),
                       }];
                   return tasks.map(task => {
                     const check = task.isComplete ? '☑' : '☐';
                     const descStyle = task.isComplete
                       ? 'text-decoration: line-through; color: #999;'
                       : 'color: #333;';
+                    const statusText = task.status || '<span style="color:#9ca3af; font-style:italic;">Status description...</span>';
                     return `
                       <tr>
                         <td colspan="2" style="font-size: 13px; padding-top: 6px; line-height: 1.4;">
                           <div style="${descStyle}"><span style="margin-right: 6px;">${check}</span>${task.description || ''}</div>
-                          <div style="margin-left: 22px; margin-top: 3px; font-size: 12px;">
-                            <strong>${getStatusLabel(task.statusUpdatedAt)}</strong> ${getStatusBadge(task.status)}
+                          <div style="margin-left: 22px; margin-top: 3px; font-size: 12px; color: #4b5563;">
+                            ${renderLightsHtml(task.light)}
+                            <span style="vertical-align: middle;">${statusText}</span>
+                            ${task.statusUpdatedAt ? `<span style="color:#9ca3af; margin-left:6px;">(${new Date(task.statusUpdatedAt).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })})</span>` : ''}
                           </div>
                         </td>
                       </tr>`;
@@ -10118,8 +10146,15 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
               doc.text(filterText, 20, 30);
               doc.text(`Generated: ${new Date().toLocaleDateString()}`, 20, 35);
               
-              // Build a multi-line "Tasks" cell showing each task with its checkbox and status.
-              // Falls back to legacy item/status for any todo that doesn't have task records yet.
+              // Build a multi-line "Tasks" cell showing each task with its
+              // checkbox, traffic-light state, and status description.
+              // Falls back to legacy item/status for any todo that doesn't
+              // have task records yet.
+              const pdfLightFromStatus = (s) => {
+                if (s === 'Done') return 'green';
+                if (s === 'In progress' || s === 'Waiting' || s === 'On hold') return 'yellow';
+                return 'red';
+              };
               const buildTasksCell = (todo) => {
                 const tasks = (todo.tasks && todo.tasks.length > 0)
                   ? todo.tasks
@@ -10127,11 +10162,13 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                       description: todo.item || '',
                       status: todo.status,
                       isComplete: !todo.isOpen,
+                      light: pdfLightFromStatus(todo.status),
                     }];
                 return tasks.map(task => {
                   const check = task.isComplete ? '[x]' : '[ ]';
-                  const status = task.status || 'Not started';
-                  return `${check} ${task.description || ''}\n    Status: ${status}`;
+                  const light = (task.light || 'red').toUpperCase();
+                  const status = task.status || '(no description)';
+                  return `${check} ${task.description || ''}\n    [${light}] ${status}`;
                 }).join('\n');
               };
 
@@ -10977,25 +11014,44 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, on
       });
 
       // Build the task list rows for the email body.
+      const lightHex = { red: '#ef4444', yellow: '#eab308', green: '#22c55e' };
+      const lightFromStatus = (s) => {
+        if (s === 'Done') return 'green';
+        if (s === 'In progress' || s === 'Waiting' || s === 'On hold') return 'yellow';
+        return 'red';
+      };
+      const lightsDotsHtml = (active) => ['red', 'yellow', 'green'].map(c => {
+        const hex = lightHex[c];
+        const style = c === active
+          ? `display:inline-block;width:10px;height:10px;border-radius:50%;background:${hex};border:1.5px solid ${hex};vertical-align:middle;margin-right:3px;`
+          : `display:inline-block;width:10px;height:10px;border-radius:50%;background:#ffffff;border:1.5px solid ${hex};vertical-align:middle;margin-right:3px;`;
+        return `<span style="${style}"></span>`;
+      }).join('');
       const emailTasks = (todo.tasks && todo.tasks.length > 0)
         ? todo.tasks
         : [{
             description: todo.item || '',
             status: todo.status,
             isComplete: !todo.isOpen,
+            light: lightFromStatus(todo.status),
           }];
       const tasksRowsHtml = emailTasks.map(task => {
         const check = task.isComplete ? '☑' : '☐';
         const descStyle = task.isComplete
           ? 'text-decoration: line-through; color: #999;'
           : '';
-        const status = task.status || 'Not started';
+        const statusText = task.status
+          ? task.status
+          : '<span style="color:#9ca3af; font-style:italic;">Status description...</span>';
         return `
               <tr>
                 <td style="padding: 6px 8px; border-bottom: 1px solid #f1f3f5; vertical-align: top; width: 22px;">${check}</td>
                 <td style="padding: 6px 8px; border-bottom: 1px solid #f1f3f5;">
                   <div style="${descStyle}">${task.description || ''}</div>
-                  <div style="margin-top: 3px; font-size: 12px; color: #666;">Status: ${status}</div>
+                  <div style="margin-top: 4px; font-size: 12px; color: #4b5563;">
+                    ${lightsDotsHtml(task.light || 'red')}
+                    <span style="vertical-align: middle;">${statusText}</span>
+                  </div>
                 </td>
               </tr>`;
       }).join('');
