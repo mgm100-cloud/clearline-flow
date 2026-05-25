@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Plus, Database, Users, TrendingUp, BarChart3, LogOut, ChevronUp, ChevronDown, RefreshCw, Download, CheckSquare, User, Mail, FileText, Upload, Wifi, WifiOff, Briefcase, Bot } from 'lucide-react';
+import { Plus, Database, Users, TrendingUp, BarChart3, LogOut, ChevronUp, ChevronDown, RefreshCw, Download, CheckSquare, User, Mail, FileText, Upload, Wifi, WifiOff, Briefcase, Bot, X, Trash2, RotateCcw, CheckCircle } from 'lucide-react';
 import { DatabaseService } from './databaseService';
 import { AuthService } from './services/authService';
 import { twelveDataWS } from './services/twelveDataWebSocket';
@@ -11049,6 +11049,7 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, on
                 )}
               </>
             )}
+            {hasWriteAccess && renderTodoActions()}
           </div>
         )}
       </td>
@@ -11158,17 +11159,18 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, on
     </>
   );
 
+  // Compact icon-only buttons for whole-todo actions. Placed inline with the ticker
+  // so it's obvious they apply to the todo, not the individual task row.
   const renderTodoActions = () => (
-    <div className="flex flex-wrap gap-1">
+    <div className="flex items-center gap-1 ml-1">
       <button
         onClick={() => onUpdateTodo(todo.id, { isOpen: !todo.isOpen })}
-        className={`text-xs font-bold border px-2 py-1 rounded ${
-          todo.isOpen
-            ? 'text-green-600 hover:text-green-900 border-green-500'
-            : 'text-blue-600 hover:text-blue-900 border-blue-500'
+        title={todo.isOpen ? 'Close todo' : 'Reopen todo'}
+        className={`p-1 rounded hover:bg-gray-100 ${
+          todo.isOpen ? 'text-green-600 hover:text-green-800' : 'text-blue-600 hover:text-blue-800'
         }`}
       >
-        {todo.isOpen ? 'Close' : 'Reopen'}
+        {todo.isOpen ? <CheckCircle className="h-4 w-4" /> : <RotateCcw className="h-4 w-4" />}
       </button>
       <button
         onClick={() => {
@@ -11176,21 +11178,22 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, on
             onDeleteTodo(todo.id);
           }
         }}
-        className="text-red-600 hover:text-red-900 text-xs font-bold border border-red-500 px-2 py-1 rounded"
+        title="Delete todo"
+        className="p-1 rounded text-red-600 hover:text-red-800 hover:bg-red-50"
       >
-        Delete
+        <Trash2 className="h-4 w-4" />
       </button>
       <button
         onClick={handleSendTodoEmail}
         disabled={isEmailSending}
-        className={`text-xs font-bold border px-2 py-1 rounded ${
-          isEmailSending
-            ? 'text-gray-400 border-gray-300 cursor-not-allowed'
-            : 'text-blue-600 hover:text-blue-900 border-blue-500 hover:bg-blue-50'
-        }`}
         title={`Send email to ${todo.analyst} about this todo`}
+        className={`p-1 rounded ${
+          isEmailSending
+            ? 'text-gray-400 cursor-not-allowed'
+            : 'text-blue-600 hover:text-blue-800 hover:bg-blue-50'
+        }`}
       >
-        {isEmailSending ? '📧...' : '📧'}
+        <Mail className="h-4 w-4" />
       </button>
     </div>
   );
@@ -11214,15 +11217,12 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, on
           {renderLeadingCells(true)}
           <td className="px-4 py-4 text-sm text-gray-400 italic">No tasks yet</td>
           <td className="px-2 py-4 text-sm" />
-          {hasWriteAccess && (
-            <td className="px-4 py-4 align-top whitespace-nowrap text-sm">
-              {renderTodoActions()}
-            </td>
-          )}
+          {hasWriteAccess && <td className="px-4 py-4" />}
         </tr>
       )}
       {tasks.map((task, idx) => {
         const isFirst = idx === 0;
+        const canDeleteTask = !isClosed && (!isFirst || tasks.length > 1);
         return (
           <tr
             key={task.id}
@@ -11236,30 +11236,15 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, on
             {renderLeadingCells(isFirst)}
             {renderTaskCells(task)}
             {hasWriteAccess && (
-              <td className={`px-4 ${isFirst ? 'py-4' : 'py-2'} align-top whitespace-nowrap text-sm`}>
-                {isFirst ? (
-                  <div className="space-y-1">
-                    {renderTodoActions()}
-                    {tasks.length > 1 && !isClosed && (
-                      <button
-                        onClick={() => handleDeleteTaskClick(task.id)}
-                        className="text-xs text-red-500 hover:text-red-700 border border-red-300 px-2 py-0.5 rounded"
-                        title="Delete this task"
-                      >
-                        Delete task
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  !isClosed && (
-                    <button
-                      onClick={() => handleDeleteTaskClick(task.id)}
-                      className="text-xs text-red-500 hover:text-red-700 border border-red-300 px-2 py-0.5 rounded"
-                      title="Delete this task"
-                    >
-                      Delete task
-                    </button>
-                  )
+              <td className="px-4 py-2 align-top whitespace-nowrap text-sm">
+                {canDeleteTask && (
+                  <button
+                    onClick={() => handleDeleteTaskClick(task.id)}
+                    title="Delete this task"
+                    className="p-1 rounded text-gray-400 hover:text-red-600 hover:bg-red-50"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 )}
               </td>
             )}
