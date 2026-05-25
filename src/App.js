@@ -10780,15 +10780,15 @@ const TRAFFIC_LIGHT_LABELS = {
 const TRAFFIC_LIGHT_CLASSES = {
   red: {
     active: 'bg-red-500 border-red-600',
-    inactive: 'bg-red-100 border-red-200 hover:bg-red-200',
+    inactive: 'bg-white border-red-500 hover:bg-red-50',
   },
   yellow: {
     active: 'bg-yellow-400 border-yellow-500',
-    inactive: 'bg-yellow-100 border-yellow-200 hover:bg-yellow-200',
+    inactive: 'bg-white border-yellow-500 hover:bg-yellow-50',
   },
   green: {
     active: 'bg-green-500 border-green-600',
-    inactive: 'bg-green-100 border-green-200 hover:bg-green-200',
+    inactive: 'bg-white border-green-500 hover:bg-green-50',
   },
 };
 
@@ -11243,7 +11243,7 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, on
                   disabled={!hasWriteAccess}
                   aria-pressed={active}
                   title={TRAFFIC_LIGHT_LABELS[color]}
-                  className={`h-4 w-4 rounded-full border ${cls} ${hasWriteAccess ? 'cursor-pointer' : 'cursor-default'}`}
+                  className={`h-4 w-4 rounded-full border-2 ${cls} ${hasWriteAccess ? 'cursor-pointer' : 'cursor-default'}`}
                 />
               );
             })}
