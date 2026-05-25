@@ -3175,12 +3175,18 @@ const ClearlineFlow = () => {
       }
 
       // Show cached data immediately so the tab swap feels instant; the
-      // fresh fetch below will overwrite once it arrives.
+      // fresh fetch below will overwrite once it arrives. If there's no
+      // cache yet (first time on this division), clear stale state so
+      // the user sees an empty list with a loading indicator instead of
+      // the previous division's data.
       const cachedTodos = todosByDivisionRef.current[divisionToFetch];
       const cachedDeleted = deletedTodosByDivisionRef.current[divisionToFetch];
       if (cachedTodos) {
         setTodos(cachedTodos);
         setDeletedTodos(cachedDeleted || []);
+      } else {
+        setTodos([]);
+        setDeletedTodos([]);
       }
 
       // Run the two queries in parallel.
@@ -9407,19 +9413,34 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
     ? activeTodoDivision
     : (userDivision === 'Ops' || userDivision === 'Marketing' ? userDivision : 'Investment');
 
-  // Initial refresh when component is mounted - only run once
+  // Initial refresh when component is mounted - only run once.
+  // Flip isRefreshing while the first fetch is in flight so the empty
+  // list shows a loading indicator instead of "No open todos found.".
   useEffect(() => {
     if (isFirstMount.current) {
       isFirstMount.current = false;
       const initialRefresh = async () => {
+        setIsRefreshing(true);
         try {
           await onRefreshTodos();
         } catch (error) {
           console.error('Error in initial refresh:', error);
+        } finally {
+          setIsRefreshing(false);
         }
       };
       initialRefresh();
     }
+  }, [onRefreshTodos]);
+
+  // Auto-refresh every 90 seconds while the user is on the Todo tab.
+  // When the user navigates to another tab the component unmounts and
+  // the interval is cleaned up, so it never runs in the background.
+  useEffect(() => {
+    const interval = setInterval(() => {
+      onRefreshTodos().catch(err => console.error('Todo auto-refresh failed:', err));
+    }, 90 * 1000);
+    return () => clearInterval(interval);
   }, [onRefreshTodos]);
 
   // Track whether division change was handled explicitly by the click handler
@@ -10508,7 +10529,14 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
           )}
         </div>
         {openTodos.length === 0 ? (
-          <p className="text-gray-500 text-center py-8">No open todos found.</p>
+          isRefreshing ? (
+            <div className="flex items-center justify-center py-8 text-gray-500">
+              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              Loading todos...
+            </div>
+          ) : (
+            <p className="text-gray-500 text-center py-8">No open todos found.</p>
+          )
         ) : (
           <div className="bg-white shadow overflow-hidden sm:rounded-md">
             <table className="min-w-full divide-y divide-gray-200">
@@ -10566,7 +10594,14 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
           Recently Closed Todos - Last 7 Days ({recentlyClosedTodos.length})
         </h2>
         {recentlyClosedTodos.length === 0 ? (
-          <p className="text-gray-500 text-center py-8">No recently closed todos found.</p>
+          isRefreshing ? (
+            <div className="flex items-center justify-center py-8 text-gray-500">
+              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              Loading todos...
+            </div>
+          ) : (
+            <p className="text-gray-500 text-center py-8">No recently closed todos found.</p>
+          )
         ) : (
           <div className="bg-white shadow overflow-hidden sm:rounded-md">
             <table className="min-w-full divide-y divide-gray-200">
