@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Plus, Database, Users, TrendingUp, BarChart3, LogOut, ChevronUp, ChevronDown, RefreshCw, Download, CheckSquare, User, Mail, FileText, Upload, Wifi, WifiOff, Briefcase, Bot, X, Trash2, RotateCcw, CheckCircle } from 'lucide-react';
+import { Plus, Database, Users, TrendingUp, BarChart3, LogOut, ChevronUp, ChevronDown, RefreshCw, Download, CheckSquare, User, Mail, FileText, Upload, Wifi, WifiOff, Briefcase, Bot, X, XCircle, Trash2, RotateCcw } from 'lucide-react';
 import { DatabaseService } from './databaseService';
 import { AuthService } from './services/authService';
 import { twelveDataWS } from './services/twelveDataWebSocket';
@@ -10466,9 +10466,6 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                   <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
                   <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ minWidth: '180px' }}>Status</th>
-                  {(userRole === 'readwrite' || userRole === 'admin') && (
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                  )}
                 </tr>
               </thead>
               <tbody className="bg-white">
@@ -10575,9 +10572,6 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
                   <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ minWidth: '180px' }}>Status</th>
-                  {(userRole === 'readwrite' || userRole === 'admin') && (
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                  )}
                 </tr>
               </thead>
               <tbody className="bg-white">
@@ -10700,8 +10694,8 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, on
   const [isEmailSending, setIsEmailSending] = useState(false);
 
   const tasks = todo.tasks || [];
-  const actionColCount = hasWriteAccess ? 1 : 0;
-  const totalCols = 7 + actionColCount;
+  // Open/closed tables have 7 columns total: ticker, who, entered, days, priority, item, status.
+  const totalCols = 7;
 
   const handleDoubleClick = (field, currentValue) => {
     if (!hasWriteAccess) return;
@@ -11091,7 +11085,7 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, on
     </>
   );
 
-  const renderTaskCells = (task) => (
+  const renderTaskCells = (task, { canDeleteTask } = {}) => (
     <>
       <td className="px-4 py-2 align-top text-sm text-gray-900">
         <div className="flex items-start gap-2">
@@ -11121,6 +11115,15 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, on
             >
               {task.description}
             </div>
+          )}
+          {canDeleteTask && (
+            <button
+              onClick={() => handleDeleteTaskClick(task.id)}
+              title="Delete this task"
+              className="mt-1 ml-1 p-0.5 rounded text-gray-300 hover:text-red-600 hover:bg-red-50 flex-shrink-0"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
           )}
         </div>
       </td>
@@ -11170,7 +11173,7 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, on
           todo.isOpen ? 'text-green-600 hover:text-green-800' : 'text-blue-600 hover:text-blue-800'
         }`}
       >
-        {todo.isOpen ? <CheckCircle className="h-4 w-4" /> : <RotateCcw className="h-4 w-4" />}
+        {todo.isOpen ? <XCircle className="h-4 w-4" /> : <RotateCcw className="h-4 w-4" />}
       </button>
       <button
         onClick={() => {
@@ -11217,12 +11220,11 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, on
           {renderLeadingCells(true)}
           <td className="px-4 py-4 text-sm text-gray-400 italic">No tasks yet</td>
           <td className="px-2 py-4 text-sm" />
-          {hasWriteAccess && <td className="px-4 py-4" />}
         </tr>
       )}
       {tasks.map((task, idx) => {
         const isFirst = idx === 0;
-        const canDeleteTask = !isClosed && (!isFirst || tasks.length > 1);
+        const canDeleteTask = hasWriteAccess && !isClosed && (!isFirst || tasks.length > 1);
         return (
           <tr
             key={task.id}
@@ -11234,20 +11236,7 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, on
             onDragEnd={isFirst ? onDragEnd : undefined}
           >
             {renderLeadingCells(isFirst)}
-            {renderTaskCells(task)}
-            {hasWriteAccess && (
-              <td className="px-4 py-2 align-top whitespace-nowrap text-sm">
-                {canDeleteTask && (
-                  <button
-                    onClick={() => handleDeleteTaskClick(task.id)}
-                    title="Delete this task"
-                    className="p-1 rounded text-gray-400 hover:text-red-600 hover:bg-red-50"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </td>
-            )}
+            {renderTaskCells(task, { canDeleteTask })}
           </tr>
         );
       })}
