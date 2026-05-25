@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Plus, Database, Users, TrendingUp, BarChart3, LogOut, ChevronUp, ChevronDown, RefreshCw, Download, CheckSquare, User, Mail, FileText, Upload, Wifi, WifiOff, Briefcase, Bot } from 'lucide-react';
+import { Plus, Database, Users, TrendingUp, BarChart3, LogOut, ChevronUp, ChevronDown, RefreshCw, Download, CheckSquare, User, Mail, FileText, Upload, Wifi, WifiOff, Briefcase, Bot, X, XCircle, Trash2, RotateCcw } from 'lucide-react';
 import { DatabaseService } from './databaseService';
 import { AuthService } from './services/authService';
 import { twelveDataWS } from './services/twelveDataWebSocket';
@@ -1711,6 +1711,12 @@ const ClearlineFlow = () => {
   // Todo state
   const [todos, setTodos] = useState([]);
   const [deletedTodos, setDeletedTodos] = useState([]);
+  // Per-division cache: switching tabs shows the cached set instantly,
+  // then a background refresh updates it. Mutations write through to the
+  // cache slot for the currently-visible division (see visibleTodoDivisionRef).
+  const todosByDivisionRef = useRef({});
+  const deletedTodosByDivisionRef = useRef({});
+  const visibleTodoDivisionRef = useRef(null);
   const [selectedTodoAnalyst, _setSelectedTodoAnalyst] = useState(() => getStoredValue('selectedTodoAnalyst', ''));
   const [activeTodoDivision, _setActiveTodoDivision] = useState(() => getStoredValue('activeTodoDivision', 'Investment'));
   const [selectedOwnershipAnalyst, _setSelectedOwnershipAnalyst] = useState(() => getStoredValue('selectedOwnershipAnalyst', 'All'));
@@ -2070,13 +2076,15 @@ const ClearlineFlow = () => {
             todoDivisionToFetch = 'Investment';
           }
           console.log('📡 Calling DatabaseService.getTodos() with division:', todoDivisionToFetch);
-          const todosData = await DatabaseService.getTodos(todoDivisionToFetch);
+          const [todosData, deletedTodosData] = await Promise.all([
+            DatabaseService.getTodos(todoDivisionToFetch),
+            DatabaseService.getDeletedTodos(todoDivisionToFetch),
+          ]);
           console.log('✅ Successfully loaded todos from Supabase:', todosData);
-          setTodos(todosData);
-
-          // Also load deleted todos
-          const deletedTodosData = await DatabaseService.getDeletedTodos(todoDivisionToFetch);
           console.log('✅ Successfully loaded deleted todos from Supabase:', deletedTodosData);
+          todosByDivisionRef.current[todoDivisionToFetch] = todosData;
+          deletedTodosByDivisionRef.current[todoDivisionToFetch] = deletedTodosData;
+          setTodos(todosData);
           setDeletedTodos(deletedTodosData);
         } catch (todosError) {
           console.warn('⚠️ Could not load todos data (table may not exist yet):', todosError);
@@ -3078,6 +3086,40 @@ const ClearlineFlow = () => {
     }
   };
 
+  // Compute which todo division is currently being rendered. Mirrors the
+  // logic in refreshTodos / addTodo so cache writes target the right slot.
+  const getVisibleTodoDivision = useCallback(() => {
+    if (userDivision === 'Super') return activeTodoDivision;
+    if (userDivision === 'Ops') return 'Ops';
+    if (userDivision === 'Marketing') return 'Marketing';
+    return 'Investment';
+  }, [userDivision, activeTodoDivision]);
+
+  // Keep the ref in sync so cache-aware setters (called from async paths)
+  // can read the visible division without going through a closure.
+  useEffect(() => {
+    visibleTodoDivisionRef.current = getVisibleTodoDivision();
+  }, [getVisibleTodoDivision]);
+
+  // Setters that update both React state and the per-division cache slot.
+  const setTodosCached = useCallback((updater) => {
+    setTodos(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      const division = visibleTodoDivisionRef.current;
+      if (division) todosByDivisionRef.current[division] = next;
+      return next;
+    });
+  }, []);
+
+  const setDeletedTodosCached = useCallback((updater) => {
+    setDeletedTodos(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      const division = visibleTodoDivisionRef.current;
+      if (division) deletedTodosByDivisionRef.current[division] = next;
+      return next;
+    });
+  }, []);
+
   // Todo functions
   const addTodo = async (todoData) => {
     try {
@@ -3104,7 +3146,7 @@ const ClearlineFlow = () => {
       
       // Save to Supabase
       const savedTodo = await DatabaseService.addTodo(newTodo);
-      setTodos(prev => [savedTodo, ...prev]);
+      setTodosCached(prev => [savedTodo, ...prev]);
       return savedTodo;
     } catch (error) {
       console.error('Error adding todo:', error);
@@ -3132,11 +3174,30 @@ const ClearlineFlow = () => {
         divisionToFetch = 'Investment';
       }
 
-      const todosData = await DatabaseService.getTodos(divisionToFetch);
-      setTodos(todosData);
+      // Show cached data immediately so the tab swap feels instant; the
+      // fresh fetch below will overwrite once it arrives. If there's no
+      // cache yet (first time on this division), clear stale state so
+      // the user sees an empty list with a loading indicator instead of
+      // the previous division's data.
+      const cachedTodos = todosByDivisionRef.current[divisionToFetch];
+      const cachedDeleted = deletedTodosByDivisionRef.current[divisionToFetch];
+      if (cachedTodos) {
+        setTodos(cachedTodos);
+        setDeletedTodos(cachedDeleted || []);
+      } else {
+        setTodos([]);
+        setDeletedTodos([]);
+      }
 
-      // Also refresh deleted todos
-      const deletedTodosData = await DatabaseService.getDeletedTodos(divisionToFetch);
+      // Run the two queries in parallel.
+      const [todosData, deletedTodosData] = await Promise.all([
+        DatabaseService.getTodos(divisionToFetch),
+        DatabaseService.getDeletedTodos(divisionToFetch),
+      ]);
+
+      todosByDivisionRef.current[divisionToFetch] = todosData;
+      deletedTodosByDivisionRef.current[divisionToFetch] = deletedTodosData;
+      setTodos(todosData);
       setDeletedTodos(deletedTodosData);
     } catch (error) {
       console.error('❌ Error refreshing todos:', error);
@@ -3159,7 +3220,7 @@ const ClearlineFlow = () => {
       const updatedTodo = await DatabaseService.updateTodo(id, updates);
 
       // Update local state with the full returned data (includes statusUpdatedAt, etc.)
-      setTodos(prev => prev.map(todo =>
+      setTodosCached(prev => prev.map(todo =>
         todo.id === id
           ? { ...todo, ...updatedTodo }
           : todo
@@ -3183,11 +3244,11 @@ const ClearlineFlow = () => {
           isDeleted: true, 
           deletedAt: new Date().toISOString() 
         };
-        setDeletedTodos(prev => [deletedTodo, ...prev]);
+        setDeletedTodosCached(prev => [deletedTodo, ...prev]);
       }
-      
+
       // Update local state - remove from active todos
-      setTodos(prev => prev.filter(todo => todo.id !== id));
+      setTodosCached(prev => prev.filter(todo => todo.id !== id));
     } catch (error) {
       console.error('Error deleting todo:', error);
       throw error;
@@ -3200,10 +3261,10 @@ const ClearlineFlow = () => {
       const restoredTodo = await DatabaseService.restoreTodo(id);
       
       // Add back to active todos
-      setTodos(prev => [restoredTodo, ...prev]);
-      
+      setTodosCached(prev => [restoredTodo, ...prev]);
+
       // Remove from deleted todos
-      setDeletedTodos(prev => prev.filter(todo => todo.id !== id));
+      setDeletedTodosCached(prev => prev.filter(todo => todo.id !== id));
     } catch (error) {
       console.error('Error restoring todo:', error);
       throw error;
@@ -3216,7 +3277,7 @@ const ClearlineFlow = () => {
       await DatabaseService.permanentlyDeleteTodo(id);
 
       // Remove from deleted todos
-      setDeletedTodos(prev => prev.filter(todo => todo.id !== id));
+      setDeletedTodosCached(prev => prev.filter(todo => todo.id !== id));
     } catch (error) {
       console.error('Error permanently deleting todo:', error);
       throw error;
@@ -3226,7 +3287,7 @@ const ClearlineFlow = () => {
   const addTask = async (todoId, taskData) => {
     try {
       const savedTask = await DatabaseService.addTodoTask(todoId, taskData);
-      setTodos(prev => prev.map(todo =>
+      setTodosCached(prev => prev.map(todo =>
         todo.id === todoId
           ? { ...todo, tasks: [...(todo.tasks || []), savedTask] }
           : todo
@@ -3241,7 +3302,7 @@ const ClearlineFlow = () => {
   const updateTask = async (todoId, taskId, updates) => {
     try {
       const updatedTask = await DatabaseService.updateTodoTask(taskId, updates);
-      setTodos(prev => prev.map(todo =>
+      setTodosCached(prev => prev.map(todo =>
         todo.id === todoId
           ? {
               ...todo,
@@ -3261,7 +3322,7 @@ const ClearlineFlow = () => {
   const deleteTask = async (todoId, taskId) => {
     try {
       await DatabaseService.deleteTodoTask(taskId);
-      setTodos(prev => prev.map(todo =>
+      setTodosCached(prev => prev.map(todo =>
         todo.id === todoId
           ? { ...todo, tasks: (todo.tasks || []).filter(t => t.id !== taskId) }
           : todo
@@ -3391,11 +3452,13 @@ const ClearlineFlow = () => {
             divisionToFetch = 'Investment';
           }
           
-          const todosData = await DatabaseService.getTodos(divisionToFetch);
+          const [todosData, deletedTodosData] = await Promise.all([
+            DatabaseService.getTodos(divisionToFetch),
+            DatabaseService.getDeletedTodos(divisionToFetch),
+          ]);
+          todosByDivisionRef.current[divisionToFetch] = todosData;
+          deletedTodosByDivisionRef.current[divisionToFetch] = deletedTodosData;
           setTodos(todosData);
-          
-          // Also refresh deleted todos
-          const deletedTodosData = await DatabaseService.getDeletedTodos(divisionToFetch);
           setDeletedTodos(deletedTodosData);
         } catch (todosError) {
           console.warn('⚠️ Could not auto-refresh todos:', todosError);
@@ -9350,19 +9413,34 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
     ? activeTodoDivision
     : (userDivision === 'Ops' || userDivision === 'Marketing' ? userDivision : 'Investment');
 
-  // Initial refresh when component is mounted - only run once
+  // Initial refresh when component is mounted - only run once.
+  // Flip isRefreshing while the first fetch is in flight so the empty
+  // list shows a loading indicator instead of "No open todos found.".
   useEffect(() => {
     if (isFirstMount.current) {
       isFirstMount.current = false;
       const initialRefresh = async () => {
+        setIsRefreshing(true);
         try {
           await onRefreshTodos();
         } catch (error) {
           console.error('Error in initial refresh:', error);
+        } finally {
+          setIsRefreshing(false);
         }
       };
       initialRefresh();
     }
+  }, [onRefreshTodos]);
+
+  // Auto-refresh every 90 seconds while the user is on the Todo tab.
+  // When the user navigates to another tab the component unmounts and
+  // the interval is cleaned up, so it never runs in the background.
+  useEffect(() => {
+    const interval = setInterval(() => {
+      onRefreshTodos().catch(err => console.error('Todo auto-refresh failed:', err));
+    }, 90 * 1000);
+    return () => clearInterval(interval);
   }, [onRefreshTodos]);
 
   // Track whether division change was handled explicitly by the click handler
@@ -9778,6 +9856,30 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                   return 'Status:';
                 };
 
+                // Render a horizontal traffic light (3 dots) where only the
+                // active color is filled and the others render as colored
+                // outlines, matching the in-app UI.
+                const LIGHT_HEX = { red: '#ef4444', yellow: '#eab308', green: '#22c55e' };
+                const renderLightsHtml = (light) => {
+                  const active = light || 'red';
+                  return ['red', 'yellow', 'green'].map(c => {
+                    const hex = LIGHT_HEX[c];
+                    const style = c === active
+                      ? `display:inline-block;width:10px;height:10px;border-radius:50%;background:${hex};border:1.5px solid ${hex};vertical-align:middle;margin-right:3px;`
+                      : `display:inline-block;width:10px;height:10px;border-radius:50%;background:#ffffff;border:1.5px solid ${hex};vertical-align:middle;margin-right:3px;`;
+                    return `<span style="${style}"></span>`;
+                  }).join('');
+                };
+
+                // Map a legacy free-form status string to a default light for
+                // todos that don't have task records yet (mirrors the SQL
+                // backfill in add-todo-task-traffic-light.sql).
+                const lightFromStatusText = (status) => {
+                  if (status === 'Done') return 'green';
+                  if (status === 'In progress' || status === 'Waiting' || status === 'On hold') return 'yellow';
+                  return 'red';
+                };
+
                 // Render the task list for a todo as nested HTML rows. Falls back to the
                 // legacy item/status fields for todos that don't have task records yet.
                 const renderTasksHtml = (todo) => {
@@ -9788,18 +9890,22 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                         status: todo.status,
                         statusUpdatedAt: todo.statusUpdatedAt,
                         isComplete: !todo.isOpen,
+                        light: lightFromStatusText(todo.status),
                       }];
                   return tasks.map(task => {
                     const check = task.isComplete ? '☑' : '☐';
                     const descStyle = task.isComplete
                       ? 'text-decoration: line-through; color: #999;'
                       : 'color: #333;';
+                    const statusText = task.status || '<span style="color:#9ca3af; font-style:italic;">Status description...</span>';
                     return `
                       <tr>
                         <td colspan="2" style="font-size: 13px; padding-top: 6px; line-height: 1.4;">
                           <div style="${descStyle}"><span style="margin-right: 6px;">${check}</span>${task.description || ''}</div>
-                          <div style="margin-left: 22px; margin-top: 3px; font-size: 12px;">
-                            <strong>${getStatusLabel(task.statusUpdatedAt)}</strong> ${getStatusBadge(task.status)}
+                          <div style="margin-left: 22px; margin-top: 3px; font-size: 12px; color: #4b5563;">
+                            ${renderLightsHtml(task.light)}
+                            <span style="vertical-align: middle;">${statusText}</span>
+                            ${task.statusUpdatedAt ? `<span style="color:#9ca3af; margin-left:6px;">(${new Date(task.statusUpdatedAt).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })})</span>` : ''}
                           </div>
                         </td>
                       </tr>`;
@@ -10040,8 +10146,15 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
               doc.text(filterText, 20, 30);
               doc.text(`Generated: ${new Date().toLocaleDateString()}`, 20, 35);
               
-              // Build a multi-line "Tasks" cell showing each task with its checkbox and status.
-              // Falls back to legacy item/status for any todo that doesn't have task records yet.
+              // Build a multi-line "Tasks" cell showing each task with its
+              // checkbox, traffic-light state, and status description.
+              // Falls back to legacy item/status for any todo that doesn't
+              // have task records yet.
+              const pdfLightFromStatus = (s) => {
+                if (s === 'Done') return 'green';
+                if (s === 'In progress' || s === 'Waiting' || s === 'On hold') return 'yellow';
+                return 'red';
+              };
               const buildTasksCell = (todo) => {
                 const tasks = (todo.tasks && todo.tasks.length > 0)
                   ? todo.tasks
@@ -10049,11 +10162,13 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                       description: todo.item || '',
                       status: todo.status,
                       isComplete: !todo.isOpen,
+                      light: pdfLightFromStatus(todo.status),
                     }];
                 return tasks.map(task => {
                   const check = task.isComplete ? '[x]' : '[ ]';
-                  const status = task.status || 'Not started';
-                  return `${check} ${task.description || ''}\n    Status: ${status}`;
+                  const light = (task.light || 'red').toUpperCase();
+                  const status = task.status || '(no description)';
+                  return `${check} ${task.description || ''}\n    [${light}] ${status}`;
                 }).join('\n');
               };
 
@@ -10309,7 +10424,8 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                 tasks: trimmedTasks.map(desc => ({
                   description: desc,
                   isComplete: true,
-                  status: 'Done'
+                  status: 'Done',
+                  light: 'green'
                 }))
               });
               setNewCompletedTodo(getInitialTodoState());
@@ -10451,7 +10567,14 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
           )}
         </div>
         {openTodos.length === 0 ? (
-          <p className="text-gray-500 text-center py-8">No open todos found.</p>
+          isRefreshing ? (
+            <div className="flex items-center justify-center py-8 text-gray-500">
+              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              Loading todos...
+            </div>
+          ) : (
+            <p className="text-gray-500 text-center py-8">No open todos found.</p>
+          )
         ) : (
           <div className="bg-white shadow overflow-hidden sm:rounded-md">
             <table className="min-w-full divide-y divide-gray-200">
@@ -10466,9 +10589,6 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                   <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
                   <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ minWidth: '180px' }}>Status</th>
-                  {(userRole === 'readwrite' || userRole === 'admin') && (
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                  )}
                 </tr>
               </thead>
               <tbody className="bg-white">
@@ -10512,7 +10632,14 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
           Recently Closed Todos - Last 7 Days ({recentlyClosedTodos.length})
         </h2>
         {recentlyClosedTodos.length === 0 ? (
-          <p className="text-gray-500 text-center py-8">No recently closed todos found.</p>
+          isRefreshing ? (
+            <div className="flex items-center justify-center py-8 text-gray-500">
+              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              Loading todos...
+            </div>
+          ) : (
+            <p className="text-gray-500 text-center py-8">No recently closed todos found.</p>
+          )
         ) : (
           <div className="bg-white shadow overflow-hidden sm:rounded-md">
             <table className="min-w-full divide-y divide-gray-200">
@@ -10575,9 +10702,6 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
                   <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ minWidth: '180px' }}>Status</th>
-                  {(userRole === 'readwrite' || userRole === 'admin') && (
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                  )}
                 </tr>
               </thead>
               <tbody className="bg-white">
@@ -10628,16 +10752,24 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                   <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
                   <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ minWidth: '180px' }}>Status</th>
-                  {(userRole === 'readwrite' || userRole === 'admin') && (
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                  )}
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredDeletedTodos.map((todo) => (
                   <tr key={todo.id} className="bg-red-50 bg-opacity-30">
                     <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {todo.ticker}
+                      <div className="flex items-center gap-2">
+                        <span>{todo.ticker}</span>
+                        {(userRole === 'readwrite' || userRole === 'admin') && (
+                          <button
+                            onClick={() => onRestoreTodo(todo.id)}
+                            title="Restore this todo"
+                            className="p-1 rounded text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                          >
+                            <RotateCcw className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
                     </td>
                     <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500">
                       {todo.analyst}
@@ -10663,17 +10795,6 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                     <td className="px-2 py-4 whitespace-nowrap text-sm text-gray-500">
                       {todo.status || 'Not started'}
                     </td>
-                    {(userRole === 'readwrite' || userRole === 'admin') && (
-                      <td className="px-4 py-4 whitespace-nowrap text-sm">
-                        <button
-                          onClick={() => onRestoreTodo(todo.id)}
-                          className="text-green-600 hover:text-green-900 text-xs font-medium border border-green-500 px-2 py-1 rounded bg-green-50 hover:bg-green-100"
-                          title="Restore this todo"
-                        >
-                          Restore
-                        </button>
-                      </td>
-                    )}
                   </tr>
                 ))}
               </tbody>
@@ -10684,6 +10805,28 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
 
     </div>
   );
+};
+
+// Static class lists are required for Tailwind's purge to keep these styles.
+const TRAFFIC_LIGHT_ORDER = ['red', 'yellow', 'green'];
+const TRAFFIC_LIGHT_LABELS = {
+  red: 'Not started / blocked',
+  yellow: 'In progress',
+  green: 'Done / on track',
+};
+const TRAFFIC_LIGHT_CLASSES = {
+  red: {
+    active: 'bg-red-500 border-red-600',
+    inactive: 'bg-white border-red-500 hover:bg-red-50',
+  },
+  yellow: {
+    active: 'bg-yellow-400 border-yellow-500',
+    inactive: 'bg-white border-yellow-500 hover:bg-yellow-50',
+  },
+  green: {
+    active: 'bg-green-500 border-green-600',
+    inactive: 'bg-white border-green-500 hover:bg-green-50',
+  },
 };
 
 // Todo Row Component with double-click editing
@@ -10700,8 +10843,8 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, on
   const [isEmailSending, setIsEmailSending] = useState(false);
 
   const tasks = todo.tasks || [];
-  const actionColCount = hasWriteAccess ? 1 : 0;
-  const totalCols = 7 + actionColCount;
+  // Open/closed tables have 7 columns total: ticker, who, entered, days, priority, item, status.
+  const totalCols = 7;
 
   const handleDoubleClick = (field, currentValue) => {
     if (!hasWriteAccess) return;
@@ -10825,17 +10968,6 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, on
     }
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'In progress': return 'text-blue-600 bg-blue-100';
-      case 'Waiting': return 'text-orange-600 bg-orange-100';
-      case 'On hold': return 'text-purple-600 bg-purple-100';
-      case 'Done': return 'text-green-600 bg-green-100';
-      case 'Not started':
-      default: return 'text-gray-600 bg-gray-100';
-    }
-  };
-
   // Format status timestamp for display
   const formatStatusTimestamp = (timestamp) => {
     if (!timestamp) return '';
@@ -10882,25 +11014,44 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, on
       });
 
       // Build the task list rows for the email body.
+      const lightHex = { red: '#ef4444', yellow: '#eab308', green: '#22c55e' };
+      const lightFromStatus = (s) => {
+        if (s === 'Done') return 'green';
+        if (s === 'In progress' || s === 'Waiting' || s === 'On hold') return 'yellow';
+        return 'red';
+      };
+      const lightsDotsHtml = (active) => ['red', 'yellow', 'green'].map(c => {
+        const hex = lightHex[c];
+        const style = c === active
+          ? `display:inline-block;width:10px;height:10px;border-radius:50%;background:${hex};border:1.5px solid ${hex};vertical-align:middle;margin-right:3px;`
+          : `display:inline-block;width:10px;height:10px;border-radius:50%;background:#ffffff;border:1.5px solid ${hex};vertical-align:middle;margin-right:3px;`;
+        return `<span style="${style}"></span>`;
+      }).join('');
       const emailTasks = (todo.tasks && todo.tasks.length > 0)
         ? todo.tasks
         : [{
             description: todo.item || '',
             status: todo.status,
             isComplete: !todo.isOpen,
+            light: lightFromStatus(todo.status),
           }];
       const tasksRowsHtml = emailTasks.map(task => {
         const check = task.isComplete ? '☑' : '☐';
         const descStyle = task.isComplete
           ? 'text-decoration: line-through; color: #999;'
           : '';
-        const status = task.status || 'Not started';
+        const statusText = task.status
+          ? task.status
+          : '<span style="color:#9ca3af; font-style:italic;">Status description...</span>';
         return `
               <tr>
                 <td style="padding: 6px 8px; border-bottom: 1px solid #f1f3f5; vertical-align: top; width: 22px;">${check}</td>
                 <td style="padding: 6px 8px; border-bottom: 1px solid #f1f3f5;">
                   <div style="${descStyle}">${task.description || ''}</div>
-                  <div style="margin-top: 3px; font-size: 12px; color: #666;">Status: ${status}</div>
+                  <div style="margin-top: 4px; font-size: 12px; color: #4b5563;">
+                    ${lightsDotsHtml(task.light || 'red')}
+                    <span style="vertical-align: middle;">${statusText}</span>
+                  </div>
                 </td>
               </tr>`;
       }).join('');
@@ -11049,6 +11200,7 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, on
                 )}
               </>
             )}
+            {hasWriteAccess && renderTodoActions()}
           </div>
         )}
       </td>
@@ -11090,7 +11242,7 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, on
     </>
   );
 
-  const renderTaskCells = (task) => (
+  const renderTaskCells = (task, { canDeleteTask } = {}) => (
     <>
       <td className="px-4 py-2 align-top text-sm text-gray-900">
         <div className="flex items-start gap-2">
@@ -11121,54 +11273,85 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, on
               {task.description}
             </div>
           )}
+          {canDeleteTask && (
+            <button
+              onClick={() => handleDeleteTaskClick(task.id)}
+              title="Delete this task"
+              className="mt-1 ml-1 p-0.5 rounded text-gray-300 hover:text-red-600 hover:bg-red-50 flex-shrink-0"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
       </td>
       <td className="px-2 py-2 align-top text-sm">
-        {editingTask && editingTask.taskId === task.id && editingTask.field === 'status' ? (
-          <input
-            type="text"
-            value={taskEditValue}
-            onChange={(e) => setTaskEditValue(e.target.value)}
-            onBlur={saveTaskEdit}
-            onKeyDown={handleTaskKeyPress}
-            autoFocus
-            className="w-full border border-blue-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Enter status..."
-          />
-        ) : (
-          <div
-            className={`cursor-pointer ${hasWriteAccess ? 'hover:ring-2 hover:ring-blue-300 rounded' : ''}`}
-            onDoubleClick={() => startTaskEdit(task.id, 'status', task.status || 'Not started')}
-            title={hasWriteAccess ? 'Double-click to edit' : ''}
-          >
-            <span
-              className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(task.status || 'Not started')}`}
+        <div className="space-y-1">
+          {/* Traffic light: only one color active at a time. Click to switch. */}
+          <div className="flex items-center gap-1.5">
+            {TRAFFIC_LIGHT_ORDER.map(color => {
+              const active = (task.light || 'red') === color;
+              const cls = active ? TRAFFIC_LIGHT_CLASSES[color].active : TRAFFIC_LIGHT_CLASSES[color].inactive;
+              return (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => hasWriteAccess && onUpdateTask(todo.id, task.id, { light: color })}
+                  disabled={!hasWriteAccess}
+                  aria-pressed={active}
+                  title={TRAFFIC_LIGHT_LABELS[color]}
+                  className={`h-4 w-4 rounded-full border-2 ${cls} ${hasWriteAccess ? 'cursor-pointer' : 'cursor-default'}`}
+                />
+              );
+            })}
+          </div>
+          {/* Status description text */}
+          {editingTask && editingTask.taskId === task.id && editingTask.field === 'status' ? (
+            <input
+              type="text"
+              value={taskEditValue}
+              onChange={(e) => setTaskEditValue(e.target.value)}
+              onBlur={saveTaskEdit}
+              onKeyDown={handleTaskKeyPress}
+              autoFocus
+              className="w-full border border-blue-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Status description..."
+            />
+          ) : (
+            <div
+              className={`text-xs cursor-pointer rounded px-1 -mx-1 ${hasWriteAccess ? 'hover:bg-gray-50' : ''}`}
+              onDoubleClick={() => startTaskEdit(task.id, 'status', task.status || '')}
+              title={hasWriteAccess ? 'Double-click to edit' : ''}
               style={{ wordBreak: 'break-word' }}
             >
-              {task.status || 'Not started'}
-            </span>
-            {task.statusUpdatedAt && (
-              <div className="text-xs text-gray-400 mt-1">
-                {formatStatusTimestamp(task.statusUpdatedAt)}
-              </div>
-            )}
-          </div>
-        )}
+              {task.status ? (
+                <span className="text-gray-700">{task.status}</span>
+              ) : (
+                <span className="text-gray-400 italic">Status description...</span>
+              )}
+            </div>
+          )}
+          {task.statusUpdatedAt && (
+            <div className="text-xs text-gray-400">
+              {formatStatusTimestamp(task.statusUpdatedAt)}
+            </div>
+          )}
+        </div>
       </td>
     </>
   );
 
+  // Compact icon-only buttons for whole-todo actions. Placed inline with the ticker
+  // so it's obvious they apply to the todo, not the individual task row.
   const renderTodoActions = () => (
-    <div className="flex flex-wrap gap-1">
+    <div className="flex items-center gap-1 ml-1">
       <button
         onClick={() => onUpdateTodo(todo.id, { isOpen: !todo.isOpen })}
-        className={`text-xs font-bold border px-2 py-1 rounded ${
-          todo.isOpen
-            ? 'text-green-600 hover:text-green-900 border-green-500'
-            : 'text-blue-600 hover:text-blue-900 border-blue-500'
+        title={todo.isOpen ? 'Close todo' : 'Reopen todo'}
+        className={`p-1 rounded hover:bg-gray-100 ${
+          todo.isOpen ? 'text-green-600 hover:text-green-800' : 'text-blue-600 hover:text-blue-800'
         }`}
       >
-        {todo.isOpen ? 'Close' : 'Reopen'}
+        {todo.isOpen ? <XCircle className="h-4 w-4" /> : <RotateCcw className="h-4 w-4" />}
       </button>
       <button
         onClick={() => {
@@ -11176,21 +11359,22 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, on
             onDeleteTodo(todo.id);
           }
         }}
-        className="text-red-600 hover:text-red-900 text-xs font-bold border border-red-500 px-2 py-1 rounded"
+        title="Delete todo"
+        className="p-1 rounded text-red-600 hover:text-red-800 hover:bg-red-50"
       >
-        Delete
+        <Trash2 className="h-4 w-4" />
       </button>
       <button
         onClick={handleSendTodoEmail}
         disabled={isEmailSending}
-        className={`text-xs font-bold border px-2 py-1 rounded ${
-          isEmailSending
-            ? 'text-gray-400 border-gray-300 cursor-not-allowed'
-            : 'text-blue-600 hover:text-blue-900 border-blue-500 hover:bg-blue-50'
-        }`}
         title={`Send email to ${todo.analyst} about this todo`}
+        className={`p-1 rounded ${
+          isEmailSending
+            ? 'text-gray-400 cursor-not-allowed'
+            : 'text-blue-600 hover:text-blue-800 hover:bg-blue-50'
+        }`}
       >
-        {isEmailSending ? '📧...' : '📧'}
+        <Mail className="h-4 w-4" />
       </button>
     </div>
   );
@@ -11214,15 +11398,11 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, on
           {renderLeadingCells(true)}
           <td className="px-4 py-4 text-sm text-gray-400 italic">No tasks yet</td>
           <td className="px-2 py-4 text-sm" />
-          {hasWriteAccess && (
-            <td className="px-4 py-4 align-top whitespace-nowrap text-sm">
-              {renderTodoActions()}
-            </td>
-          )}
         </tr>
       )}
       {tasks.map((task, idx) => {
         const isFirst = idx === 0;
+        const canDeleteTask = hasWriteAccess && !isClosed && (!isFirst || tasks.length > 1);
         return (
           <tr
             key={task.id}
@@ -11234,35 +11414,7 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, on
             onDragEnd={isFirst ? onDragEnd : undefined}
           >
             {renderLeadingCells(isFirst)}
-            {renderTaskCells(task)}
-            {hasWriteAccess && (
-              <td className={`px-4 ${isFirst ? 'py-4' : 'py-2'} align-top whitespace-nowrap text-sm`}>
-                {isFirst ? (
-                  <div className="space-y-1">
-                    {renderTodoActions()}
-                    {tasks.length > 1 && !isClosed && (
-                      <button
-                        onClick={() => handleDeleteTaskClick(task.id)}
-                        className="text-xs text-red-500 hover:text-red-700 border border-red-300 px-2 py-0.5 rounded"
-                        title="Delete this task"
-                      >
-                        Delete task
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  !isClosed && (
-                    <button
-                      onClick={() => handleDeleteTaskClick(task.id)}
-                      className="text-xs text-red-500 hover:text-red-700 border border-red-300 px-2 py-0.5 rounded"
-                      title="Delete this task"
-                    >
-                      Delete task
-                    </button>
-                  )
-                )}
-              </td>
-            )}
+            {renderTaskCells(task, { canDeleteTask })}
           </tr>
         );
       })}
