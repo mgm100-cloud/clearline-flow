@@ -1711,6 +1711,12 @@ const ClearlineFlow = () => {
   // Todo state
   const [todos, setTodos] = useState([]);
   const [deletedTodos, setDeletedTodos] = useState([]);
+  // Per-division cache: switching tabs shows the cached set instantly,
+  // then a background refresh updates it. Mutations write through to the
+  // cache slot for the currently-visible division (see visibleTodoDivisionRef).
+  const todosByDivisionRef = useRef({});
+  const deletedTodosByDivisionRef = useRef({});
+  const visibleTodoDivisionRef = useRef(null);
   const [selectedTodoAnalyst, _setSelectedTodoAnalyst] = useState(() => getStoredValue('selectedTodoAnalyst', ''));
   const [activeTodoDivision, _setActiveTodoDivision] = useState(() => getStoredValue('activeTodoDivision', 'Investment'));
   const [selectedOwnershipAnalyst, _setSelectedOwnershipAnalyst] = useState(() => getStoredValue('selectedOwnershipAnalyst', 'All'));
@@ -2070,13 +2076,15 @@ const ClearlineFlow = () => {
             todoDivisionToFetch = 'Investment';
           }
           console.log('📡 Calling DatabaseService.getTodos() with division:', todoDivisionToFetch);
-          const todosData = await DatabaseService.getTodos(todoDivisionToFetch);
+          const [todosData, deletedTodosData] = await Promise.all([
+            DatabaseService.getTodos(todoDivisionToFetch),
+            DatabaseService.getDeletedTodos(todoDivisionToFetch),
+          ]);
           console.log('✅ Successfully loaded todos from Supabase:', todosData);
-          setTodos(todosData);
-
-          // Also load deleted todos
-          const deletedTodosData = await DatabaseService.getDeletedTodos(todoDivisionToFetch);
           console.log('✅ Successfully loaded deleted todos from Supabase:', deletedTodosData);
+          todosByDivisionRef.current[todoDivisionToFetch] = todosData;
+          deletedTodosByDivisionRef.current[todoDivisionToFetch] = deletedTodosData;
+          setTodos(todosData);
           setDeletedTodos(deletedTodosData);
         } catch (todosError) {
           console.warn('⚠️ Could not load todos data (table may not exist yet):', todosError);
@@ -3078,6 +3086,40 @@ const ClearlineFlow = () => {
     }
   };
 
+  // Compute which todo division is currently being rendered. Mirrors the
+  // logic in refreshTodos / addTodo so cache writes target the right slot.
+  const getVisibleTodoDivision = useCallback(() => {
+    if (userDivision === 'Super') return activeTodoDivision;
+    if (userDivision === 'Ops') return 'Ops';
+    if (userDivision === 'Marketing') return 'Marketing';
+    return 'Investment';
+  }, [userDivision, activeTodoDivision]);
+
+  // Keep the ref in sync so cache-aware setters (called from async paths)
+  // can read the visible division without going through a closure.
+  useEffect(() => {
+    visibleTodoDivisionRef.current = getVisibleTodoDivision();
+  }, [getVisibleTodoDivision]);
+
+  // Setters that update both React state and the per-division cache slot.
+  const setTodosCached = useCallback((updater) => {
+    setTodos(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      const division = visibleTodoDivisionRef.current;
+      if (division) todosByDivisionRef.current[division] = next;
+      return next;
+    });
+  }, []);
+
+  const setDeletedTodosCached = useCallback((updater) => {
+    setDeletedTodos(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      const division = visibleTodoDivisionRef.current;
+      if (division) deletedTodosByDivisionRef.current[division] = next;
+      return next;
+    });
+  }, []);
+
   // Todo functions
   const addTodo = async (todoData) => {
     try {
@@ -3104,7 +3146,7 @@ const ClearlineFlow = () => {
       
       // Save to Supabase
       const savedTodo = await DatabaseService.addTodo(newTodo);
-      setTodos(prev => [savedTodo, ...prev]);
+      setTodosCached(prev => [savedTodo, ...prev]);
       return savedTodo;
     } catch (error) {
       console.error('Error adding todo:', error);
@@ -3132,11 +3174,24 @@ const ClearlineFlow = () => {
         divisionToFetch = 'Investment';
       }
 
-      const todosData = await DatabaseService.getTodos(divisionToFetch);
-      setTodos(todosData);
+      // Show cached data immediately so the tab swap feels instant; the
+      // fresh fetch below will overwrite once it arrives.
+      const cachedTodos = todosByDivisionRef.current[divisionToFetch];
+      const cachedDeleted = deletedTodosByDivisionRef.current[divisionToFetch];
+      if (cachedTodos) {
+        setTodos(cachedTodos);
+        setDeletedTodos(cachedDeleted || []);
+      }
 
-      // Also refresh deleted todos
-      const deletedTodosData = await DatabaseService.getDeletedTodos(divisionToFetch);
+      // Run the two queries in parallel.
+      const [todosData, deletedTodosData] = await Promise.all([
+        DatabaseService.getTodos(divisionToFetch),
+        DatabaseService.getDeletedTodos(divisionToFetch),
+      ]);
+
+      todosByDivisionRef.current[divisionToFetch] = todosData;
+      deletedTodosByDivisionRef.current[divisionToFetch] = deletedTodosData;
+      setTodos(todosData);
       setDeletedTodos(deletedTodosData);
     } catch (error) {
       console.error('❌ Error refreshing todos:', error);
@@ -3159,7 +3214,7 @@ const ClearlineFlow = () => {
       const updatedTodo = await DatabaseService.updateTodo(id, updates);
 
       // Update local state with the full returned data (includes statusUpdatedAt, etc.)
-      setTodos(prev => prev.map(todo =>
+      setTodosCached(prev => prev.map(todo =>
         todo.id === id
           ? { ...todo, ...updatedTodo }
           : todo
@@ -3183,11 +3238,11 @@ const ClearlineFlow = () => {
           isDeleted: true, 
           deletedAt: new Date().toISOString() 
         };
-        setDeletedTodos(prev => [deletedTodo, ...prev]);
+        setDeletedTodosCached(prev => [deletedTodo, ...prev]);
       }
-      
+
       // Update local state - remove from active todos
-      setTodos(prev => prev.filter(todo => todo.id !== id));
+      setTodosCached(prev => prev.filter(todo => todo.id !== id));
     } catch (error) {
       console.error('Error deleting todo:', error);
       throw error;
@@ -3200,10 +3255,10 @@ const ClearlineFlow = () => {
       const restoredTodo = await DatabaseService.restoreTodo(id);
       
       // Add back to active todos
-      setTodos(prev => [restoredTodo, ...prev]);
-      
+      setTodosCached(prev => [restoredTodo, ...prev]);
+
       // Remove from deleted todos
-      setDeletedTodos(prev => prev.filter(todo => todo.id !== id));
+      setDeletedTodosCached(prev => prev.filter(todo => todo.id !== id));
     } catch (error) {
       console.error('Error restoring todo:', error);
       throw error;
@@ -3216,7 +3271,7 @@ const ClearlineFlow = () => {
       await DatabaseService.permanentlyDeleteTodo(id);
 
       // Remove from deleted todos
-      setDeletedTodos(prev => prev.filter(todo => todo.id !== id));
+      setDeletedTodosCached(prev => prev.filter(todo => todo.id !== id));
     } catch (error) {
       console.error('Error permanently deleting todo:', error);
       throw error;
@@ -3226,7 +3281,7 @@ const ClearlineFlow = () => {
   const addTask = async (todoId, taskData) => {
     try {
       const savedTask = await DatabaseService.addTodoTask(todoId, taskData);
-      setTodos(prev => prev.map(todo =>
+      setTodosCached(prev => prev.map(todo =>
         todo.id === todoId
           ? { ...todo, tasks: [...(todo.tasks || []), savedTask] }
           : todo
@@ -3241,7 +3296,7 @@ const ClearlineFlow = () => {
   const updateTask = async (todoId, taskId, updates) => {
     try {
       const updatedTask = await DatabaseService.updateTodoTask(taskId, updates);
-      setTodos(prev => prev.map(todo =>
+      setTodosCached(prev => prev.map(todo =>
         todo.id === todoId
           ? {
               ...todo,
@@ -3261,7 +3316,7 @@ const ClearlineFlow = () => {
   const deleteTask = async (todoId, taskId) => {
     try {
       await DatabaseService.deleteTodoTask(taskId);
-      setTodos(prev => prev.map(todo =>
+      setTodosCached(prev => prev.map(todo =>
         todo.id === todoId
           ? { ...todo, tasks: (todo.tasks || []).filter(t => t.id !== taskId) }
           : todo
@@ -3391,11 +3446,13 @@ const ClearlineFlow = () => {
             divisionToFetch = 'Investment';
           }
           
-          const todosData = await DatabaseService.getTodos(divisionToFetch);
+          const [todosData, deletedTodosData] = await Promise.all([
+            DatabaseService.getTodos(divisionToFetch),
+            DatabaseService.getDeletedTodos(divisionToFetch),
+          ]);
+          todosByDivisionRef.current[divisionToFetch] = todosData;
+          deletedTodosByDivisionRef.current[divisionToFetch] = deletedTodosData;
           setTodos(todosData);
-          
-          // Also refresh deleted todos
-          const deletedTodosData = await DatabaseService.getDeletedTodos(divisionToFetch);
           setDeletedTodos(deletedTodosData);
         } catch (todosError) {
           console.warn('⚠️ Could not auto-refresh todos:', todosError);

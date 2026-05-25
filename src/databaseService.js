@@ -444,12 +444,18 @@ export const DatabaseService = {
       const pageSize = 1000;
       let hasMore = true;
 
+      // Only request the task columns the UI actually consumes, and let
+      // PostgREST order the embedded tasks so we don't have to sort
+      // client-side.
+      const select = '*, todo_tasks(id, description, status, status_updated_at, is_complete, completed_at, sort_order)';
+
       while (hasMore) {
         let query = supabase
           .from('todos')
-          .select('*, todo_tasks(*)')
+          .select(select)
           .or('is_deleted.is.null,is_deleted.eq.false') // Exclude soft-deleted todos
           .order('date_entered', { ascending: false })
+          .order('sort_order', { referencedTable: 'todo_tasks', ascending: true })
           .range(from, from + pageSize - 1);
 
         // Filter by division if specified
@@ -479,9 +485,7 @@ export const DatabaseService = {
       return allData.map(row => {
         const { todo_tasks: rawTasks, ...todoRow } = row;
         const todo = convertFromDbFormat(todoRow);
-        const tasks = (rawTasks || [])
-          .map(convertFromDbFormat)
-          .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || (a.id - b.id));
+        const tasks = (rawTasks || []).map(convertFromDbFormat);
         return { ...todo, tasks };
       });
     } catch (error) {
@@ -497,12 +501,14 @@ export const DatabaseService = {
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       
+      const select = '*, todo_tasks(id, description, status, status_updated_at, is_complete, completed_at, sort_order)';
       let query = supabase
         .from('todos')
-        .select('*, todo_tasks(*)')
+        .select(select)
         .eq('is_deleted', true)
         .gte('deleted_at', sevenDaysAgo.toISOString())
-        .order('deleted_at', { ascending: false });
+        .order('deleted_at', { ascending: false })
+        .order('sort_order', { referencedTable: 'todo_tasks', ascending: true });
 
       // Filter by division if specified
       if (division) {
@@ -517,9 +523,7 @@ export const DatabaseService = {
       return (data || []).map(row => {
         const { todo_tasks: rawTasks, ...todoRow } = row;
         const todo = convertFromDbFormat(todoRow);
-        const tasks = (rawTasks || [])
-          .map(convertFromDbFormat)
-          .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || (a.id - b.id));
+        const tasks = (rawTasks || []).map(convertFromDbFormat);
         return { ...todo, tasks };
       });
     } catch (error) {
