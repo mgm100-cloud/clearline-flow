@@ -10387,7 +10387,8 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                 tasks: trimmedTasks.map(desc => ({
                   description: desc,
                   isComplete: true,
-                  status: 'Done'
+                  status: 'Done',
+                  light: 'green'
                 }))
               });
               setNewCompletedTodo(getInitialTodoState());
@@ -10769,6 +10770,28 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
   );
 };
 
+// Static class lists are required for Tailwind's purge to keep these styles.
+const TRAFFIC_LIGHT_ORDER = ['red', 'yellow', 'green'];
+const TRAFFIC_LIGHT_LABELS = {
+  red: 'Not started / blocked',
+  yellow: 'In progress',
+  green: 'Done / on track',
+};
+const TRAFFIC_LIGHT_CLASSES = {
+  red: {
+    active: 'bg-red-500 border-red-600',
+    inactive: 'bg-red-100 border-red-200 hover:bg-red-200',
+  },
+  yellow: {
+    active: 'bg-yellow-400 border-yellow-500',
+    inactive: 'bg-yellow-100 border-yellow-200 hover:bg-yellow-200',
+  },
+  green: {
+    active: 'bg-green-500 border-green-600',
+    inactive: 'bg-green-100 border-green-200 hover:bg-green-200',
+  },
+};
+
 // Todo Row Component with double-click editing
 const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, onDeleteTask, calculateDaysSinceEntered, formatDate, userRole, hasWriteAccess, isClosed = false, tickers, onNavigateToIdeaDetail, onNavigateToInputWithData, analystEmails = [], currentUser, activeTodoDivision, isDraggable = false, isDragging = false, onDragStart, onDragOver, onDrop, onDragEnd }) => {
   // Inline edit state for todo-level fields (ticker, priority)
@@ -10904,17 +10927,6 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, on
       case 'high': return 'text-red-600 bg-red-100';
       case 'medium': return 'text-yellow-600 bg-yellow-100';
       case 'low': return 'text-green-600 bg-green-100';
-      default: return 'text-gray-600 bg-gray-100';
-    }
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'In progress': return 'text-blue-600 bg-blue-100';
-      case 'Waiting': return 'text-orange-600 bg-orange-100';
-      case 'On hold': return 'text-purple-600 bg-purple-100';
-      case 'Done': return 'text-green-600 bg-green-100';
-      case 'Not started':
       default: return 'text-gray-600 bg-gray-100';
     }
   };
@@ -11217,36 +11229,57 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, on
         </div>
       </td>
       <td className="px-2 py-2 align-top text-sm">
-        {editingTask && editingTask.taskId === task.id && editingTask.field === 'status' ? (
-          <input
-            type="text"
-            value={taskEditValue}
-            onChange={(e) => setTaskEditValue(e.target.value)}
-            onBlur={saveTaskEdit}
-            onKeyDown={handleTaskKeyPress}
-            autoFocus
-            className="w-full border border-blue-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Enter status..."
-          />
-        ) : (
-          <div
-            className={`cursor-pointer ${hasWriteAccess ? 'hover:ring-2 hover:ring-blue-300 rounded' : ''}`}
-            onDoubleClick={() => startTaskEdit(task.id, 'status', task.status || 'Not started')}
-            title={hasWriteAccess ? 'Double-click to edit' : ''}
-          >
-            <span
-              className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(task.status || 'Not started')}`}
+        <div className="space-y-1">
+          {/* Traffic light: only one color active at a time. Click to switch. */}
+          <div className="flex items-center gap-1.5">
+            {TRAFFIC_LIGHT_ORDER.map(color => {
+              const active = (task.light || 'red') === color;
+              const cls = active ? TRAFFIC_LIGHT_CLASSES[color].active : TRAFFIC_LIGHT_CLASSES[color].inactive;
+              return (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => hasWriteAccess && onUpdateTask(todo.id, task.id, { light: color })}
+                  disabled={!hasWriteAccess}
+                  aria-pressed={active}
+                  title={TRAFFIC_LIGHT_LABELS[color]}
+                  className={`h-4 w-4 rounded-full border ${cls} ${hasWriteAccess ? 'cursor-pointer' : 'cursor-default'}`}
+                />
+              );
+            })}
+          </div>
+          {/* Status description text */}
+          {editingTask && editingTask.taskId === task.id && editingTask.field === 'status' ? (
+            <input
+              type="text"
+              value={taskEditValue}
+              onChange={(e) => setTaskEditValue(e.target.value)}
+              onBlur={saveTaskEdit}
+              onKeyDown={handleTaskKeyPress}
+              autoFocus
+              className="w-full border border-blue-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Status description..."
+            />
+          ) : (
+            <div
+              className={`text-xs cursor-pointer rounded px-1 -mx-1 ${hasWriteAccess ? 'hover:bg-gray-50' : ''}`}
+              onDoubleClick={() => startTaskEdit(task.id, 'status', task.status || '')}
+              title={hasWriteAccess ? 'Double-click to edit' : ''}
               style={{ wordBreak: 'break-word' }}
             >
-              {task.status || 'Not started'}
-            </span>
-            {task.statusUpdatedAt && (
-              <div className="text-xs text-gray-400 mt-1">
-                {formatStatusTimestamp(task.statusUpdatedAt)}
-              </div>
-            )}
-          </div>
-        )}
+              {task.status ? (
+                <span className="text-gray-700">{task.status}</span>
+              ) : (
+                <span className="text-gray-400 italic">Status description...</span>
+              )}
+            </div>
+          )}
+          {task.statusUpdatedAt && (
+            <div className="text-xs text-gray-400">
+              {formatStatusTimestamp(task.statusUpdatedAt)}
+            </div>
+          )}
+        </div>
       </td>
     </>
   );
