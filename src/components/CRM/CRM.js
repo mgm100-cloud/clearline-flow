@@ -41,7 +41,7 @@ const CRM = () => {
         .eq('id', user.id)
         .single()
 
-      if (profile && (profile.division === 'Marketing' || profile.division === 'Super')) {
+      if (profile && (profile.division === 'Marketing' || profile.division === 'Super' || profile.division === 'Engineering')) {
         setHasAccess(true)
       } else {
         setHasAccess(false)
@@ -102,7 +102,7 @@ const CRM = () => {
       <div className="crm-no-access">
         <h2>Access Denied</h2>
         <p>You do not have permission to access the CRM.</p>
-        <p>CRM access is restricted to Marketing and Super divisions.</p>
+        <p>CRM access is restricted to Marketing, Engineering and Super divisions.</p>
       </div>
     )
   }

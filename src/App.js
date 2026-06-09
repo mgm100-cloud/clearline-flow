@@ -1655,7 +1655,7 @@ const ClearlineFlow = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [userRole, setUserRole] = useState(''); // 'readwrite' or 'readonly'
-  const [userDivision, setUserDivision] = useState(''); // 'Investment', 'Ops', 'Admin', 'Marketing', 'Super'
+  const [userDivision, setUserDivision] = useState(''); // 'Investment', 'Ops', 'Admin', 'Marketing', 'Engineering', 'Super'
   
   // Persistent state - these will restore from localStorage
   const [activeTab, _setActiveTab] = useState(() => getStoredValue('activeTab', 'input'));
@@ -1856,7 +1856,7 @@ const ClearlineFlow = () => {
           
           if (!hasPersistedTab && !isInitializedRef.current) {
             console.log('🏗️ Setting default tab based on division (first time initialization)');
-            if (division === 'Investment' || division === 'Super') {
+            if (division === 'Investment' || division === 'Super' || division === 'Engineering') {
               setActiveTab('input');
             } else if (division === '') {
               console.warn('⚠️ User has no division set. Defaulting to todos tab.');
@@ -1979,7 +1979,7 @@ const ClearlineFlow = () => {
           console.log('🏗️ New sign-in detected - setting defaults if not persisted');
           
           if (!hasPersistedTab) {
-            if (division === 'Investment' || division === 'Super') {
+            if (division === 'Investment' || division === 'Super' || division === 'Engineering') {
               setActiveTab('input');
             } else if (division === '') {
               console.warn('⚠️ User has no division set. Defaulting to todos tab.');
@@ -2072,6 +2072,8 @@ const ClearlineFlow = () => {
             todoDivisionToFetch = 'Ops';
           } else if (userDivision === 'Marketing') {
             todoDivisionToFetch = 'Marketing';
+          } else if (userDivision === 'Engineering') {
+            todoDivisionToFetch = 'Engineering';
           } else {
             todoDivisionToFetch = 'Investment';
           }
@@ -2417,7 +2419,7 @@ const ClearlineFlow = () => {
     setAuthError('');
     
     // Set default tab based on division
-    if (division === 'Investment' || division === 'Super') {
+    if (division === 'Investment' || division === 'Super' || division === 'Engineering') {
       setActiveTab('input');
     } else if (division === '') {
       // No division set - might be existing user, default to todos but show message
@@ -3092,6 +3094,7 @@ const ClearlineFlow = () => {
     if (userDivision === 'Super') return activeTodoDivision;
     if (userDivision === 'Ops') return 'Ops';
     if (userDivision === 'Marketing') return 'Marketing';
+    if (userDivision === 'Engineering') return 'Engineering';
     return 'Investment';
   }, [userDivision, activeTodoDivision]);
 
@@ -3132,6 +3135,8 @@ const ClearlineFlow = () => {
         todoDivision = 'Ops';
       } else if (userDivision === 'Marketing') {
         todoDivision = 'Marketing';
+      } else if (userDivision === 'Engineering') {
+        todoDivision = 'Engineering';
       } else {
         // Investment, Admin default to Investment
         todoDivision = 'Investment';
@@ -3169,6 +3174,8 @@ const ClearlineFlow = () => {
         divisionToFetch = 'Ops';
       } else if (userDivision === 'Marketing') {
         divisionToFetch = 'Marketing';
+      } else if (userDivision === 'Engineering') {
+        divisionToFetch = 'Engineering';
       } else {
         // Investment, Admin default to Investment
         divisionToFetch = 'Investment';
@@ -3448,6 +3455,8 @@ const ClearlineFlow = () => {
             divisionToFetch = 'Ops';
           } else if (userDivision === 'Marketing') {
             divisionToFetch = 'Marketing';
+          } else if (userDivision === 'Engineering') {
+            divisionToFetch = 'Engineering';
           } else {
             divisionToFetch = 'Investment';
           }
@@ -3897,7 +3906,7 @@ const ClearlineFlow = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex space-x-8">
             {/* Show all tabs for Investment/Super division or users without division (backward compatibility) */}
-            {(userDivision === 'Investment' || userDivision === 'Super' || userDivision === '') && (
+            {(userDivision === 'Investment' || userDivision === 'Super' || userDivision === 'Engineering' || userDivision === '') && (
               <>
                 {(userRole === 'readwrite' || userRole === 'admin') && (
                   <button
@@ -4013,7 +4022,7 @@ const ClearlineFlow = () => {
             )}
             
             {/* Update Portfolio tab for Super and Ops divisions */}
-            {(userDivision === 'Super' || userDivision === 'Ops') && (
+            {(userDivision === 'Super' || userDivision === 'Ops' || userDivision === 'Engineering') && (
               <button
                 onClick={() => handleTabSwitch('update-portfolio')}
                 disabled={isTabSwitching}
@@ -4029,7 +4038,7 @@ const ClearlineFlow = () => {
             )}
             
             {/* Ownership tab for Ops, Investment and Super divisions */}
-            {(userDivision === 'Ops' || userDivision === 'Investment' || userDivision === 'Super') && (
+            {(userDivision === 'Ops' || userDivision === 'Investment' || userDivision === 'Super' || userDivision === 'Engineering') && (
               <button
                 onClick={() => handleTabSwitch('ownership')}
                 disabled={isTabSwitching}
@@ -4072,7 +4081,7 @@ const ClearlineFlow = () => {
             </button>
             
             {/* CRM tab for Marketing and Super divisions */}
-            {(userDivision === 'Marketing' || userDivision === 'Super') && (
+            {(userDivision === 'Marketing' || userDivision === 'Super' || userDivision === 'Engineering') && (
               <button
                 onClick={() => handleTabSwitch('crm')}
                 disabled={isTabSwitching}
@@ -4092,7 +4101,7 @@ const ClearlineFlow = () => {
 
       {/* Main Content */}
       <main className={`${(activeTab === 'database-detailed' || activeTab === 'crm') ? 'py-6' : 'max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8'}`}>
-        {activeTab === 'input' && (userDivision === 'Investment' || userDivision === 'Super' || userDivision === '') && (userRole === 'readwrite' || userRole === 'admin') && (
+        {activeTab === 'input' && (userDivision === 'Investment' || userDivision === 'Super' || userDivision === 'Engineering' || userDivision === '') && (userRole === 'readwrite' || userRole === 'admin') && (
           <InputPage 
             onAddTicker={addTicker} 
             analysts={analysts} 
@@ -4101,7 +4110,7 @@ const ClearlineFlow = () => {
             onPrefilledDataUsed={() => setPrefilledFormData(null)}
           />
         )}
-        {activeTab === 'input' && (userDivision === 'Investment' || userDivision === 'Super' || userDivision === '') && userRole === 'readonly' && (
+        {activeTab === 'input' && (userDivision === 'Investment' || userDivision === 'Super' || userDivision === 'Engineering' || userDivision === '') && userRole === 'readonly' && (
           <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
             <div className="px-4 py-6 sm:px-0">
               <div className="text-center">
@@ -4111,7 +4120,7 @@ const ClearlineFlow = () => {
             </div>
           </div>
         )}
-        {activeTab === 'input' && userDivision !== 'Investment' && userDivision !== 'Super' && userDivision !== '' && (
+        {activeTab === 'input' && userDivision !== 'Investment' && userDivision !== 'Super' && userDivision !== 'Engineering' && userDivision !== '' && (
           <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
             <div className="px-4 py-6 sm:px-0">
               <div className="text-center">
@@ -4121,7 +4130,7 @@ const ClearlineFlow = () => {
             </div>
           </div>
         )}
-        {activeTab === 'database' && (userDivision === 'Investment' || userDivision === 'Super' || userDivision === '') && (
+        {activeTab === 'database' && (userDivision === 'Investment' || userDivision === 'Super' || userDivision === 'Engineering' || userDivision === '') && (
           <DatabasePage 
             tickers={sortData(tickers, sortField)} 
             onSort={handleSort}
@@ -4144,7 +4153,7 @@ const ClearlineFlow = () => {
             onNavigateToIdeaDetail={navigateToIdeaDetail}
           />
         )}
-        {activeTab === 'database-detailed' && (userDivision === 'Investment' || userDivision === 'Super' || userDivision === '') && (
+        {activeTab === 'database-detailed' && (userDivision === 'Investment' || userDivision === 'Super' || userDivision === 'Engineering' || userDivision === '') && (
           <DatabaseDetailedPage 
             tickers={sortData(tickers, sortField)} 
             onSort={handleSort}
@@ -4165,14 +4174,14 @@ const ClearlineFlow = () => {
             onNavigateToIdeaDetail={navigateToIdeaDetail}
           />
         )}
-        {activeTab === 'idea-screening' && (userDivision === 'Investment' || userDivision === 'Super' || userDivision === '') && (
+        {activeTab === 'idea-screening' && (userDivision === 'Investment' || userDivision === 'Super' || userDivision === 'Engineering' || userDivision === '') && (
           <IdeaScreeningPage 
             tickers={tickers}
             quotes={quotes}
             onNavigateToIdeaDetail={navigateToIdeaDetail}
           />
         )}
-        {activeTab === 'pm-detail' && (userDivision === 'Investment' || userDivision === 'Super' || userDivision === '') && (
+        {activeTab === 'pm-detail' && (userDivision === 'Investment' || userDivision === 'Super' || userDivision === 'Engineering' || userDivision === '') && (
           <PMDetailPage 
             tickers={tickers}
             quotes={quotes}
@@ -4182,7 +4191,7 @@ const ClearlineFlow = () => {
             onNavigateToIdeaDetail={navigateToIdeaDetail}
           />
         )}
-        {activeTab === 'analyst-detail' && (userDivision === 'Investment' || userDivision === 'Super' || userDivision === '') && (
+        {activeTab === 'analyst-detail' && (userDivision === 'Investment' || userDivision === 'Super' || userDivision === 'Engineering' || userDivision === '') && (
           <AnalystDetailPage 
             tickers={tickers} 
             analysts={getInvestmentSuperAnalysts()}
@@ -4195,14 +4204,14 @@ const ClearlineFlow = () => {
             onNavigateToIdeaDetail={navigateToIdeaDetail}
           />
         )}
-        {activeTab === 'team' && (userDivision === 'Investment' || userDivision === 'Super' || userDivision === '') && (
+        {activeTab === 'team' && (userDivision === 'Investment' || userDivision === 'Super' || userDivision === 'Engineering' || userDivision === '') && (
           <TeamOutputPage 
             tickers={tickers} 
             analysts={getInvestmentSuperAnalysts()}
             onNavigateToIdeaDetail={navigateToIdeaDetail}
           />
         )}
-        {activeTab === 'earnings' && (userDivision === 'Investment' || userDivision === 'Super' || userDivision === '') && (
+        {activeTab === 'earnings' && (userDivision === 'Investment' || userDivision === 'Super' || userDivision === 'Engineering' || userDivision === '') && (
           <EarningsTrackingPage 
             tickers={tickers}
             selectedEarningsAnalyst={selectedEarningsAnalyst}
@@ -4223,7 +4232,7 @@ const ClearlineFlow = () => {
             onNavigateToIdeaDetail={navigateToIdeaDetail}
           />
         )}
-        {activeTab === 'update-portfolio' && (userDivision === 'Super' || userDivision === 'Ops') && (
+        {activeTab === 'update-portfolio' && (userDivision === 'Super' || userDivision === 'Ops' || userDivision === 'Engineering') && (
           <UpdatePortfolioPage 
             tickers={tickers}
             onUpdateTickers={setTickers}
@@ -4231,7 +4240,7 @@ const ClearlineFlow = () => {
             userRole={userRole}
           />
         )}
-        {activeTab === 'ownership' && (userDivision === 'Ops' || userDivision === 'Investment' || userDivision === 'Super') && (
+        {activeTab === 'ownership' && (userDivision === 'Ops' || userDivision === 'Investment' || userDivision === 'Super' || userDivision === 'Engineering') && (
           <OwnershipPage
             tickers={tickers}
             analysts={getInvestmentSuperAnalysts()}
@@ -4269,7 +4278,7 @@ const ClearlineFlow = () => {
         {activeTab === 'super-llm' && (
           <SuperLLMTab />
         )}
-        {activeTab === 'idea-detail' && (userDivision === 'Investment' || userDivision === 'Super' || userDivision === '') && (
+        {activeTab === 'idea-detail' && (userDivision === 'Investment' || userDivision === 'Super' || userDivision === 'Engineering' || userDivision === '') && (
           <IdeaDetailPage 
             tickers={tickers}
             selectedTicker={selectedTickerForDetail}
@@ -4288,7 +4297,7 @@ const ClearlineFlow = () => {
             onRefreshCompanyData={refreshSingleTickerData}
           />
         )}
-        {activeTab === 'crm' && (userDivision === 'Marketing' || userDivision === 'Super') && (
+        {activeTab === 'crm' && (userDivision === 'Marketing' || userDivision === 'Super' || userDivision === 'Engineering') && (
           <CRM />
         )}
       </main>
@@ -9380,6 +9389,8 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
         divisionsToInclude = ['Ops', 'Super'];
       } else if (activeTodoDivision === 'Marketing') {
         divisionsToInclude = ['Marketing', 'Super'];
+      } else if (activeTodoDivision === 'Engineering') {
+        divisionsToInclude = ['Engineering', 'Super'];
       } else {
         divisionsToInclude = ['Investment', 'Super'];
       }
@@ -9389,6 +9400,9 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
     } else if (userDivision === 'Marketing') {
       // Marketing users see Marketing and Super analysts
       divisionsToInclude = ['Marketing', 'Super'];
+    } else if (userDivision === 'Engineering') {
+      // Engineering users see Engineering and Super analysts
+      divisionsToInclude = ['Engineering', 'Super'];
     } else {
       // Investment, Admin see Investment and Super analysts
       divisionsToInclude = ['Investment', 'Super'];
@@ -9411,7 +9425,7 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
   // Mirrors the logic in addTodo() so form behavior matches what gets saved.
   const effectiveDivision = userDivision === 'Super'
     ? activeTodoDivision
-    : (userDivision === 'Ops' || userDivision === 'Marketing' ? userDivision : 'Investment');
+    : (userDivision === 'Ops' || userDivision === 'Marketing' || userDivision === 'Engineering' ? userDivision : 'Investment');
 
   // Initial refresh when component is mounted - only run once.
   // Flip isRefreshing while the first fetch is in flight so the empty
@@ -9747,6 +9761,16 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                 }`}
               >
                 Marketing Todos
+              </button>
+              <button
+                onClick={() => handleDivisionChange('Engineering')}
+                className={`px-3 py-1 text-sm font-medium rounded-md ${
+                  activeTodoDivision === 'Engineering'
+                    ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                Engineering Todos
               </button>
             </div>
           )}
@@ -10854,7 +10878,7 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, on
 
   const handleSaveEdit = async () => {
     let valueToSave = editValue;
-    if (editingField === 'ticker' && valueToSave && todo.division !== 'Ops' && todo.division !== 'Marketing') {
+    if (editingField === 'ticker' && valueToSave && todo.division !== 'Ops' && todo.division !== 'Marketing' && todo.division !== 'Engineering') {
       valueToSave = valueToSave.toUpperCase();
     }
     if (editingField && valueToSave !== todo[editingField]) {
@@ -11187,7 +11211,7 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, on
                     >
                       {todo.ticker}
                     </span>
-                    {(userRole === 'readwrite' || userRole === 'admin') && onNavigateToInputWithData && todo.ticker.length <= 6 && activeTodoDivision !== 'Ops' && activeTodoDivision !== 'Marketing' && (
+                    {(userRole === 'readwrite' || userRole === 'admin') && onNavigateToInputWithData && todo.ticker.length <= 6 && activeTodoDivision !== 'Ops' && activeTodoDivision !== 'Marketing' && activeTodoDivision !== 'Engineering' && (
                       <button
                         onClick={() => onNavigateToInputWithData(todo.ticker, todo.analyst)}
                         className="px-2 py-1 text-xs border border-blue-300 text-blue-600 rounded hover:border-blue-400 hover:text-blue-700 hover:bg-blue-50 transition-colors"
