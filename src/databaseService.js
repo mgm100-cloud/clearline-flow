@@ -794,17 +794,24 @@ export const DatabaseService = {
     try {
       const { data, error } = await supabase
         .from('todos')
-        .update({ 
-          is_deleted: false, 
+        .update({
+          is_deleted: false,
           deleted_at: null,
           updated_at: new Date().toISOString()
         })
         .eq('id', id)
-        .select()
-      
+        .select('*, todo_tasks(id, description, status, status_updated_at, is_complete, completed_at, sort_order, light)')
+
       if (error) throw error
-      
-      return convertFromDbFormat(data[0]);
+
+      // Normalize the embedded tasks like getTodos() so the restored todo
+      // renders its tasks immediately instead of after the next refresh.
+      const { todo_tasks: rawTasks, ...todoRow } = data[0];
+      const todo = convertFromDbFormat(todoRow);
+      const tasks = (rawTasks || [])
+        .map(convertFromDbFormat)
+        .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+      return { ...todo, tasks };
     } catch (error) {
       console.error('Error restoring todo:', error)
       throw error
