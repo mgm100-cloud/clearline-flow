@@ -2068,12 +2068,13 @@ const ClearlineFlow = () => {
           let todoDivisionToFetch;
           if (userDivision === 'Super') {
             todoDivisionToFetch = activeTodoDivision;
+          } else if (activeTodoDivision === 'Engineering' || userDivision === 'Engineering') {
+            // All divisions can view Engineering todos
+            todoDivisionToFetch = 'Engineering';
           } else if (userDivision === 'Ops') {
             todoDivisionToFetch = 'Ops';
           } else if (userDivision === 'Marketing') {
             todoDivisionToFetch = 'Marketing';
-          } else if (userDivision === 'Engineering') {
-            todoDivisionToFetch = 'Engineering';
           } else {
             todoDivisionToFetch = 'Investment';
           }
@@ -3092,9 +3093,10 @@ const ClearlineFlow = () => {
   // logic in refreshTodos / addTodo so cache writes target the right slot.
   const getVisibleTodoDivision = useCallback(() => {
     if (userDivision === 'Super') return activeTodoDivision;
+    // All divisions can switch into the Engineering todos view
+    if (activeTodoDivision === 'Engineering' || userDivision === 'Engineering') return 'Engineering';
     if (userDivision === 'Ops') return 'Ops';
     if (userDivision === 'Marketing') return 'Marketing';
-    if (userDivision === 'Engineering') return 'Engineering';
     return 'Investment';
   }, [userDivision, activeTodoDivision]);
 
@@ -3131,12 +3133,13 @@ const ClearlineFlow = () => {
       if (userDivision === 'Super') {
         // For Super users, use the active todo division tab
         todoDivision = activeTodoDivision;
+      } else if (activeTodoDivision === 'Engineering' || userDivision === 'Engineering') {
+        // All divisions can view and add Engineering todos
+        todoDivision = 'Engineering';
       } else if (userDivision === 'Ops') {
         todoDivision = 'Ops';
       } else if (userDivision === 'Marketing') {
         todoDivision = 'Marketing';
-      } else if (userDivision === 'Engineering') {
-        todoDivision = 'Engineering';
       } else {
         // Investment, Admin default to Investment
         todoDivision = 'Investment';
@@ -3170,12 +3173,13 @@ const ClearlineFlow = () => {
       } else if (userDivision === 'Super') {
         // For Super users, fetch based on active todo division tab
         divisionToFetch = activeTodoDivision;
+      } else if (activeTodoDivision === 'Engineering' || userDivision === 'Engineering') {
+        // All divisions can view Engineering todos
+        divisionToFetch = 'Engineering';
       } else if (userDivision === 'Ops') {
         divisionToFetch = 'Ops';
       } else if (userDivision === 'Marketing') {
         divisionToFetch = 'Marketing';
-      } else if (userDivision === 'Engineering') {
-        divisionToFetch = 'Engineering';
       } else {
         // Investment, Admin default to Investment
         divisionToFetch = 'Investment';
@@ -3451,12 +3455,13 @@ const ClearlineFlow = () => {
           let divisionToFetch;
           if (userDivision === 'Super') {
             divisionToFetch = activeTodoDivision;
+          } else if (activeTodoDivision === 'Engineering' || userDivision === 'Engineering') {
+            // All divisions can view Engineering todos
+            divisionToFetch = 'Engineering';
           } else if (userDivision === 'Ops') {
             divisionToFetch = 'Ops';
           } else if (userDivision === 'Marketing') {
             divisionToFetch = 'Marketing';
-          } else if (userDivision === 'Engineering') {
-            divisionToFetch = 'Engineering';
           } else {
             divisionToFetch = 'Investment';
           }
@@ -9383,14 +9388,15 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
     }
     
     let divisionsToInclude = [];
-    if (userDivision === 'Super') {
+    if (activeTodoDivision === 'Engineering' || userDivision === 'Engineering') {
+      // Engineering todos are visible to all divisions; show Engineering and Super analysts
+      divisionsToInclude = ['Engineering', 'Super'];
+    } else if (userDivision === 'Super') {
       // Super users see analysts based on the active todo division
       if (activeTodoDivision === 'Ops') {
         divisionsToInclude = ['Ops', 'Super'];
       } else if (activeTodoDivision === 'Marketing') {
         divisionsToInclude = ['Marketing', 'Super'];
-      } else if (activeTodoDivision === 'Engineering') {
-        divisionsToInclude = ['Engineering', 'Super'];
       } else {
         divisionsToInclude = ['Investment', 'Super'];
       }
@@ -9400,9 +9406,6 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
     } else if (userDivision === 'Marketing') {
       // Marketing users see Marketing and Super analysts
       divisionsToInclude = ['Marketing', 'Super'];
-    } else if (userDivision === 'Engineering') {
-      // Engineering users see Engineering and Super analysts
-      divisionsToInclude = ['Engineering', 'Super'];
     } else {
       // Investment, Admin see Investment and Super analysts
       divisionsToInclude = ['Investment', 'Super'];
@@ -9421,11 +9424,17 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
     return filtered;
   }, [analystEmails, userDivision, activeTodoDivision, analysts]);
 
-  // Effective division for the current user: Super uses the active tab, others use their own division.
-  // Mirrors the logic in addTodo() so form behavior matches what gets saved.
+  // Home division for non-Super users: the division whose todos they see by default.
+  const homeDivision = userDivision === 'Ops' || userDivision === 'Marketing' || userDivision === 'Engineering'
+    ? userDivision
+    : 'Investment';
+
+  // Effective division currently shown: Super uses the active tab; everyone else can
+  // switch between their home division and Engineering. Mirrors the logic in addTodo()
+  // so form behavior matches what gets saved.
   const effectiveDivision = userDivision === 'Super'
     ? activeTodoDivision
-    : (userDivision === 'Ops' || userDivision === 'Marketing' || userDivision === 'Engineering' ? userDivision : 'Investment');
+    : (activeTodoDivision === 'Engineering' ? 'Engineering' : homeDivision);
 
   // Initial refresh when component is mounted - only run once.
   // Flip isRefreshing while the first fetch is in flight so the empty
@@ -9729,8 +9738,9 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Todo List</h1>
-          {/* Division tabs for Super users */}
-          {userDivision === 'Super' && (
+          {/* Division tabs: Super users switch between all divisions; everyone
+              else can switch between their home division and Engineering */}
+          {userDivision === 'Super' ? (
             <div className="mt-2 flex space-x-1">
               <button
                 onClick={() => handleDivisionChange('Investment')}
@@ -9773,7 +9783,30 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                 Engineering Todos
               </button>
             </div>
-          )}
+          ) : userDivision !== 'Engineering' ? (
+            <div className="mt-2 flex space-x-1">
+              <button
+                onClick={() => handleDivisionChange(homeDivision)}
+                className={`px-3 py-1 text-sm font-medium rounded-md ${
+                  activeTodoDivision !== 'Engineering'
+                    ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {homeDivision} Todos
+              </button>
+              <button
+                onClick={() => handleDivisionChange('Engineering')}
+                className={`px-3 py-1 text-sm font-medium rounded-md ${
+                  activeTodoDivision === 'Engineering'
+                    ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                Engineering Todos
+              </button>
+            </div>
+          ) : null}
         </div>
         
         {/* Primary Action Buttons - Prominent */}
