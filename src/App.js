@@ -10273,6 +10273,9 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
           className="border border-gray-300 rounded-md px-3 py-2 text-sm"
         >
           <option value="">All</option>
+          {effectiveDivision === 'Engineering' && (
+            <option value="TBA">TBA</option>
+          )}
           {filteredAnalysts.map(analyst => (
             <option key={analyst} value={analyst}>{analyst}</option>
           ))}
@@ -10288,12 +10291,12 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
             const trimmedTasks = (newTodo.taskInputs || [])
               .map(t => (t || '').trim())
               .filter(Boolean);
-            if (!newTodo.ticker || !newTodo.analyst || trimmedTasks.length === 0) return;
+            if (!newTodo.ticker || (!newTodo.analyst && effectiveDivision !== 'Engineering') || trimmedTasks.length === 0) return;
 
             try {
               await onAddTodo({
                 ticker: newTodo.ticker,
-                analyst: newTodo.analyst,
+                analyst: effectiveDivision === 'Engineering' ? (newTodo.analyst || 'TBA') : newTodo.analyst,
                 priority: newTodo.priority,
                 item: trimmedTasks[0],
                 tasks: trimmedTasks.map(desc => ({ description: desc }))
@@ -10339,11 +10342,14 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                 value={newTodo.analyst}
                 onChange={(e) => setNewTodo({...newTodo, analyst: e.target.value})}
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
- page                required
+                required={effectiveDivision !== 'Engineering'}
               >
                 <option value="">
                   {activeTodoDivision === 'Ops' ? 'Select Employee' : 'Select Analyst'}
                 </option>
+                {effectiveDivision === 'Engineering' && (
+                  <option value="TBA">TBA</option>
+                )}
                 {filteredAnalysts.map(analyst => (
                   <option key={analyst} value={analyst}>{analyst}</option>
                 ))}
@@ -10433,14 +10439,14 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
             const trimmedTasks = (newCompletedTodo.taskInputs || [])
               .map(t => (t || '').trim())
               .filter(Boolean);
-            if (!newCompletedTodo.ticker || !newCompletedTodo.analyst || trimmedTasks.length === 0) return;
+            if (!newCompletedTodo.ticker || (!newCompletedTodo.analyst && effectiveDivision !== 'Engineering') || trimmedTasks.length === 0) return;
 
             try {
               // Add todo with isOpen set to false and dateClosed set to current timestamp.
               // Tasks are pre-completed since this is a completed todo.
               await onAddTodo({
                 ticker: newCompletedTodo.ticker,
-                analyst: newCompletedTodo.analyst,
+                analyst: effectiveDivision === 'Engineering' ? (newCompletedTodo.analyst || 'TBA') : newCompletedTodo.analyst,
                 priority: newCompletedTodo.priority,
                 item: trimmedTasks[0],
                 isOpen: false,
@@ -10493,11 +10499,14 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                 value={newCompletedTodo.analyst}
                 onChange={(e) => setNewCompletedTodo({...newCompletedTodo, analyst: e.target.value})}
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                required
+                required={effectiveDivision !== 'Engineering'}
               >
                 <option value="">
                   {activeTodoDivision === 'Ops' ? 'Select Employee' : 'Select Analyst'}
                 </option>
+                {effectiveDivision === 'Engineering' && (
+                  <option value="TBA">TBA</option>
+                )}
                 {filteredAnalysts.map(analyst => (
                   <option key={analyst} value={analyst}>{analyst}</option>
                 ))}
@@ -10636,6 +10645,7 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                     analystEmails={analystEmails}
                     currentUser={currentUser}
                     activeTodoDivision={activeTodoDivision}
+                    filteredAnalysts={filteredAnalysts}
                     isDraggable={!!selectedTodoAnalyst}
                     isDragging={draggedTodoId === todo.id}
                     onDragStart={(e) => handleDragStart(e, todo.id)}
@@ -10749,6 +10759,7 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                     analystEmails={analystEmails}
                     currentUser={currentUser}
                     activeTodoDivision={activeTodoDivision}
+                    filteredAnalysts={filteredAnalysts}
                   />
                 ))}
               </tbody>
@@ -10854,7 +10865,7 @@ const TRAFFIC_LIGHT_CLASSES = {
 };
 
 // Todo Row Component with double-click editing
-const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, onDeleteTask, calculateDaysSinceEntered, formatDate, userRole, hasWriteAccess, isClosed = false, tickers, onNavigateToIdeaDetail, onNavigateToInputWithData, analystEmails = [], currentUser, activeTodoDivision, isDraggable = false, isDragging = false, onDragStart, onDragOver, onDrop, onDragEnd }) => {
+const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, onDeleteTask, calculateDaysSinceEntered, formatDate, userRole, hasWriteAccess, isClosed = false, tickers, onNavigateToIdeaDetail, onNavigateToInputWithData, analystEmails = [], currentUser, activeTodoDivision, filteredAnalysts = [], isDraggable = false, isDragging = false, onDragStart, onDragOver, onDrop, onDragEnd }) => {
   // Inline edit state for todo-level fields (ticker, priority)
   const [editingField, setEditingField] = useState(null);
   const [editValue, setEditValue] = useState('');
@@ -11229,7 +11240,33 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, on
         )}
       </td>
       <td className={`px-2 ${isFirst ? 'py-4' : 'py-1'} align-top whitespace-nowrap text-sm text-gray-500`}>
-        {isFirst ? todo.analyst : ''}
+        {isFirst && (
+          editingField === 'analyst' ? (
+            <select
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              onBlur={handleSaveEdit}
+              onKeyDown={handleKeyPress}
+              autoFocus
+              className="border border-blue-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="TBA">TBA</option>
+              {filteredAnalysts.map(analyst => (
+                <option key={analyst} value={analyst}>{analyst}</option>
+              ))}
+            </select>
+          ) : todo.division === 'Engineering' && hasWriteAccess ? (
+            <span
+              className="cursor-pointer hover:bg-gray-100 px-1 py-0.5 rounded"
+              onDoubleClick={() => handleDoubleClick('analyst', todo.analyst || 'TBA')}
+              title="Double-click to edit"
+            >
+              {todo.analyst || 'TBA'}
+            </span>
+          ) : (
+            todo.analyst
+          )
+        )}
       </td>
       <td className={`px-3 ${isFirst ? 'py-4' : 'py-1'} align-top whitespace-nowrap text-sm text-gray-500`}>
         {isFirst ? formatDate(todo.dateEntered) : ''}
