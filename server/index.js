@@ -979,6 +979,48 @@ function updateFMPSubscriptions() {
   console.log(`📊 FMP symbols updated: ${fmpSymbols.size} symbols`);
 }
 
+// ==================== CACHE SEEDING ====================
+// The price cache is in-memory, so any restart (deploy, crash, Railway
+// maintenance) leaves clients price-less until live ticks resume - which
+// overnight means no prices until the next session. On boot, seed the
+// cache with last quotes from FMP for every TwelveData-subscribed symbol
+// FMP can represent, and broadcast them like normal ticks. FMP-path
+// symbols already self-seed because polling fetches immediately on start.
+let cacheSeedRuns = 0;
+async function seedPriceCache() {
+  cacheSeedRuns++;
+  if (!FMP_API_KEY) return;
+  const candidates = Array.from(symbolSubscribers.keys())
+    .filter((s) => !priceCache.has(s))
+    .filter((s) => convertToFMPSymbol(s)); // representable on FMP
+  if (candidates.length === 0) {
+    console.log(`🌱 Cache seed run ${cacheSeedRuns}: nothing to seed (${priceCache.size} cached)`);
+    return;
+  }
+  console.log(`🌱 Cache seed run ${cacheSeedRuns}: fetching last quotes for ${candidates.length} symbols...`);
+  let seeded = 0;
+  const batchSize = 50;
+  for (let i = 0; i < candidates.length; i += batchSize) {
+    const priceUpdates = await fetchFMPQuotes(candidates.slice(i, i + batchSize));
+    priceUpdates.forEach((priceData) => {
+      if (priceCache.has(priceData.symbol)) return; // a live tick won the race
+      priceCache.set(priceData.symbol, {
+        price: priceData.price,
+        timestamp: priceData.timestamp || Date.now(),
+        source: 'fmp-seed',
+        dayVolume: priceData.dayVolume,
+        exchange: priceData.exchange
+      });
+      seeded++;
+      broadcastPriceUpdate(priceData);
+    });
+  }
+  console.log(`🌱 Cache seed run ${cacheSeedRuns} complete: ${seeded} prices seeded (cache now ${priceCache.size})`);
+}
+// after subscriptions settle on boot, plus one catch-up for late subscribers
+setTimeout(seedPriceCache, 30000);
+setTimeout(seedPriceCache, 150000);
+
 // ==================== END FMP POLLING ====================
 
 // ==================== SUPABASE TICKER SYNC ====================
