@@ -1017,9 +1017,12 @@ async function seedPriceCache() {
   }
   console.log(`🌱 Cache seed run ${cacheSeedRuns} complete: ${seeded} prices seeded (cache now ${priceCache.size})`);
 }
-// after subscriptions settle on boot, plus one catch-up for late subscribers
+// after subscriptions settle on boot, then a slow recurring sweep so
+// symbols subscribed later (new clients, ticker sync) also get a last
+// quote when no live ticks are flowing. Skips anything already cached,
+// so during market hours it does essentially nothing.
 setTimeout(seedPriceCache, 30000);
-setTimeout(seedPriceCache, 150000);
+setInterval(seedPriceCache, 5 * 60 * 1000);
 
 // ==================== END FMP POLLING ====================
 
