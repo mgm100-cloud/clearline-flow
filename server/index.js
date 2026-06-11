@@ -751,8 +751,9 @@ function convertToFMPSymbol(symbol) {
     'KQ': '.KQ',   // Korea KOSDAQ
     'KP': '.KS',   // Korea KOSPI (alternative)
     'AU': '.AX',   // Australia ASX
-    'CN': '.TO',   // Canada Toronto Stock Exchange
-    'CT': '.V',    // Canada TSX Venture
+    'CN': '.TO',   // Canada composite -> Toronto
+    'CT': '.TO',   // Canada Toronto (Bloomberg CT; verified vs Citco extract)
+    'CV': '.V',    // Canada TSX Venture
     'MK': '.KL',   // Malaysia Bursa (use the numeric Bursa code as ticker)
   };
 
