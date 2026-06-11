@@ -93,7 +93,11 @@ const bloombergToTwelveDataMap = {
 };
 
 // FMP-handled exchanges (skip for TwelveData)
-const fmpExchanges = ['JP', 'JT', 'HK', 'IM', 'HM', 'TE', 'LN', 'DC', 'FP'];
+// KS/KQ/KP (Korea), AU (Australia) and CN/CT (Canada) added because the
+// TwelveData WebSocket rejects KRX outright and never acknowledges
+// ASX/TSX subscriptions - FMP quotes all of them.
+const fmpExchanges = ['JP', 'JT', 'HK', 'IM', 'HM', 'TE', 'LN', 'DC', 'FP',
+                      'KS', 'KQ', 'KP', 'AU', 'CN', 'CT'];
 
 // Special US ticker mappings where TwelveData uses different symbols
 const usTwelveDataSymbolMap = {
@@ -288,6 +292,43 @@ function extractSymbol(item) {
   return String(item);
 }
 
+// Maps a TwelveData-converted symbol back to the Bloomberg-format symbol
+// the client originally subscribed with (e.g. "MAY:KLSE" -> "1155 MK"),
+// so the FMP fallback can derive a valid FMP symbol and broadcast prices
+// under the key clients are listening for.
+const convertedToOriginal = new Map();
+
+// Route a symbol the TwelveData WebSocket cannot stream (explicit fail or
+// never acknowledged) to the FMP poller instead, carrying its subscriber
+// list over so price broadcasts keep reaching the right clients.
+function fallbackToFMP(twelveDataSymbol) {
+  const original = convertedToOriginal.get(twelveDataSymbol) || twelveDataSymbol;
+  const fmpSymbol = convertToFMPSymbol(original);
+  if (!fmpSymbol) return; // not representable on FMP
+
+  const subs = symbolSubscribers.get(twelveDataSymbol);
+  if (!subs || subs.size === 0) return;
+
+  if (!fmpSymbolSubscribers.has(original)) {
+    fmpSymbolSubscribers.set(original, new Set());
+  }
+  const fmpSubs = fmpSymbolSubscribers.get(original);
+  let added = 0;
+  subs.forEach((ws) => {
+    if (!fmpSubs.has(ws)) {
+      fmpSubs.add(ws);
+      added++;
+    }
+    const clientData = clients.get(ws);
+    if (clientData) clientData.fmpSymbols.add(original);
+  });
+
+  if (added > 0) {
+    console.log(`🔁 FMP fallback engaged for ${original} -> ${fmpSymbol} (${added} subscriber${added === 1 ? '' : 's'})`);
+    updateFMPSubscriptions();
+  }
+}
+
 // Handle messages from TwelveData
 function handleTwelveDataMessage(data) {
   // Handle subscription status
@@ -326,6 +367,8 @@ function handleTwelveDataMessage(data) {
           });
           // Remove from pending
           pendingSubscriptions.delete(symbol);
+          // Try FMP instead of giving up
+          fallbackToFMP(symbol);
         }
       });
     }
@@ -343,6 +386,9 @@ function handleTwelveDataMessage(data) {
           timestamp: now,
           source: 'twelvedata-ws-unacknowledged'
         });
+        // Stop re-reporting it and try FMP instead
+        pendingSubscriptions.delete(symbol);
+        fallbackToFMP(symbol);
       }
     });
     
@@ -671,17 +717,25 @@ function updateAggregatedSubscriptions() {
 // Convert Bloomberg symbol to FMP format
 function convertToFMPSymbol(symbol) {
   if (!symbol || typeof symbol !== 'string') return null;
-  
+
   const cleanSymbol = symbol.trim().toUpperCase();
   const parts = cleanSymbol.split(' ');
-  
+
+  // Plain US tickers (no exchange suffix) pass through unchanged - used by
+  // the TwelveData-fallback path for symbols the WebSocket never streams
+  // (e.g. micro caps). TwelveData's converted intl symbols (TICKER:EXCH)
+  // are not valid FMP symbols.
+  if (parts.length === 1) {
+    return cleanSymbol.includes(':') ? null : cleanSymbol.replace(/\//g, '-');
+  }
+
   if (parts.length !== 2) return null;
-  
+
   let [ticker, exchange] = parts;
-  
+
   // Replace slashes with dashes for FMP format (e.g., BT/A -> BT-A)
   ticker = ticker.replace(/\//g, '-');
-  
+
   // Map Bloomberg exchange codes to FMP exchange suffixes
   const fmpExchangeMap = {
     'JP': '.T',    // Tokyo Stock Exchange
@@ -693,11 +747,19 @@ function convertToFMPSymbol(symbol) {
     'TE': '.MI',   // Milan Stock Exchange (alternative)
     'DC': '.CO',   // Copenhagen Stock Exchange (Denmark)
     'FP': '.PA',   // Paris Stock Exchange (France)
+    'KS': '.KS',   // Korea KOSPI
+    'KQ': '.KQ',   // Korea KOSDAQ
+    'KP': '.KS',   // Korea KOSPI (alternative)
+    'AU': '.AX',   // Australia ASX
+    'CN': '.TO',   // Canada composite -> Toronto
+    'CT': '.TO',   // Canada Toronto (Bloomberg CT; verified vs Citco extract)
+    'CV': '.V',    // Canada TSX Venture
+    'MK': '.KL',   // Malaysia Bursa (use the numeric Bursa code as ticker)
   };
-  
+
   const fmpSuffix = fmpExchangeMap[exchange];
   if (!fmpSuffix) return null;
-  
+
   return ticker + fmpSuffix;
 }
 
@@ -1513,7 +1575,12 @@ function handleClientMessage(ws, message) {
       }
       
       if (converted === null) return;
-      
+
+      // Remember the original Bloomberg form for the FMP fallback path
+      if (converted !== original && !convertedToOriginal.has(converted)) {
+        convertedToOriginal.set(converted, original);
+      }
+
       // Track client's TwelveData subscriptions using converted symbol
       clientData.twelveDataSymbols.add(converted);
       twelveDataCount++;
