@@ -3344,6 +3344,32 @@ const ClearlineFlow = () => {
     }
   };
 
+  const reorderTasks = async (todoId, orderedTaskIds) => {
+    try {
+      // Optimistically reorder in local state so the row snaps into place immediately
+      setTodosCached(prev => prev.map(todo => {
+        if (todo.id !== todoId) return todo;
+        const byId = new Map((todo.tasks || []).map(task => [task.id, task]));
+        const tasks = orderedTaskIds
+          .map((taskId, index) => {
+            const task = byId.get(taskId);
+            return task ? { ...task, sortOrder: index } : null;
+          })
+          .filter(Boolean);
+        return { ...todo, tasks };
+      }));
+
+      await DatabaseService.updateTaskSortOrders(
+        orderedTaskIds.map((taskId, index) => ({ id: taskId, sortOrder: index }))
+      );
+    } catch (error) {
+      console.error('Error reordering tasks:', error);
+      // Resync from the server since the optimistic reorder may not have persisted
+      refreshTodos().catch(() => {});
+      throw error;
+    }
+  };
+
   // Sort function
   const sortData = (data, field) => {
     if (!field) return data;
@@ -4268,6 +4294,7 @@ const ClearlineFlow = () => {
             onAddTask={addTask}
             onUpdateTask={updateTask}
             onDeleteTask={deleteTask}
+            onReorderTasks={reorderTasks}
             analysts={analysts}
             userRole={userRole}
             onRefreshTodos={refreshTodos}
@@ -9316,7 +9343,7 @@ This email and any files transmitted with it may contain privileged or confident
 };
 
 // Todo List Page Component
-const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectTodoAnalyst, onAddTodo, onUpdateTodo, onDeleteTodo, onRestoreTodo, onPermanentlyDeleteTodo, onAddTask, onUpdateTask, onDeleteTask, analysts, userRole, onRefreshTodos, currentUser, tickers, onNavigateToIdeaDetail, onNavigateToInputWithData, userDivision, activeTodoDivision, onSetActiveTodoDivision }) => {
+const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectTodoAnalyst, onAddTodo, onUpdateTodo, onDeleteTodo, onRestoreTodo, onPermanentlyDeleteTodo, onAddTask, onUpdateTask, onDeleteTask, onReorderTasks, analysts, userRole, onRefreshTodos, currentUser, tickers, onNavigateToIdeaDetail, onNavigateToInputWithData, userDivision, activeTodoDivision, onSetActiveTodoDivision }) => {
   const [sortField, setSortField] = useState('dateEntered');
   const [sortDirection, setSortDirection] = useState('desc');
   const [closedSortField, setClosedSortField] = useState('dateClosed');
@@ -10667,6 +10694,7 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                     onAddTask={onAddTask}
                     onUpdateTask={onUpdateTask}
                     onDeleteTask={onDeleteTask}
+                    onReorderTasks={onReorderTasks}
                     calculateDaysSinceEntered={calculateDaysSinceEntered}
                     formatDate={formatDate}
                     userRole={userRole}
@@ -10781,6 +10809,7 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                     onAddTask={onAddTask}
                     onUpdateTask={onUpdateTask}
                     onDeleteTask={onDeleteTask}
+                    onReorderTasks={onReorderTasks}
                     calculateDaysSinceEntered={calculateDaysSinceEntered}
                     formatDate={formatDate}
                     userRole={userRole}
@@ -10898,7 +10927,7 @@ const TRAFFIC_LIGHT_CLASSES = {
 };
 
 // Todo Row Component with double-click editing
-const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, onDeleteTask, calculateDaysSinceEntered, formatDate, userRole, hasWriteAccess, isClosed = false, tickers, onNavigateToIdeaDetail, onNavigateToInputWithData, analystEmails = [], currentUser, activeTodoDivision, filteredAnalysts = [], isDraggable = false, isDragging = false, onDragStart, onDragOver, onDrop, onDragEnd }) => {
+const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, onDeleteTask, onReorderTasks, calculateDaysSinceEntered, formatDate, userRole, hasWriteAccess, isClosed = false, tickers, onNavigateToIdeaDetail, onNavigateToInputWithData, analystEmails = [], currentUser, activeTodoDivision, filteredAnalysts = [], isDraggable = false, isDragging = false, onDragStart, onDragOver, onDrop, onDragEnd }) => {
   // Inline edit state for todo-level fields (ticker, priority)
   const [editingField, setEditingField] = useState(null);
   const [editValue, setEditValue] = useState('');
@@ -10909,10 +10938,54 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, on
   const [newTaskInput, setNewTaskInput] = useState('');
   const [isAddingTask, setIsAddingTask] = useState(false);
   const [isEmailSending, setIsEmailSending] = useState(false);
+  // Task being dragged for reordering within this todo
+  const [draggedTaskId, setDraggedTaskId] = useState(null);
 
   const tasks = todo.tasks || [];
   // Open/closed tables have 7 columns total: ticker, who, entered, days, priority, item, status.
   const totalCols = 7;
+
+  // Tasks can be reordered by dragging their handle while the todo is open
+  const canReorderTasks = hasWriteAccess && !isClosed && tasks.length > 1 && !!onReorderTasks;
+
+  const handleTaskDragStart = (e, taskId) => {
+    // Don't let the todo-level row drag kick in
+    e.stopPropagation();
+    setDraggedTaskId(taskId);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', `task-${taskId}`);
+    // Show the whole task row as the drag image instead of just the handle
+    const row = e.currentTarget.closest('tr');
+    if (row) e.dataTransfer.setDragImage(row, 0, 0);
+  };
+
+  const handleTaskDragEnd = (e) => {
+    e.stopPropagation();
+    setDraggedTaskId(null);
+  };
+
+  const handleTaskDrop = async (e, targetTaskId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const sourceTaskId = draggedTaskId;
+    setDraggedTaskId(null);
+    if (!sourceTaskId || sourceTaskId === targetTaskId) return;
+
+    const draggedIndex = tasks.findIndex(t => t.id === sourceTaskId);
+    const targetIndex = tasks.findIndex(t => t.id === targetTaskId);
+    if (draggedIndex === -1 || targetIndex === -1) return;
+
+    const reordered = [...tasks];
+    const [moved] = reordered.splice(draggedIndex, 1);
+    reordered.splice(targetIndex, 0, moved);
+
+    try {
+      await onReorderTasks(todo.id, reordered.map(t => t.id));
+    } catch (error) {
+      console.error('Error reordering tasks:', error);
+      alert('Failed to save task order');
+    }
+  };
 
   const handleDoubleClick = (field, currentValue) => {
     if (!hasWriteAccess) return;
@@ -11340,6 +11413,17 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, on
     <>
       <td className="px-4 py-2 align-top text-sm text-gray-900">
         <div className="flex items-start gap-2">
+          {canReorderTasks && (
+            <span
+              draggable
+              onDragStart={(e) => handleTaskDragStart(e, task.id)}
+              onDragEnd={handleTaskDragEnd}
+              className="mt-1 text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing select-none"
+              title="Drag to reorder tasks"
+            >
+              ⋮⋮
+            </span>
+          )}
           <input
             type="checkbox"
             checked={!!task.isComplete}
@@ -11500,11 +11584,26 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, on
         return (
           <tr
             key={task.id}
-            className={`${isFirst ? groupBorder : taskRowBorder} ${isClosed ? 'bg-white' : ''} ${isFirst && isDraggable ? 'cursor-grab active:cursor-grabbing' : ''} ${isFirst && isDragging ? 'opacity-50 bg-blue-50' : ''}`}
+            className={`${isFirst ? groupBorder : taskRowBorder} ${isClosed ? 'bg-white' : ''} ${isFirst && isDraggable ? 'cursor-grab active:cursor-grabbing' : ''} ${isFirst && isDragging ? 'opacity-50 bg-blue-50' : ''} ${draggedTaskId === task.id ? 'opacity-50 bg-blue-50' : ''}`}
             draggable={isFirst && isDraggable}
             onDragStart={isFirst ? onDragStart : undefined}
-            onDragOver={isFirst ? onDragOver : undefined}
-            onDrop={isFirst ? onDrop : undefined}
+            onDragOver={(e) => {
+              // While a task from this todo is being dragged, every task row is a
+              // drop target; otherwise fall back to the todo-level reorder handling
+              if (draggedTaskId) {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+              } else if (isFirst && onDragOver) {
+                onDragOver(e);
+              }
+            }}
+            onDrop={(e) => {
+              if (draggedTaskId) {
+                handleTaskDrop(e, task.id);
+              } else if (isFirst && onDrop) {
+                onDrop(e);
+              }
+            }}
             onDragEnd={isFirst ? onDragEnd : undefined}
           >
             {renderLeadingCells(isFirst)}
