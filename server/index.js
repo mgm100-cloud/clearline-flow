@@ -145,6 +145,19 @@ function convertBloombergToTwelveData(symbol) {
 
 // Create HTTP server for health checks
 const server = http.createServer((req, res) => {
+  // Baseline closes/opens for Prism's Live period selector (CORS-enabled GET).
+  if (req.url && req.url.indexOf('/closes') === 0) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    let qs = ''; const qi = req.url.indexOf('?');
+    if (qi >= 0) qs = req.url.slice(qi + 1);
+    const params = new URLSearchParams(qs);
+    const symbols = (params.get('symbols') || '').split(',').map(decodeURIComponent).filter(Boolean).slice(0, 600);
+    fetchFMPDetail(symbols).then((out) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(out));
+    }).catch(() => { res.writeHead(500); res.end('{}'); });
+    return;
+  }
   if (req.url === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
@@ -761,6 +774,40 @@ function convertToFMPSymbol(symbol) {
   if (!fmpSuffix) return null;
 
   return ticker + fmpSuffix;
+}
+
+// Fetch open + previousClose for a list of original (Bloomberg-format) symbols.
+// Returns { originalSymbol: { open, prevClose } } in the listing's native units.
+// Used by Prism's Live "period" selector (Today = since open, Last 24h = since
+// prior close). One batched FMP /quote call covers US + international.
+function fetchFMPDetail(originalSymbols) {
+  return new Promise((resolve) => {
+    if (!FMP_API_KEY || !originalSymbols.length) { resolve({}); return; }
+    const fmpToOrig = new Map();
+    originalSymbols.forEach((o) => {
+      const f = convertToFMPSymbol(o);
+      if (f) { if (!fmpToOrig.has(f)) fmpToOrig.set(f, []); fmpToOrig.get(f).push(o); }
+    });
+    const fmpList = Array.from(fmpToOrig.keys());
+    if (!fmpList.length) { resolve({}); return; }
+    const url = `${FMP_BASE_URL}/quote/${fmpList.join(',')}?apikey=${FMP_API_KEY}`;
+    https.get(url, (r) => {
+      let data = '';
+      r.on('data', (c) => { data += c; });
+      r.on('end', () => {
+        const out = {};
+        try {
+          const arr = JSON.parse(data);
+          if (Array.isArray(arr)) arr.forEach((q) => {
+            (fmpToOrig.get(q.symbol) || []).forEach((o) => {
+              out[o] = { open: q.open != null ? q.open : null, prevClose: q.previousClose != null ? q.previousClose : null };
+            });
+          });
+        } catch (e) { /* return whatever we have */ }
+        resolve(out);
+      });
+    }).on('error', () => resolve({}));
+  });
 }
 
 // Fetch quotes from FMP for a batch of symbols
