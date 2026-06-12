@@ -1,0 +1,60 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clearline Flow - Sign-in bridge</title>
+<style>
+  body{font-family:system-ui,sans-serif;background:#0f1830;color:#cdd7ea;
+    display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
+  .b{text-align:center}.b .s{font-size:14px;opacity:.8}
+  .sp{width:26px;height:26px;border:3px solid rgba(255,255,255,.25);border-top-color:#6ea8ff;
+    border-radius:50%;margin:0 auto 14px;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="b"><div class="sp"></div><div class="s" id="s">Connecting your session...</div></div>
+<script type="module">
+/* Single-sign-on bridge for Prism (prism.clearlineflow.com).
+   This page is SAME ORIGIN as Clearline Flow, so it can read the logged-in
+   Supabase session from local storage and hand it to Prism via the URL
+   fragment (never sent to any server). It only ever redirects to Prism's
+   own origin - no open redirect. Purely additive: nothing else in Flow
+   touches or depends on this file. */
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+const SUPA_URL = 'https://zdlpbpcezvpkfqbqmefw.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkbHBicGNlenZwa2ZxYnFtZWZ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgzMDAwMzIsImV4cCI6MjA2Mzg3NjAzMn0._BgtRvJ0wNMaPj0k7Tu1WWjengFW8jc42u0vq9tTwA4';
+const ALLOWED = 'https://prism.clearlineflow.com';
+
+function go(url){ location.replace(url); }
+const params = new URLSearchParams(location.search);
+const redirect = params.get('redirect') || '';
+const s = document.getElementById('s');
+
+// Only ever bounce back to Prism's own origin.
+if (redirect !== ALLOWED && redirect.indexOf(ALLOWED + '/') !== 0) {
+  s.textContent = 'Invalid sign-in request.';
+} else {
+  (async () => {
+    try {
+      const supa = createClient(SUPA_URL, SUPA_KEY, { auth: { persistSession: true } });
+      const { data } = await supa.auth.getSession();
+      const sess = data && data.session;
+      if (sess && sess.access_token && sess.refresh_token) {
+        const frag = '#sso_at=' + encodeURIComponent(sess.access_token) +
+                     '&sso_rt=' + encodeURIComponent(sess.refresh_token);
+        go(ALLOWED + '/' + frag);
+      } else {
+        go(ALLOWED + '/#sso=none');
+      }
+    } catch (e) {
+      go(ALLOWED + '/#sso=none');
+    }
+  })();
+}
+</script>
+</body>
+</html>
+
