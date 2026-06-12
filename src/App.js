@@ -1932,7 +1932,7 @@ const ClearlineFlow = () => {
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     // Listen for auth state changes
-    const { data: { subscription } } = AuthService.onAuthStateChange(async (event, session) => {
+    const handleAuthEvent = async (event, session) => {
       // Ignore token refresh events to preserve app state during tab switching
       if (event === 'TOKEN_REFRESHED') {
         console.log('🔄 Token refreshed - preserving app state');
@@ -2071,6 +2071,15 @@ const ClearlineFlow = () => {
         setSelectedTodoAnalyst('');
         setSelectedEarningsAnalyst('');
       }
+    };
+
+    // Supabase can emit auth events while it still holds its internal auth
+    // lock (e.g. when restoring a session on page load). Any lock-acquiring
+    // auth call (mfa.*, getSession, updateUser, rpc) awaited inside the
+    // callback then deadlocks the whole client, so defer the handler to a
+    // macrotask and let the callback return immediately.
+    const { data: { subscription } } = AuthService.onAuthStateChange((event, session) => {
+      setTimeout(() => handleAuthEvent(event, session), 0);
     });
 
     // Cleanup subscription and event listener on unmount
