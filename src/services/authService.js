@@ -340,6 +340,63 @@ export const AuthService = {
     return supabase.auth.onAuthStateChange(callback)
   },
 
+  // ===== MFA (TOTP) =====
+
+  // Determine the user's MFA state for the current session.
+  // Returns 'verified' (AAL2 reached), 'needs_challenge' (has a verified
+  // factor but hasn't completed it this session), or 'needs_enrollment'
+  // (no verified TOTP factor on the account).
+  async getMFAStatus() {
+    const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+    if (error) throw error
+
+    if (data.currentLevel === 'aal2') return 'verified'
+    if (data.nextLevel === 'aal2') return 'needs_challenge'
+    return 'needs_enrollment'
+  },
+
+  // List the user's MFA factors
+  async listMFAFactors() {
+    const { data, error } = await supabase.auth.mfa.listFactors()
+    if (error) throw error
+    return data
+  },
+
+  // Start TOTP enrollment. Cleans up any abandoned unverified factors first,
+  // then returns { id, totp: { qr_code, secret, uri } } for the new factor.
+  async enrollMFA() {
+    const factors = await this.listMFAFactors()
+    const staleFactors = (factors.all || []).filter(
+      f => f.factor_type === 'totp' && f.status !== 'verified'
+    )
+    for (const factor of staleFactors) {
+      const { error } = await supabase.auth.mfa.unenroll({ factorId: factor.id })
+      if (error) console.warn('⚠️ Could not remove stale MFA factor:', error.message)
+    }
+
+    const { data, error } = await supabase.auth.mfa.enroll({
+      factorType: 'totp',
+      friendlyName: 'Authenticator App'
+    })
+    if (error) throw error
+    return data
+  },
+
+  // Create a challenge for a factor and verify the user's 6-digit code.
+  // On success the session is upgraded to AAL2.
+  async verifyMFACode(factorId, code) {
+    const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId })
+    if (challengeError) throw challengeError
+
+    const { data, error } = await supabase.auth.mfa.verify({
+      factorId,
+      challengeId: challenge.id,
+      code
+    })
+    if (error) throw error
+    return data
+  },
+
   // Check if an analyst code already exists in the database
   // Uses a database function that bypasses RLS so unauthenticated users can check during signup
   async checkAnalystCodeExists(analystCode) {
