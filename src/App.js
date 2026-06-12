@@ -4,6 +4,8 @@ import { DatabaseService } from './databaseService';
 import { AuthService } from './services/authService';
 import { twelveDataWS } from './services/twelveDataWebSocket';
 import LoginScreen from './components/LoginScreen';
+import MFASetup from './components/MFASetup';
+import MFAChallenge from './components/MFAChallenge';
 import { CRM } from './components/CRM';
 import SuperLLMTab from './components/SuperLLMTab';
 import jsPDF from 'jspdf';
@@ -1656,6 +1658,8 @@ const ClearlineFlow = () => {
   const [currentUser, setCurrentUser] = useState(null);
   const [userRole, setUserRole] = useState(''); // 'readwrite' or 'readonly'
   const [userDivision, setUserDivision] = useState(''); // 'Investment', 'Ops', 'Admin', 'Marketing', 'Engineering', 'Super'
+  // MFA gate: null = no pending MFA step, 'enroll' = user must set up TOTP, 'challenge' = user must enter TOTP code
+  const [mfaStep, setMfaStep] = useState(null);
   
   // Persistent state - these will restore from localStorage
   const [activeTab, _setActiveTab] = useState(() => getStoredValue('activeTab', 'input'));
@@ -1819,7 +1823,25 @@ const ClearlineFlow = () => {
         
         if (session && user) {
           console.log('✅ User already authenticated:', user);
-          
+
+          // Enforce MFA: block access until the session reaches AAL2
+          try {
+            const mfaStatus = await AuthService.getMFAStatus();
+            console.log('🔐 MFA status:', mfaStatus);
+            if (mfaStatus !== 'verified') {
+              setMfaStep(mfaStatus === 'needs_challenge' ? 'challenge' : 'enroll');
+              setIsAuthenticated(false);
+              return;
+            }
+            setMfaStep(null);
+          } catch (mfaError) {
+            console.error('❌ Error checking MFA status:', mfaError);
+            setAuthError('Failed to verify MFA status. Please sign in again.');
+            await AuthService.signOut();
+            setIsAuthenticated(false);
+            return;
+          }
+
           // Kick off non-blocking refresh of user data; proceed even if it hangs
           console.log('🔄 Refreshing user data from database (non-blocking)...');
           const refreshedUser = await Promise.race([
@@ -1934,7 +1956,25 @@ const ClearlineFlow = () => {
       if (event === 'SIGNED_IN' && session) {
         const user = session.user;
         console.log('✅ User signed in:', user);
-        
+
+        // Enforce MFA: a password-only sign-in is AAL1; hold the user at the
+        // MFA gate until they enroll or complete the TOTP challenge
+        try {
+          const mfaStatus = await AuthService.getMFAStatus();
+          console.log('🔐 MFA status:', mfaStatus);
+          if (mfaStatus !== 'verified') {
+            setMfaStep(mfaStatus === 'needs_challenge' ? 'challenge' : 'enroll');
+            setIsAuthenticated(false);
+            return;
+          }
+          setMfaStep(null);
+        } catch (mfaError) {
+          console.error('❌ Error checking MFA status:', mfaError);
+          setAuthError('Failed to verify MFA status. Please sign in again.');
+          await AuthService.signOut();
+          return;
+        }
+
         // Set refresh flag to prevent infinite loops
         isRefreshingRef.current = true;
         
@@ -2014,6 +2054,7 @@ const ClearlineFlow = () => {
         setUserRole('');
         setUserDivision('');
         setIsAuthenticated(false);
+        setMfaStep(null);
         setActiveTab('input');
         setAuthError('');
         // Reset initialization flag and clear localStorage
@@ -2386,7 +2427,23 @@ const ClearlineFlow = () => {
   // Handle successful authentication
   const handleAuthSuccess = async (user, session) => {
     console.log('🔑 Authentication successful:', user);
-    
+
+    // Enforce MFA: block access until the session reaches AAL2
+    try {
+      const mfaStatus = await AuthService.getMFAStatus();
+      console.log('🔐 MFA status:', mfaStatus);
+      if (mfaStatus !== 'verified') {
+        setMfaStep(mfaStatus === 'needs_challenge' ? 'challenge' : 'enroll');
+        return;
+      }
+      setMfaStep(null);
+    } catch (mfaError) {
+      console.error('❌ Error checking MFA status:', mfaError);
+      setAuthError('Failed to verify MFA status. Please sign in again.');
+      await AuthService.signOut();
+      return;
+    }
+
     // Refresh user data (non-blocking with timeout) to avoid auth flow stalls
     console.log('🔄 Refreshing user data from database (non-blocking)...');
     const refreshedUser = await Promise.race([
@@ -2444,6 +2501,31 @@ const ClearlineFlow = () => {
     
     // WebSocket handles real-time quote streaming after login
     // No need for batch quote fetch - WebSocket will connect and subscribe automatically
+  };
+
+  // Called after the user completes MFA enrollment or a TOTP challenge;
+  // the session is now AAL2, so run the normal post-auth flow
+  const handleMFASuccess = async () => {
+    console.log('🔐 MFA verified - completing sign-in');
+    setMfaStep(null);
+    const session = await AuthService.getCurrentSession();
+    const user = await AuthService.getCurrentUser();
+    if (user && session) {
+      await handleAuthSuccess(user, session);
+    } else {
+      setAuthError('Session expired. Please sign in again.');
+    }
+  };
+
+  // Called when the user abandons the MFA screen
+  const handleMFACancel = async () => {
+    console.log('🔐 MFA cancelled - signing out');
+    setMfaStep(null);
+    try {
+      await AuthService.signOut();
+    } catch (error) {
+      console.error('❌ Error signing out from MFA screen:', error);
+    }
   };
 
   // Handle logout
@@ -3798,9 +3880,16 @@ const ClearlineFlow = () => {
 
   // Show login screen if not authenticated
   if (!isAuthenticated) {
+    // MFA gate: user passed the password step but hasn't satisfied MFA yet
+    if (mfaStep === 'enroll') {
+      return <MFASetup onSuccess={handleMFASuccess} onCancel={handleMFACancel} />;
+    }
+    if (mfaStep === 'challenge') {
+      return <MFAChallenge onSuccess={handleMFASuccess} onCancel={handleMFACancel} />;
+    }
     return (
-      <LoginScreen 
-        onAuthSuccess={handleAuthSuccess} 
+      <LoginScreen
+        onAuthSuccess={handleAuthSuccess}
         authError={authError}
         isLoading={authLoading}
       />
