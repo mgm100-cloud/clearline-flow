@@ -44,6 +44,14 @@ GRANT anon, authenticated, service_role TO authenticator;
 GRANT USAGE ON SCHEMA public TO anon, authenticated;
 -- table/sequence grants are applied in 99_grants.sql AFTER the app schema loads.
 
+-- 1b) Supabase keeps extensions in a dedicated "extensions" schema, so dumped table defaults
+-- reference e.g. extensions.uuid_generate_v4(). Recreate it so the schema restore resolves.
+-- (uuid-ossp + pg_trgm must be allow-listed via the server's azure.extensions parameter.)
+CREATE SCHEMA IF NOT EXISTS extensions;
+GRANT USAGE ON SCHEMA extensions TO anon, authenticated, service_role;
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp" SCHEMA extensions;
+CREATE EXTENSION IF NOT EXISTS pg_trgm SCHEMA extensions;
+
 -- 2) auth schema + the helper functions the RLS policies call.
 CREATE SCHEMA IF NOT EXISTS auth;
 GRANT USAGE ON SCHEMA auth TO anon, authenticated;
