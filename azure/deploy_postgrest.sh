@@ -11,6 +11,7 @@
 #   bash azure/deploy_postgrest.sh
 set -uo pipefail
 : "${AZ_PW:?}"; : "${AUTH_PW:?}"; : "${JWT_SECRET:?}"
+case "$AZ_PW" in *"<"*|"") echo "AZ_PW is still a placeholder — set it to your REAL clflow-pg admin password"; exit 1;; esac
 case "$AUTH_PW" in *[!A-Za-z0-9-]*) echo "AUTH_PW must be letters/digits/dashes only (it goes in a URI)"; exit 1;; esac
 RG=cl-tool-rg; PLAN=clflow-plan; APP=clflow-pgrst
 export PGHOST=clflow-pg.postgres.database.azure.com PGPORT=5432 PGUSER=cladmin PGDATABASE=clflow PGSSLMODE=require PGPASSWORD="$AZ_PW"
@@ -19,8 +20,8 @@ echo "== 1) set the authenticator login password on clflow-pg =="
 psql -v ON_ERROR_STOP=1 -c "ALTER ROLE authenticator WITH LOGIN PASSWORD '${AUTH_PW}';"
 
 echo "== 2) App Service plan (Linux B1) + PostgREST container =="
-az appservice plan create -g "$RG" -n "$PLAN" --is-linux --sku B1 -o none 2>/dev/null || true
-az webapp create -g "$RG" -p "$PLAN" -n "$APP" --deployment-container-image-name postgrest/postgrest:latest -o none
+az appservice plan show -g "$RG" -n "$PLAN" -o none 2>/dev/null || az appservice plan create -g "$RG" -n "$PLAN" --is-linux --sku B1 -o none
+az webapp show  -g "$RG" -n "$APP"  -o none 2>/dev/null || az webapp create -g "$RG" -p "$PLAN" -n "$APP" --deployment-container-image-name postgrest/postgrest:latest -o none
 
 echo "== 3) configure PostgREST (env -> app settings) =="
 az webapp config appsettings set -g "$RG" -n "$APP" -o none --settings \
