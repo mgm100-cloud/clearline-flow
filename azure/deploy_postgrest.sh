@@ -13,7 +13,10 @@ set -uo pipefail
 : "${AZ_PW:?}"; : "${AUTH_PW:?}"; : "${JWT_SECRET:?}"
 case "$AZ_PW" in *"<"*|"") echo "AZ_PW is still a placeholder — set it to your REAL clflow-pg admin password"; exit 1;; esac
 case "$AUTH_PW" in *[!A-Za-z0-9-]*) echo "AUTH_PW must be letters/digits/dashes only (it goes in a URI)"; exit 1;; esac
-RG=cl-tool-rg; PLAN=clflow-plan; APP=clflow-pgrst
+RG=cl-tool-rg; APP=clflow-pgrst
+# Reuse the EXISTING Linux plan (hosts clprism-relay) by default — eastus2 is out of capacity
+# for new B1 plans. Override with PLAN=... if you want a dedicated one.
+PLAN="${PLAN:-rpawar_asp_0361}"
 export PGHOST=clflow-pg.postgres.database.azure.com PGPORT=5432 PGUSER=cladmin PGDATABASE=clflow PGSSLMODE=require PGPASSWORD="$AZ_PW"
 
 echo "== 1) set the authenticator login password on clflow-pg =="
