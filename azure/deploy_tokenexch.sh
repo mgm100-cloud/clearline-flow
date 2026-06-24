@@ -14,7 +14,7 @@ SECRET=$(az webapp config appsettings list -g "$RG" -n clflow-pgrst --query "[?n
 [ -z "$SECRET" ] && { echo "could not read PGRST_JWT_SECRET from clflow-pgrst — deploy PostgREST first"; exit 1; }
 
 echo "== create webapp (Node 20) =="
-az webapp show -g "$RG" -n "$APP" -o none 2>/dev/null || az webapp create -g "$RG" -p "$PLAN" -n "$APP" --runtime "NODE:20-lts" -o none
+az webapp show -g "$RG" -n "$APP" -o none 2>/dev/null || az webapp create -g "$RG" -p "$PLAN" -n "$APP" --runtime "NODE:22-lts" -o none
 
 echo "== app settings =="
 az webapp config appsettings set -g "$RG" -n "$APP" -o none --settings \
