@@ -37,29 +37,11 @@ psql "$AZ" -tAc "SELECT 'ALTER TABLE public.\"'||tablename||'\" DISABLE ROW LEVE
 azq -f /tmp/fk_drop.sql
 azq -f /tmp/rls_off.sql
 
-echo "==================== 4) data via service-role REST -> \copy ===================="
-TABLES=$(curl -s "$REST/" -H "apikey: $SR" -H "Authorization: Bearer $SR" | jq -r '.definitions | keys[]' 2>/dev/null | sort -u)
-[ -z "$TABLES" ] && { echo "could not list tables"; exit 1; }
-for t in $TABLES; do
-  printf "  %-30s " "$t"
-  off=0; total=0; first=1; : > /tmp/t.csv
-  while :; do
-    code=$(curl -s -w "%{http_code}" -o /tmp/page.csv "$REST/$t?select=*&limit=1000&offset=$off" \
-           -H "apikey: $SR" -H "Authorization: Bearer $SR" -H "Accept: text/csv")
-    [ "$code" != "200" ] && { total=-1; break; }
-    lines=$(wc -l < /tmp/page.csv); [ "$lines" -le 0 ] && break
-    if [ "$first" -eq 1 ]; then cat /tmp/page.csv > /tmp/t.csv; first=0; else tail -n +2 /tmp/page.csv >> /tmp/t.csv; fi
-    rows=$((lines-1)); total=$((total+rows)); off=$((off+1000)); [ "$rows" -lt 1000 ] && break
-  done
-  if [ "$total" -lt 0 ]; then echo "skip (view/not a table)"; continue; fi
-  if [ "$total" -eq 0 ]; then echo "0 rows"; continue; fi
-  hdr=$(head -1 /tmp/t.csv)
-  if psql "$AZ" -v ON_ERROR_STOP=1 -q -c "\copy public.\"$t\" ($hdr) FROM '/tmp/t.csv' WITH (FORMAT csv, HEADER true)" 2>/tmp/copyerr; then
-    echo "$total rows"
-  else
-    echo "ERROR loading $total rows: $(head -c 160 /tmp/copyerr)"
-  fi
-done
+echo "==================== 4) data via service-role REST (JSON -> json_populate_recordset) ===================="
+# JSON round-trip (not CSV): Postgres coerces each row to the table's real column types,
+# so long free-text / jsonb / array columns can't break parsing.
+python3 -c "import psycopg2" 2>/dev/null || pip install -q --user psycopg2-binary 2>/dev/null || pip3 install -q --user psycopg2-binary
+AZ_PW="$AZ_PW" SUPABASE_URL="$SUPABASE_URL" SUPABASE_SERVICE_ROLE_KEY="$SR" python3 "$HERE/load_data.py"
 
 echo "==================== 5) restore FKs + RLS, grants ===================="
 azq -f /tmp/fk_readd.sql

@@ -49,8 +49,10 @@ GRANT USAGE ON SCHEMA public TO anon, authenticated;
 -- (uuid-ossp + pg_trgm must be allow-listed via the server's azure.extensions parameter.)
 CREATE SCHEMA IF NOT EXISTS extensions;
 GRANT USAGE ON SCHEMA extensions TO anon, authenticated, service_role;
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp" SCHEMA extensions;
-CREATE EXTENSION IF NOT EXISTS pg_trgm SCHEMA extensions;
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp" SCHEMA extensions;   -- table defaults use extensions.uuid_generate_v4()
+-- pg_trgm must live in public: the dumped trigram indexes reference public.gin_trgm_ops.
+DROP EXTENSION IF EXISTS pg_trgm;
+CREATE EXTENSION pg_trgm SCHEMA public;
 
 -- 2) auth schema + the helper functions the RLS policies call.
 CREATE SCHEMA IF NOT EXISTS auth;
