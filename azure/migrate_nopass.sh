@@ -6,9 +6,9 @@
 #           RLS), then \copy'd into Azure PG. No direct Supabase DB connection.
 #
 # Run from the repo root in Azure Cloud Shell:
-#   export AZ_PW='ClearlineFlow-Az-2026x'
-#   export SUPABASE_URL='https://zdlpbpcezvpkfqbqmefw.supabase.co'
-#   export SUPABASE_SERVICE_ROLE_KEY='eyJ...'     # the service_role JWT
+#   export AZ_PW='<azure-pg-admin-password>'
+#   export SUPABASE_URL='https://<project-ref>.supabase.co'
+#   export SUPABASE_SERVICE_ROLE_KEY='<service-role-jwt>'
 #   bash azure/migrate_nopass.sh
 # ============================================================================
 set -uo pipefail

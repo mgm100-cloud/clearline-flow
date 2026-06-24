@@ -8,10 +8,10 @@
 #            then FKs + RLS restored.
 #
 # Env (run from repo root in Cloud Shell):
-#   export AZ_PW='ClearlineFlow-Az-2026x'
-#   export SUPA_URI='postgresql://cldump.zdlpbpcezvpkfqbqmefw:ClearlineDump2026x@aws-0-us-east-2.pooler.supabase.com:5432/postgres?sslmode=require'
-#   export SUPABASE_URL='https://zdlpbpcezvpkfqbqmefw.supabase.co'
-#   export SUPABASE_SERVICE_ROLE_KEY='eyJ...'
+#   export AZ_PW='<azure-pg-admin-password>'
+#   export SUPA_URI='postgresql://cldump.<project-ref>:<dump-role-password>@<pooler-host>:5432/postgres?sslmode=require'
+#   export SUPABASE_URL='https://<project-ref>.supabase.co'
+#   export SUPABASE_SERVICE_ROLE_KEY='<service-role-jwt>'
 #   bash azure/migrate_final.sh
 # ============================================================================
 set -uo pipefail
