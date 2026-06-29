@@ -4,12 +4,10 @@
 Run this RIGHT AFTER a data sync (azure/load_only.sh) to prove nothing was lost before
 flipping the domain. Compares row counts: Supabase (service-role REST) vs Azure Postgres.
 
-Env (same as load_only.sh):
-  SUPABASE_URL                e.g. https://<ref>.supabase.co
-  SUPABASE_SERVICE_ROLE_KEY   service-role JWT
-  PGHOST=clflow-pg.postgres.database.azure.com PGUSER=cladmin PGDATABASE=clflow
-  PGPASSWORD=<azure-pg-admin-pw> PGPORT=5432 PGSSLMODE=require
-    (or set PG_CONN to a full postgresql:// URI instead of the PG* vars)
+Env (same as load_only.sh): SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY for the source,
+and the standard libpq vars for the Azure target (host clflow-pg.postgres.database.azure.com,
+user cladmin, db clflow, port 5432, sslmode require, and the admin secret in the usual libpq
+password var). Alternatively point PG_CONN at a full connection URI instead of the PG* vars.
 
   python3 azure/verify_counts.py
 Exit code 0 = every table matches; 1 = at least one mismatch (printed).

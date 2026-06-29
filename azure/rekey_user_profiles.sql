@@ -9,8 +9,9 @@
 -- (printed by the verify SELECT at the bottom so you can spot anyone unmapped — e.g. a new hire:
 -- add them here with their Entra oid from `az ad user list`).
 --
---   PGHOST=clflow-pg.postgres.database.azure.com PGUSER=cladmin PGDATABASE=clflow \
---   PGPASSWORD='<azure-pg-admin-pw>' PGPORT=5432 PGSSLMODE=require \
+-- Run with psql against clflow-pg using the standard libpq env vars (host
+-- clflow-pg.postgres.database.azure.com, user cladmin, db clflow, port 5432, sslmode require,
+-- admin secret in the usual libpq password var):
 --   psql -v ON_ERROR_STOP=1 -f azure/rekey_user_profiles.sql
 
 BEGIN;
