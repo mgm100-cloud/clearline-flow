@@ -1,14 +1,14 @@
 {
   "name": "clearline-flow-ws-server",
   "version": "1.0.0",
-  "description": "WebSocket server for TwelveData and FMP price streaming with Supabase sync",
+  "description": "WebSocket server for TwelveData and FMP price streaming; syncs ticker list from clflow-pg (Azure Postgres)",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
     "dev": "node index.js"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.39.0",
+    "pg": "^8.13.1",
     "ws": "^8.18.0"
   },
   "engines": {

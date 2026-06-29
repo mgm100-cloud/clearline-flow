@@ -1,12 +1,12 @@
 // Backend WebSocket Server for TwelveData Price Streaming + FMP Polling
 // This server maintains a single connection to TwelveData and serves multiple clients
 // Also polls FMP for exchanges not supported by TwelveData WebSocket
-// Syncs ticker list from Supabase database periodically
+// Syncs ticker list from clflow-pg (Azure Postgres) periodically
 
 const WebSocket = require('ws');
 const http = require('http');
 const https = require('https');
-const { createClient } = require('@supabase/supabase-js');
+const { Pool } = require('pg');
 
 // Configuration
 const PORT = process.env.PORT || 3001;
@@ -15,18 +15,21 @@ const TWELVE_DATA_API_KEY = process.env.TWELVE_DATA_API_KEY;
 const FMP_API_KEY = process.env.FMP_API_KEY;
 const FMP_BASE_URL = 'https://financialmodelingprep.com/api/v3';
 
-// Supabase configuration
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+// Ticker-list source: Flow's Azure Postgres (clflow-pg), replacing Supabase.
+// FLOW_PG_CONN is a read-only postgresql:// URI (the prism_reader role works — it has SELECT on tickers).
+const FLOW_PG_CONN = process.env.FLOW_PG_CONN;
 const TICKER_SYNC_INTERVAL = 5 * 60 * 1000; // Sync tickers every 5 minutes
 
-// Initialize Supabase client
-let supabase = null;
-if (SUPABASE_URL && SUPABASE_SERVICE_KEY) {
-  supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-  console.log('✅ Supabase client initialized');
+// Initialize the Postgres pool (replaces the old Supabase ticker sync)
+let pgPool = null;
+if (FLOW_PG_CONN) {
+  pgPool = new Pool({
+    connectionString: FLOW_PG_CONN, max: 2, idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 15000, ssl: { rejectUnauthorized: false },
+  });
+  console.log('✅ Flow Postgres (clflow-pg) pool initialized');
 } else {
-  console.log('⚠️ Supabase not configured - will rely on client subscriptions');
+  console.log('⚠️ FLOW_PG_CONN not set - will rely on client subscriptions');
 }
 
 // Server state
@@ -167,7 +170,7 @@ const server = http.createServer((req, res) => {
       twelveDataSymbols: subscribedSymbols.size,
       fmpSymbols: fmpSymbols.size,
       fmpPollingActive: !!fmpPollingInterval,
-      supabaseConnected: !!supabase,
+      flowDbConnected: !!pgPool,
       serverManagedSymbols: serverManagedSymbols.size,
       tickerSyncActive: !!tickerSyncInterval,
       priceCacheSize: priceCache.size,
@@ -1073,31 +1076,24 @@ setInterval(seedPriceCache, 5 * 60 * 1000);
 
 // ==================== END FMP POLLING ====================
 
-// ==================== SUPABASE TICKER SYNC ====================
+// ==================== CLFLOW-PG TICKER SYNC ====================
 
 let tickerSyncInterval = null;
 let serverManagedSymbols = new Set(); // Symbols loaded from database
 
 // Fetch all tickers from Supabase and update subscriptions
 async function syncTickersFromDatabase() {
-  if (!supabase) {
+  if (!pgPool) {
     return;
   }
-  
+
   console.log('🔄 Syncing tickers from database...');
-  
+
   try {
-    // Fetch all tickers from the database
-    const { data: tickers, error } = await supabase
-      .from('tickers')
-      .select('ticker, status')
-      .not('ticker', 'is', null);
-    
-    if (error) {
-      console.error('❌ Error fetching tickers from Supabase:', error.message);
-      return;
-    }
-    
+    // Fetch all tickers from clflow-pg (Azure)
+    const { rows: tickers } = await pgPool.query(
+      "SELECT ticker, status FROM public.tickers WHERE ticker IS NOT NULL");
+
     if (!tickers || tickers.length === 0) {
       console.log('📋 No tickers found in database');
       return;
@@ -1214,8 +1210,8 @@ async function syncTickersFromDatabase() {
 
 // Start periodic ticker sync
 function startTickerSync() {
-  if (!supabase) {
-    console.log('⚠️ Supabase not configured, skipping ticker sync');
+  if (!pgPool) {
+    console.log('⚠️ FLOW_PG_CONN not configured, skipping ticker sync');
     return;
   }
   
@@ -1240,7 +1236,7 @@ function stopTickerSync() {
   }
 }
 
-// ==================== END SUPABASE TICKER SYNC ====================
+// ==================== END CLFLOW-PG TICKER SYNC ====================
 
 // ==================== INITIAL PRICE FETCH ====================
 
@@ -1755,10 +1751,10 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`📡 Health check available at http://0.0.0.0:${PORT}/health`);
   console.log(`🔑 TWELVE_DATA_API_KEY is ${TWELVE_DATA_API_KEY ? 'SET' : 'NOT SET'}`);
   console.log(`🔑 FMP_API_KEY is ${FMP_API_KEY ? 'SET' : 'NOT SET'}`);
-  console.log(`🔑 SUPABASE is ${supabase ? 'CONFIGURED' : 'NOT CONFIGURED'}`);
-  
-  // If Supabase is configured, start syncing tickers from database
-  if (supabase) {
+  console.log(`🔑 FLOW_PG_CONN is ${pgPool ? 'CONFIGURED' : 'NOT CONFIGURED'}`);
+
+  // If the Flow Postgres pool is configured, start syncing tickers from database
+  if (pgPool) {
     console.log('🔄 Starting database ticker sync...');
     startTickerSync();
     
