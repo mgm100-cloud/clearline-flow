@@ -1,0 +1,6 @@
+{
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": ["/api/*", "/static/*", "/*.{js,css,png,jpg,jpeg,gif,svg,ico,json,txt,woff,woff2,map}"]
+  }
+}

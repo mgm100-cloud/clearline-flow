@@ -10262,10 +10262,11 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                   recipients.push(currentUser.email);
                 }
                 
-                const response = await fetch('/api/send-email', {
+                const response = await fetch(`${process.env.REACT_APP_AZURE_FUNC_URL || ''}/api/send-email`, {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
+                    ...(await AuthService.apiAuthHeaders()),
                   },
                   body: JSON.stringify({
                     to: recipients,
@@ -11358,10 +11359,11 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, on
       const fromName = currentUser ? AuthService.getUserFullName(currentUser) : 'Clearline Flow App';
       const fromEmail = currentUser?.email || null;
 
-      const response = await fetch('/api/send-email', {
+      const response = await fetch(`${process.env.REACT_APP_AZURE_FUNC_URL || ''}/api/send-email`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(await AuthService.apiAuthHeaders()),
         },
         body: JSON.stringify({
           to: [analystInfo.email],
@@ -12269,10 +12271,11 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdateSelec
       const fromName = currentUser ? AuthService.getUserFullName(currentUser) : 'Clearline Flow App';
       const fromEmail = currentUser?.email || null;
 
-      const response = await fetch('/api/send-email', {
+      const response = await fetch(`${process.env.REACT_APP_AZURE_FUNC_URL || ''}/api/send-email`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(await AuthService.apiAuthHeaders()),
         },
         body: JSON.stringify({
           to: selectedRecipients,

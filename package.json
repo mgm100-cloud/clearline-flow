@@ -4,7 +4,9 @@
   "private": true,
   "proxy": "http://localhost:3001",
   "dependencies": {
+    "@azure/msal-browser": "^3.10.0",
     "@emailjs/browser": "^4.4.1",
+    "@supabase/postgrest-js": "^1.19.3",
     "@supabase/supabase-js": "^2.49.8",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.6.3",

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { AuthService } from '../services/authService';
 
 const MODE_OPTIONS = [
   {
@@ -168,10 +169,11 @@ export default function SuperLLMTab() {
     abortRef.current = controller;
 
     try {
-      const response = await fetch('/api/superllm-stream', {
+      const response = await fetch(`${process.env.REACT_APP_AZURE_FUNC_URL || ''}/api/superllm-stream`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          ...(await AuthService.apiAuthHeaders())
         },
         body: JSON.stringify({
           prompt: trimmedPrompt,

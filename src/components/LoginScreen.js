@@ -20,6 +20,9 @@ const LoginScreen = ({ onAuthSuccess, authError, isLoading }) => {
   const [analystCodeError, setAnalystCodeError] = useState('');
   const [isCheckingAnalystCode, setIsCheckingAnalystCode] = useState(false);
 
+  // Azure backend uses Microsoft (Entra) sign-in only — no email/password form.
+  const AZURE = (process.env.REACT_APP_BACKEND || '').toLowerCase() === 'azure';
+
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     setError('');
@@ -128,6 +131,26 @@ const LoginScreen = ({ onAuthSuccess, authError, isLoading }) => {
     }
 
     return true;
+  };
+
+  // Azure backend: launch the Microsoft (Entra) sign-in. signIn() ignores the args under
+  // the azure client and opens the MSAL flow.
+  const handleMicrosoftSignIn = async () => {
+    setIsSubmitting(true);
+    setError('');
+    try {
+      const { user, session } = await AuthService.signIn('', '');
+      if (user && session) {
+        await onAuthSuccess(user, session);
+      } else {
+        setError('Sign-in was cancelled. Please try again.');
+      }
+    } catch (err) {
+      console.error('Microsoft sign-in error:', err);
+      setError(err.message || 'Microsoft sign-in failed. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleSignIn = async (e) => {
@@ -248,6 +271,41 @@ const LoginScreen = ({ onAuthSuccess, authError, isLoading }) => {
     setMode(newMode);
     resetForm();
   };
+
+  if (AZURE) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+        <div className="sm:mx-auto sm:w-full sm:max-w-md">
+          <div className="flex justify-center">
+            <img src="/clearline-logo.jpg" alt="ClearLine Logo" className="h-12 w-auto" />
+          </div>
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">Clearline Flow</h2>
+          <p className="mt-2 text-center text-sm text-gray-600">Hedge Fund Workflow Management</p>
+        </div>
+        <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+          <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+            {(error || authError) && (
+              <div className="mb-4 rounded-md bg-red-50 p-4">
+                <div className="text-sm text-red-700">{error || authError}</div>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={handleMicrosoftSignIn}
+              disabled={isSubmitting || isLoading}
+              className={`w-full flex items-center justify-center gap-2 py-2.5 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium ${
+                isSubmitting || isLoading ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-gray-50'
+              } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
+            >
+              <svg width="18" height="18" viewBox="0 0 23 23" aria-hidden="true"><path fill="#f25022" d="M1 1h10v10H1z"/><path fill="#7fba00" d="M12 1h10v10H12z"/><path fill="#00a4ef" d="M1 12h10v10H1z"/><path fill="#ffb900" d="M12 12h10v10H12z"/></svg>
+              {isSubmitting ? 'Opening Microsoft sign-in…' : 'Sign in with Microsoft'}
+            </button>
+            <p className="mt-4 text-center text-xs text-gray-500">Use your Clearline Microsoft account.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">

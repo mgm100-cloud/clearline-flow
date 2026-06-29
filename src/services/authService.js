@@ -25,6 +25,20 @@ export const AuthService = {
     }
   },
 
+  // Build auth headers for our own /api functions. Azure backend -> Entra ID token;
+  // Supabase backend -> GoTrue token. The Azure SPA calls clflow-func directly (cross-origin),
+  // so we send the standard Authorization header (CORS-allowed by the functions).
+  async apiAuthHeaders() {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const t = session?.access_token
+      return t ? { Authorization: `Bearer ${t}` } : {}
+    } catch (error) {
+      console.warn('apiAuthHeaders: no session', error?.message)
+      return {}
+    }
+  },
+
   // Sign up new user
   async signUp(email, password, userData = {}) {
     try {
