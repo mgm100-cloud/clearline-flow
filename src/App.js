@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Plus, Database, Users, TrendingUp, BarChart3, LogOut, ChevronUp, ChevronDown, RefreshCw, Download, CheckSquare, User, Mail, FileText, Upload, Wifi, WifiOff, Briefcase, Bot, X, XCircle, Trash2, RotateCcw } from 'lucide-react';
+import { Plus, Database, Users, TrendingUp, BarChart3, LogOut, ChevronUp, ChevronDown, RefreshCw, Download, CheckSquare, User, Mail, FileText, Upload, Wifi, WifiOff, Briefcase, Bot, X, XCircle, Trash2, RotateCcw, ExternalLink } from 'lucide-react';
 import { DatabaseService } from './databaseService';
 import { AuthService } from './services/authService';
 import { twelveDataWS } from './services/twelveDataWebSocket';
 import LoginScreen from './components/LoginScreen';
 import MFASetup from './components/MFASetup';
 import MFAChallenge from './components/MFAChallenge';
-import { CRM } from './components/CRM';
 import SuperLLMTab from './components/SuperLLMTab';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -4209,27 +4208,25 @@ const ClearlineFlow = () => {
               SuperLLM
             </button>
             
-            {/* CRM tab for Marketing and Super divisions */}
+            {/* CRM moved to its own app (crm.clearlineflow.com) — link out instead of the in-app tab */}
             {(userDivision === 'Marketing' || userDivision === 'Super' || userDivision === 'Engineering') && (
-              <button
-                onClick={() => handleTabSwitch('crm')}
-                disabled={isTabSwitching}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'crm'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                } ${isTabSwitching ? 'cursor-not-allowed opacity-50' : ''}`}
+              <a
+                href="https://crm.clearlineflow.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700"
               >
                 <Briefcase className="inline h-4 w-4 mr-1" />
                 CRM
-              </button>
+                <ExternalLink className="inline h-3 w-3 ml-1" />
+              </a>
             )}
           </div>
         </div>
       </nav>
 
       {/* Main Content */}
-      <main className={`${(activeTab === 'database-detailed' || activeTab === 'crm') ? 'py-6' : 'max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8'}`}>
+      <main className={`${activeTab === 'database-detailed' ? 'py-6' : 'max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8'}`}>
         {activeTab === 'input' && (userDivision === 'Investment' || userDivision === 'Super' || userDivision === 'Engineering' || userDivision === '') && (userRole === 'readwrite' || userRole === 'admin') && (
           <InputPage 
             onAddTicker={addTicker} 
@@ -4426,9 +4423,6 @@ const ClearlineFlow = () => {
             onNavigateBack={navigateBack}
             onRefreshCompanyData={refreshSingleTickerData}
           />
-        )}
-        {activeTab === 'crm' && (userDivision === 'Marketing' || userDivision === 'Super' || userDivision === 'Engineering') && (
-          <CRM />
         )}
       </main>
     </div>
