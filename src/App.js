@@ -45,6 +45,21 @@ console.log('🏛️ AlphaVantage API Key Status:', {
   usingFallback: ALPHA_VANTAGE_API_KEY === 'YOUR_ALPHA_VANTAGE_API_KEY_HERE'
 });
 
+// When Prism is opened as a popup from the Clearline CRM (with ?crmPopup=1), PDF "downloads" are
+// redirected back to the CRM via postMessage so the user can attach them directly to an email.
+// The CRM passes its own origin as ?crmOrigin=... so postMessage can target it precisely.
+function savePdfOrSendToCrm(doc, fileName) {
+  const params = new URLSearchParams(window.location.search);
+  if (window.opener && params.has('crmPopup')) {
+    const content = doc.output('datauristring').split(',')[1] || doc.output('datauri').split(',')[1] || '';
+    const targetOrigin = params.get('crmOrigin') || '*';
+    window.opener.postMessage({ type: 'clearline-tearsheet', filename: fileName, content }, targetOrigin);
+    window.close();
+  } else {
+    doc.save(fileName);
+  }
+}
+
 // Helper function to calculate percentage change between price targets and current price
 const calculatePercentChange = (priceTarget, currentPrice) => {
   if (!priceTarget || !currentPrice || currentPrice === 0) return '';
@@ -7225,10 +7240,10 @@ const AnalystDetailPage = ({ tickers, analysts, selectedAnalyst, onSelectAnalyst
         }
       });
       
-      // Save the PDF
+      // Save the PDF (or send to CRM if opened as a popup)
       const fileName = `analyst-detail-${selectedAnalyst.replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.pdf`;
       console.log('Saving Analyst Detail PDF as:', fileName);
-      doc.save(fileName);
+      savePdfOrSendToCrm(doc, fileName);
       console.log('Analyst Detail PDF export completed successfully');
     } catch (error) {
       console.error('Error exporting Analyst Detail PDF:', error);
@@ -7759,7 +7774,7 @@ const TeamOutputPage = ({ tickers, analysts, onNavigateToIdeaDetail }) => {
      });
 
      const fileName = `team-output-matrix-${new Date().toISOString().split('T')[0]}.pdf`;
-     doc.save(fileName);
+     savePdfOrSendToCrm(doc, fileName);
      console.log('PDF export completed successfully');
    } catch (error) {
      console.error('Error exporting PDF:', error);
@@ -8549,7 +8564,7 @@ const EarningsTrackingPage = ({ tickers, selectedEarningsAnalyst, onSelectEarnin
       const analystSuffix = selectedEarningsAnalyst ? `-${selectedEarningsAnalyst.replace(/\s+/g, '-').toLowerCase()}` : '-all-analysts';
       const fileName = `earnings-tracking${analystSuffix}-${daysRange.min}to${daysRange.max}days-${new Date().toISOString().split('T')[0]}.pdf`;
       console.log('Saving Earnings Tracking PDF as:', fileName);
-      doc.save(fileName);
+      savePdfOrSendToCrm(doc, fileName);
       console.log('Earnings Tracking PDF export completed successfully');
     } catch (error) {
       console.error('Error exporting Earnings Tracking PDF:', error);
@@ -10407,7 +10422,7 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                 });
               }
               
-              doc.save(`todo-list-${selectedTodoAnalyst || 'all'}-${new Date().toISOString().split('T')[0]}.pdf`);
+              savePdfOrSendToCrm(doc, `todo-list-${selectedTodoAnalyst || 'all'}-${new Date().toISOString().split('T')[0]}.pdf`);
             }}
             className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md bg-white hover:bg-gray-50 min-w-[100px] justify-center transition-all duration-200 text-gray-700 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 hover:shadow-sm"
           >
@@ -14304,9 +14319,9 @@ const IdeaScreeningPage = ({ tickers, quotes, onNavigateToIdeaDetail }) => {
       });
     }
     
-    // Save the PDF
+    // Save the PDF (or send to CRM if opened as a popup)
     const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
-    doc.save(`idea-screening-${timestamp}.pdf`);
+    savePdfOrSendToCrm(doc, `idea-screening-${timestamp}.pdf`);
   };
 
   return (
