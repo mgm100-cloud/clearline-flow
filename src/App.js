@@ -8,6 +8,7 @@ import MFASetup from './components/MFASetup';
 import MFAChallenge from './components/MFAChallenge';
 import { CRM } from './components/CRM';
 import SuperLLMTab from './components/SuperLLMTab';
+import { flowAuthHeaders } from './flowAuthHeaders';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
@@ -10266,6 +10267,7 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
+                    ...(await flowAuthHeaders()),
                   },
                   body: JSON.stringify({
                     to: recipients,
@@ -11362,6 +11364,7 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, on
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(await flowAuthHeaders()),
         },
         body: JSON.stringify({
           to: [analystInfo.email],
@@ -12273,6 +12276,7 @@ const IdeaDetailPage = ({ tickers, selectedTicker, onSelectTicker, onUpdateSelec
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(await flowAuthHeaders()),
         },
         body: JSON.stringify({
           to: selectedRecipients,

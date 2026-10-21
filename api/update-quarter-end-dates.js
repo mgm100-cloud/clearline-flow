@@ -1,9 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
+import { requireCron, deny } from '../lib/flowAuth.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+  // Not scheduled here any more (vercel.json has no crons; the jobs run on Azure). Until 2026-10-21 anyone could
+  // trigger this job, with the Supabase service role, by opening the URL. Now only Vercel Cron's CRON_SECRET.
+  if (!requireCron(req)) return deny(res, 401, 'unauthorized');
 
   try {
     const supabaseUrl = process.env.SUPABASE_URL;

@@ -1,3 +1,4 @@
+import { requireUser, deny } from '../lib/flowAuth.js';
 const DEFAULT_MODE = 'deep';
 
 const MODE_PROFILES = {
@@ -486,10 +487,14 @@ function buildSynthesisPrompt(prompt, results) {
   return `in response to the prompt "${prompt}", we received these responses from 3 llm's. Here they are 1 ${openAIText} 2 ${anthropicText} 3 ${geminiText}. Please use these responses to create a single encompassing response that provides the most in depth and accurate answer. Do not remove any details from the 3 responses unless there is conflicting data and you know that something is wrong.`;
 }
 
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  // Signed-in Clearline staff only (2026-10-21): this spent the firm's OpenAI / Anthropic / Gemini keys for anyone.
+  if (!(await requireUser(req))) return deny(res, 401, 'sign in required');
 
   const body = normalizeBody(req.body);
   const prompt = typeof body.prompt === 'string' ? body.prompt.trim() : '';

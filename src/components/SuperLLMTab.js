@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { flowAuthHeaders } from '../flowAuthHeaders';
 
 const MODE_OPTIONS = [
   {
@@ -171,7 +172,8 @@ export default function SuperLLMTab() {
       const response = await fetch('/api/superllm-stream', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          ...(await flowAuthHeaders())
         },
         body: JSON.stringify({
           prompt: trimmedPrompt,

@@ -2,6 +2,9 @@
   "name": "clearline-flow",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "22.x"
+  },
   "proxy": "http://localhost:3001",
   "dependencies": {
     "@emailjs/browser": "^4.4.1",
