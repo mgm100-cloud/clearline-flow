@@ -3,17 +3,19 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import { corsHeaders, failure, requireStaff, searchTerm } from '../_shared/guard.ts'
 
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
+
+  // 2026-10-21: the gateway's verify_jwt lets in anyone holding the public anon key, and RLS alone
+  // leans on has_crm_access(), whose division a user can set on their own profile. Confirmed Clearline CRM
+  // staff only (_shared/guard.ts), before anything touches the database.
+  const auth = await requireStaff(req)
+  if (auth instanceof Response) return auth
 
   try {
     const supabaseClient = createClient(
@@ -27,7 +29,9 @@ serve(async (req) => {
     )
 
     const url = new URL(req.url)
-    const query = url.searchParams.get('q') || ''
+    // 2026-10-21: the query text is pasted into two PostgREST .or() filters; a comma or bracket in it would add
+    // filter terms of the caller's choosing, so those characters become '_' (any one character); length capped.
+    const query = searchTerm(url.searchParams.get('q') || '')
     const limit = parseInt(url.searchParams.get('limit') || '20')
 
     if (!query || query.length < 2) {
@@ -83,10 +87,8 @@ serve(async (req) => {
       status: 200,
     })
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 400,
-    })
+    // 2026-10-21: the database's own message (table, column, constraint names) stays in the function log.
+    return failure(error, 'crm-search')
   }
 })
 

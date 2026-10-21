@@ -3,10 +3,16 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
+import { corsHeaders, failure, json, publicError, requireStaff } from '../_shared/guard.ts'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+// 2026-10-21: Microsoft sends the sign-in code (the key to the person's mailbox) to redirect_uri, so only an
+// address on OUTLOOK_REDIRECT_URIS (comma separated, exact match) may be used. Unset = no address is allowed.
+function redirectAllowed(uri: unknown): boolean {
+  const allowed = (Deno.env.get('OUTLOOK_REDIRECT_URIS') ?? '')
+    .split(',')
+    .map((u) => u.trim())
+    .filter(Boolean)
+  return typeof uri === 'string' && uri !== '' && allowed.includes(uri)
 }
 
 serve(async (req) => {
@@ -14,6 +20,12 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
+
+  // 2026-10-21: every action - authorize and status included - is for Clearline CRM staff only
+  // (_shared/guard.ts). The old checks asked only "is anybody signed in", authorize asked nothing at all, and
+  // sign-up on the project has been open.
+  const auth = await requireStaff(req)
+  if (auth instanceof Response) return auth
 
   try {
     const supabaseClient = createClient(
@@ -29,6 +41,10 @@ serve(async (req) => {
     if (req.method === 'GET' && action === 'authorize') {
       const redirectUri = url.searchParams.get('redirect_uri') || ''
       const state = url.searchParams.get('state') || ''
+
+      if (!redirectAllowed(redirectUri)) {
+        return json(400, { error: 'redirect_uri not allowed' })
+      }
 
       const authUrl = new URL('https://login.microsoftonline.com/common/oauth2/v2.0/authorize')
       authUrl.searchParams.set('client_id', Deno.env.get('MICROSOFT_CLIENT_ID') ?? '')
@@ -50,23 +66,16 @@ serve(async (req) => {
     // POST /crm-outlook-oauth?action=callback
     // Exchanges code for tokens and saves mailbox
     if (req.method === 'POST' && action === 'callback') {
-      const authHeader = req.headers.get('Authorization')
-      if (!authHeader) {
-        throw new Error('No authorization header')
-      }
-
-      const token = authHeader.replace('Bearer ', '')
-      const {
-        data: { user },
-        error: userError,
-      } = await supabaseClient.auth.getUser(token)
-
-      if (userError || !user) {
-        throw new Error('Unauthorized')
-      }
+      // Current user: requireStaff above already checked the session with Supabase (2026-10-21).
+      const user = auth.user
 
       const body = await req.json()
       const { code, redirectUri } = body
+
+      // 2026-10-21: the same redirect allowlist as authorize.
+      if (!redirectAllowed(redirectUri)) {
+        return json(400, { error: 'redirect_uri not allowed' })
+      }
 
       // Exchange code for tokens
       const tokenResponse = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
@@ -84,8 +93,10 @@ serve(async (req) => {
       })
 
       if (!tokenResponse.ok) {
+        // 2026-10-21: Microsoft's reply goes to the log, not to the caller.
         const errorData = await tokenResponse.text()
-        throw new Error(`Failed to exchange code: ${errorData}`)
+        console.error('Code exchange failed:', tokenResponse.status, errorData)
+        throw publicError('Failed to exchange code')
       }
 
       const tokenData = await tokenResponse.json()
@@ -98,7 +109,7 @@ serve(async (req) => {
       })
 
       if (!profileResponse.ok) {
-        throw new Error('Failed to get user profile')
+        throw publicError('Failed to get user profile')
       }
 
       const profile = await profileResponse.json()
@@ -145,20 +156,8 @@ serve(async (req) => {
     // GET /crm-outlook-oauth?action=status
     // Returns current mailbox status
     if (req.method === 'GET' && action === 'status') {
-      const authHeader = req.headers.get('Authorization')
-      if (!authHeader) {
-        throw new Error('No authorization header')
-      }
-
-      const token = authHeader.replace('Bearer ', '')
-      const {
-        data: { user },
-        error: userError,
-      } = await supabaseClient.auth.getUser(token)
-
-      if (userError || !user) {
-        throw new Error('Unauthorized')
-      }
+      // Current user: requireStaff above already checked the session with Supabase (2026-10-21).
+      const user = auth.user
 
       const { data: mailboxes, error: mailboxError } = await supabaseClient
         .from('mailboxes')
@@ -178,11 +177,8 @@ serve(async (req) => {
       status: 400,
     })
   } catch (error) {
-    console.error('OAuth error:', error)
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 400,
-    })
+    // 2026-10-21: database / Microsoft text stays in the log; the caller gets our own message or 'Request failed'.
+    return failure(error, 'OAuth error')
   }
 })
 

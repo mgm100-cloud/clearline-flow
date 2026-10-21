@@ -4,17 +4,20 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import { corsHeaders, escapeHtml, failure, requireCronSecret } from '../_shared/guard.ts'
 
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
+
+  // 2026-10-21: this job reads the pipeline and emails the distribution list with the SERVICE ROLE,
+  // and checked nobody. The gateway's verify_jwt lets in anyone holding the public anon key, so it now answers
+  // only its scheduler: CRM_CRON_SECRET in x-cron-secret (or Authorization: Bearer where verify_jwt is off), or
+  // the `Authorization: Bearer <service role key>` the documented pg_cron job sends. Neither configured = nobody.
+  const denied = await requireCronSecret(req)
+  if (denied) return denied
 
   try {
     // Initialize Supabase client
@@ -194,8 +197,10 @@ serve(async (req) => {
     })
 
     if (!resendResponse.ok) {
+      // 2026-10-21: Resend's reply goes to the log, not to the caller.
       const errorText = await resendResponse.text()
-      throw new Error(`Resend API error: ${errorText}`)
+      console.error('Resend API error:', resendResponse.status, errorText)
+      throw new Error('Resend API error')
     }
 
     const resendData = await resendResponse.json()
@@ -226,17 +231,13 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error('Error generating weekly report:', error)
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
-      }
-    )
+    // 2026-10-21: database / Resend text stays in the log.
+    return failure(error, 'Error generating weekly report', 500)
   }
 })
 
+// 2026-10-21: account fields are typed by people (and imported from Salesforce); each one is HTML-escaped so a
+// firm name cannot add markup or links to the email that goes to the distribution list.
 function generateHTMLReport(accounts: any[], stats: any): string {
   const { weekStart, weekEnd, totalFirms, contactedCount, notContactedCount, contactRate } = stats
 
@@ -380,13 +381,13 @@ function generateHTMLReport(accounts: any[], stats: any): string {
         <tr class="${account.contactedThisWeek ? 'contacted' : 'not-contacted'}">
           <td>${account.contactedThisWeek ? '<span class="check-icon">✓</span>' : '<span class="warning-icon">!</span>'}</td>
           <td>
-            ${account.firm_name}
+            ${escapeHtml(account.firm_name)}
             ${account.focus_list ? ' <span class="badge badge-focus">Focus</span>' : ''}
             ${account.pm_meeting ? ' <span class="badge badge-pm">PM Meeting</span>' : ''}
           </td>
-          <td><span class="badge badge-${account.tier?.toLowerCase().replace(' ', '')}">${account.tier}</span></td>
-          <td>${account.category || 'N/A'}</td>
-          <td>${formatCurrency(account.aum)}</td>
+          <td><span class="badge badge-${escapeHtml(account.tier?.toLowerCase().replace(' ', ''))}">${escapeHtml(account.tier)}</span></td>
+          <td>${escapeHtml(account.category || 'N/A')}</td>
+          <td>${escapeHtml(formatCurrency(account.aum))}</td>
           <td>${account.contactedThisWeek ? `${account.interactionCount} this week` : 'None'}</td>
         </tr>
       `).join('')}

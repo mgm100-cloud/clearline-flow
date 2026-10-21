@@ -3,17 +3,40 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
+import { corsHeaders, failure, oneOf, requireStaff } from '../_shared/guard.ts'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+// 2026-10-21: sortBy goes into the PostgREST order= parameter as-is, so only a real column of the table may.
+const TASK_SORT_COLUMNS = [
+  'id',
+  'sf_ext_id',
+  'account_id',
+  'contact_id',
+  'subject',
+  'activity_date',
+  'description',
+  'extra_info',
+  'interaction_type',
+  'created_date',
+  'updated_date',
+  'created_at',
+  'updated_at',
+]
+
+// 2026-10-21: activity_date is pasted into a PostgREST .or() filter when a task is created; only a plain date
+// (or date-time) may go there, so a comma or bracket cannot add filter terms of the caller's choosing.
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d{1,6})?)?(?:Z|[+-]\d{2}:?\d{2})?)?$/
 
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
+
+  // 2026-10-21: the gateway's verify_jwt lets in anyone holding the public anon key, and RLS alone
+  // leans on has_crm_access(), whose division a user can set on their own profile. Confirmed Clearline CRM
+  // staff only (_shared/guard.ts), before anything touches the database.
+  const auth = await requireStaff(req)
+  if (auth instanceof Response) return auth
 
   try {
     const supabaseClient = createClient(
@@ -40,8 +63,9 @@ serve(async (req) => {
       const accountId = url.searchParams.get('accountId') || ''
       const contactId = url.searchParams.get('contactId') || ''
       const interactionType = url.searchParams.get('interactionType') || ''
-      const sortBy = url.searchParams.get('sortBy') || 'activity_date'
-      const sortOrder = url.searchParams.get('sortOrder') || 'desc'
+      // 2026-10-21: sort column and direction only from fixed lists (see the list at the top).
+      const sortBy = oneOf(url.searchParams.get('sortBy'), TASK_SORT_COLUMNS, 'activity_date')
+      const sortOrder = oneOf(url.searchParams.get('sortOrder'), ['asc', 'desc'], 'desc')
 
       let query = supabaseClient
         .from('tasks')
@@ -125,6 +149,8 @@ serve(async (req) => {
       if (
         body.account_id &&
         body.activity_date &&
+        typeof body.activity_date === 'string' &&
+        ISO_DATE.test(body.activity_date) &&
         body.interaction_type &&
         !['SentEmail', 'OutgoingCall'].includes(body.interaction_type)
       ) {
@@ -183,10 +209,8 @@ serve(async (req) => {
       status: 405,
     })
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 400,
-    })
+    // 2026-10-21: the database's own message (table, column, constraint names) stays in the function log.
+    return failure(error, 'crm-tasks')
   }
 })
 

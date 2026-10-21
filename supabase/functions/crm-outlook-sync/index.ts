@@ -3,17 +3,20 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import { corsHeaders, failure, requireCronSecret } from '../_shared/guard.ts'
 
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
+
+  // 2026-10-21: this job reads every connected mailbox with the SERVICE ROLE, and checked nobody.
+  // The gateway's verify_jwt lets in anyone holding the public anon key, so it now answers only its scheduler:
+  // CRM_CRON_SECRET in x-cron-secret (or Authorization: Bearer where verify_jwt is off), or the
+  // `Authorization: Bearer <service role key>` the documented pg_cron job sends. Neither configured = nobody.
+  const denied = await requireCronSecret(req)
+  if (denied) return denied
 
   try {
     const supabaseClient = createClient(
@@ -222,9 +225,10 @@ serve(async (req) => {
           .eq('id', mailbox.id)
       } catch (error) {
         console.error(`Error syncing mailbox ${mailbox.id}:`, error)
+        // 2026-10-21: the details are logged above; the reply says only which mailbox failed.
         results.push({
           mailboxId: mailbox.id,
-          error: error.message,
+          error: 'sync failed',
         })
       }
     }
@@ -240,11 +244,8 @@ serve(async (req) => {
       }
     )
   } catch (error) {
-    console.error('Sync error:', error)
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 400,
-    })
+    // 2026-10-21: database text stays in the log.
+    return failure(error, 'Sync error')
   }
 })
 

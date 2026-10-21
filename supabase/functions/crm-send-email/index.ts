@@ -3,11 +3,7 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import { corsHeaders, failure, publicError, requireStaff } from '../_shared/guard.ts'
 
 interface EmailRecipient {
   address: string
@@ -29,6 +25,11 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  // 2026-10-21: this sends mail from a connected Outlook mailbox. "Is anybody signed in" was the only
+  // check, and sign-up on the project has been open. Confirmed Clearline CRM staff only (_shared/guard.ts).
+  const auth = await requireStaff(req)
+  if (auth instanceof Response) return auth
+
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -47,21 +48,8 @@ serve(async (req) => {
       }
     )
 
-    // Get current user
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
-      throw new Error('No authorization header')
-    }
-
-    const token = authHeader.replace('Bearer ', '')
-    const {
-      data: { user },
-      error: userError,
-    } = await supabaseClient.auth.getUser(token)
-
-    if (userError || !user) {
-      throw new Error('Unauthorized')
-    }
+    // Current user: requireStaff above already checked the session with Supabase (2026-10-21).
+    const user = auth.user
 
     const body: SendEmailRequest = await req.json()
 
@@ -74,7 +62,7 @@ serve(async (req) => {
       .single()
 
     if (mailboxError || !mailbox) {
-      throw new Error('No active mailbox found. Please connect your Outlook account.')
+      throw publicError('No active mailbox found. Please connect your Outlook account.')
     }
 
     // Check if token is expired and refresh if needed
@@ -95,7 +83,7 @@ serve(async (req) => {
       })
 
       if (!refreshResponse.ok) {
-        throw new Error('Failed to refresh access token')
+        throw publicError('Failed to refresh access token')
       }
 
       const refreshData = await refreshResponse.json()
@@ -145,8 +133,10 @@ serve(async (req) => {
     })
 
     if (!createResponse.ok) {
+      // 2026-10-21: Microsoft's reply goes to the log, not to the caller.
       const errorData = await createResponse.text()
-      throw new Error(`Failed to create message: ${errorData}`)
+      console.error('Graph create message failed:', createResponse.status, errorData)
+      throw publicError('Failed to create message')
     }
 
     const createdMessage = await createResponse.json()
@@ -160,8 +150,10 @@ serve(async (req) => {
     })
 
     if (!sendResponse.ok) {
+      // 2026-10-21: Microsoft's reply goes to the log, not to the caller.
       const errorData = await sendResponse.text()
-      throw new Error(`Failed to send message: ${errorData}`)
+      console.error('Graph send message failed:', sendResponse.status, errorData)
+      throw publicError('Failed to send message')
     }
 
     // Save to email_outbound
@@ -218,11 +210,8 @@ serve(async (req) => {
       }
     )
   } catch (error) {
-    console.error('Error sending email:', error)
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 400,
-    })
+    // 2026-10-21: database / Microsoft text stays in the log; the caller gets our own message or 'Request failed'.
+    return failure(error, 'Error sending email')
   }
 })
 

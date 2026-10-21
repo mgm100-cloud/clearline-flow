@@ -3,10 +3,18 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
+import { corsHeaders, failure, publicError, requireStaff } from '../_shared/guard.ts'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+// 2026-10-21: one call may email at most this many people, so a slip (or a stolen session) cannot mail the
+// whole contact book at once. A distribution list is sent whole, so a list bigger than the cap is refused before
+// anything is written or sent. Real list sizes could not be checked from the repo: CRM_BULK_EMAIL_MAX_RECIPIENTS
+// moves the cap (a whole number, at most MAX_RECIPIENTS_CEILING) without a code change; unset or invalid = 500.
+const DEFAULT_MAX_RECIPIENTS = 500
+const MAX_RECIPIENTS_CEILING = 5000
+
+function maxRecipients(): number {
+  const n = Number((Deno.env.get('CRM_BULK_EMAIL_MAX_RECIPIENTS') ?? '').trim())
+  return Number.isInteger(n) && n > 0 ? Math.min(n, MAX_RECIPIENTS_CEILING) : DEFAULT_MAX_RECIPIENTS
 }
 
 interface SendBulkEmailRequest {
@@ -22,6 +30,11 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
+
+  // 2026-10-21: this sends mail through Resend as Clearline. "Is anybody signed in" was the only check,
+  // and sign-up on the project has been open. Confirmed Clearline CRM staff only (_shared/guard.ts).
+  const auth = await requireStaff(req)
+  if (auth instanceof Response) return auth
 
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
@@ -41,26 +54,18 @@ serve(async (req) => {
       }
     )
 
-    // Get current user
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
-      throw new Error('No authorization header')
-    }
-
-    const token = authHeader.replace('Bearer ', '')
-    const {
-      data: { user },
-      error: userError,
-    } = await supabaseClient.auth.getUser(token)
-
-    if (userError || !user) {
-      throw new Error('Unauthorized')
-    }
+    // Current user: requireStaff above already checked the session with Supabase (2026-10-21).
+    const user = auth.user
 
     const body: SendBulkEmailRequest = await req.json()
 
     // Get recipients
     let recipients: any[] = []
+    const MAX_RECIPIENTS = maxRecipients()
+
+    if (Array.isArray(body.recipientContactIds) && body.recipientContactIds.length > MAX_RECIPIENTS) {
+      throw publicError(`Too many recipients: ${body.recipientContactIds.length} (limit ${MAX_RECIPIENTS})`)
+    }
 
     if (body.distributionListId) {
       // Get contacts from distribution list
@@ -86,11 +91,15 @@ serve(async (req) => {
 
       recipients = contacts
     } else {
-      throw new Error('Must provide either distributionListId or recipientContactIds')
+      throw publicError('Must provide either distributionListId or recipientContactIds')
     }
 
     if (recipients.length === 0) {
-      throw new Error('No valid recipients found')
+      throw publicError('No valid recipients found')
+    }
+
+    if (recipients.length > MAX_RECIPIENTS) {
+      throw publicError(`Too many recipients: ${recipients.length} (limit ${MAX_RECIPIENTS})`)
     }
 
     // Create email_outbound record
@@ -161,10 +170,11 @@ serve(async (req) => {
         if (!response.ok) {
           const errorData = await response.text()
           console.error(`Failed to send to ${recipient.email}: ${errorData}`)
+          // 2026-10-21: Resend's reply is logged above; the caller sees only that this one failed.
           sendResults.push({
             email: recipient.email,
             success: false,
-            error: errorData,
+            error: 'send failed',
           })
         } else {
           const data = await response.json()
@@ -179,7 +189,7 @@ serve(async (req) => {
         sendResults.push({
           email: recipient.email,
           success: false,
-          error: error.message,
+          error: 'send failed',
         })
       }
     }
@@ -216,11 +226,8 @@ serve(async (req) => {
       }
     )
   } catch (error) {
-    console.error('Error sending bulk email:', error)
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 400,
-    })
+    // 2026-10-21: database / Resend text stays in the log; the caller gets our own message or 'Request failed'.
+    return failure(error, 'Error sending bulk email')
   }
 })
 
