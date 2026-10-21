@@ -44,16 +44,50 @@ async function getHandler() {
   return module.default;
 }
 
+// 2026-10-21: the page now gets its market data from GET /api/market (api/market.js adds the vendor keys on the
+// server, so they no longer ship in the page). `npm start` sends /api/* here, so answer it locally too - the same
+// handler, so the same sign-in check and allowlist, with the keys from .env / .env.local loaded above.
+async function getMarketHandler() {
+  const module = await import('./api/market.js');
+  return module.default;
+}
+
+// The Vercel response helpers api/market.js uses, on top of Node's plain response.
+function withVercelHelpers(res) {
+  res.status = (code) => { res.statusCode = code; return res; };
+  res.json = (obj) => {
+    if (!res.getHeader('Content-Type')) res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.end(JSON.stringify(obj));
+    return res;
+  };
+  res.send = (body) => { res.end(body); return res; };
+  return res;
+}
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
 
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
     res.end();
+    return;
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/market') {
+    try {
+      const marketHandler = await getMarketHandler();
+      await marketHandler(req, withVercelHelpers(res));
+    } catch (error) {
+      console.error('Local API server error (market):', error && error.name);
+      if (!res.headersSent) {
+        res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+      }
+      res.end(JSON.stringify({ error: 'Local API server failed' }));
+    }
     return;
   }
 

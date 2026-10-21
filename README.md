@@ -19,14 +19,15 @@ A hedge fund workflow management application built with React, featuring real-ti
 Create a `.env` file in the root directory with the following variables:
 
 ```env
-# Twelve Data API Configuration
-REACT_APP_TWELVE_DATA_API_KEY=your_twelve_data_api_key_here
-REACT_APP_FMP_API_KEY=your_fmp_api_key_here
-REACT_APP_ALPHA_VANTAGE_API_KEY=your_alpha_vantage_api_key_here
+# Market data API keys - SERVER ONLY (2026-10-21). api/market.js adds them to every vendor call; the page never
+# sees them. Never give them a REACT_APP_ name: Create React App copies REACT_APP_* values into the public
+# JavaScript. On Vercel, set these three as ordinary (server) environment variables.
+FMP_API_KEY=your_fmp_api_key_here
+TWELVE_DATA_API_KEY=your_twelve_data_api_key_here
+ALPHA_VANTAGE_API_KEY=your_alpha_vantage_api_key_here
 
-# WebSocket Server URL (for shared TwelveData connection)
-# Set this to your deployed WebSocket server URL (see server/README.md)
-# If not set, the app will connect directly to TwelveData (limited to 3 connections)
+# WebSocket relay URL (shared TwelveData connection, see server/README.md) - REQUIRED for live prices.
+# If not set, live price streaming is off; prices still load over HTTP through /api/market.
 REACT_APP_WS_SERVER_URL=wss://your-websocket-server.railway.app
 
 # Supabase Configuration
@@ -37,6 +38,11 @@ REACT_APP_SUPABASE_ANON_KEY=your_supabase_anon_key
 # Password for Read/Write Access (change this to a secure password)
 REACT_APP_READWRITE_PASSWORD=YourSecurePassword123!
 ```
+
+Market data comes through the `/api/market` function (2026-10-21). For local development run `npm run api:dev`
+next to `npm start`: it answers `/api/market` with the keys from `.env` / `.env.local` (you still sign in).
+`npm run build` (`scripts/build.js`) blanks the old `REACT_APP_*_API_KEY` names for the React build and fails
+if a market-data key value turns up in `build/`.
 
 ## Database Schema
 

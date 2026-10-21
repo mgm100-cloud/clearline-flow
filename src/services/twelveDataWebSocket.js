@@ -1,7 +1,8 @@
 // TwelveData WebSocket Service for real-time price streaming
-// Connects to backend WebSocket server (shared connection) or directly to TwelveData (local dev)
-
-const TWELVE_DATA_WS_URL = 'wss://ws.twelvedata.com/v1/quotes/price';
+// Connects to the backend WebSocket relay (server/, one shared TwelveData connection that holds the key itself).
+// 2026-10-21: the direct-to-TwelveData mode is gone. It needed the TwelveData API key in the page, and Create React App
+// put that key into the public JavaScript bundle. Without REACT_APP_WS_SERVER_URL there is no live streaming; prices
+// still load over HTTP through /api/market.
 
 // Check for backend WebSocket server URL (set this in production)
 const BACKEND_WS_URL = process.env.REACT_APP_WS_SERVER_URL;
@@ -35,7 +36,7 @@ class TwelveDataWebSocketService {
       console.log('🔌 TwelveData WebSocket service initialized (using backend server)');
       console.log('🌐 Backend server URL:', BACKEND_WS_URL);
     } else {
-      console.log('🔌 TwelveData WebSocket service initialized (direct connection)');
+      console.log('🔌 TwelveData WebSocket service initialized (no relay configured - live streaming off)');
     }
   }
 
@@ -130,17 +131,19 @@ class TwelveDataWebSocketService {
       return;
     }
 
-    // For backend server, we don't need API key
-    if (!this.useBackendServer && (!this.apiKey || this.apiKey === 'YOUR_API_KEY_HERE')) {
-      console.error('❌ TwelveData API key not configured for WebSocket');
+    // 2026-10-21: relay only. The page no longer has a TwelveData key to open a direct connection with (it used to be
+    // inlined into the public bundle), so without REACT_APP_WS_SERVER_URL we skip live streaming - warned once.
+    if (!this.useBackendServer) {
+      if (!this.warnedNoRelay) {
+        console.warn('⚠️ Live price streaming is off: REACT_APP_WS_SERVER_URL is not set, and the page no longer holds a TwelveData key. Prices still load over HTTP through /api/market.');
+        this.warnedNoRelay = true;
+      }
       return;
     }
 
     this.isConnecting = true;
     
-    const wsUrl = this.useBackendServer 
-      ? BACKEND_WS_URL 
-      : `${TWELVE_DATA_WS_URL}?apikey=${this.apiKey}`;
+    const wsUrl = BACKEND_WS_URL;
     
     console.log(`🔌 Connecting to ${this.useBackendServer ? 'backend' : 'TwelveData'} WebSocket...`);
 

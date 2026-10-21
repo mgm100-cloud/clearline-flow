@@ -9,43 +9,21 @@ import MFAChallenge from './components/MFAChallenge';
 import { CRM } from './components/CRM';
 import SuperLLMTab from './components/SuperLLMTab';
 import { flowAuthHeaders } from './flowAuthHeaders';
+import { marketUrl, marketFetchUrl } from './marketApi';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
-// TwelveData API configuration - using environment variable
-const TWELVE_DATA_API_KEY = process.env.REACT_APP_TWELVE_DATA_API_KEY || 'YOUR_API_KEY_HERE';
-const TWELVE_DATA_BASE_URL = 'https://api.twelvedata.com';
-
-// Financial Modeling Prep API configuration - for earnings data only
-const FMP_API_KEY = process.env.REACT_APP_FMP_API_KEY || 'YOUR_FMP_API_KEY_HERE';
-const FMP_BASE_URL = 'https://financialmodelingprep.com/api/v3';
-
-// AlphaVantage API configuration - for company overview data (CIK, fiscal year-end)
-const ALPHA_VANTAGE_API_KEY = process.env.REACT_APP_ALPHA_VANTAGE_API_KEY || 'YOUR_ALPHA_VANTAGE_API_KEY_HERE';
-const ALPHA_VANTAGE_BASE_URL = 'https://www.alphavantage.co/query';
-
-// Debug environment variables
-console.log('🔑 TwelveData API Key Status:', {
-  hasKey: !!process.env.REACT_APP_TWELVE_DATA_API_KEY,
-  keyLength: process.env.REACT_APP_TWELVE_DATA_API_KEY ? process.env.REACT_APP_TWELVE_DATA_API_KEY.length : 0,
-  firstChars: process.env.REACT_APP_TWELVE_DATA_API_KEY ? process.env.REACT_APP_TWELVE_DATA_API_KEY.substring(0, 8) + '...' : 'NOT_SET',
-  usingFallback: TWELVE_DATA_API_KEY === 'YOUR_API_KEY_HERE'
-});
-
-console.log('📊 FMP API Key Status:', {
-  hasKey: !!process.env.REACT_APP_FMP_API_KEY,
-  keyLength: process.env.REACT_APP_FMP_API_KEY ? process.env.REACT_APP_FMP_API_KEY.length : 0,
-  firstChars: process.env.REACT_APP_FMP_API_KEY ? process.env.REACT_APP_FMP_API_KEY.substring(0, 8) + '...' : 'NOT_SET',
-  usingFallback: FMP_API_KEY === 'YOUR_FMP_API_KEY_HERE'
-});
-
-console.log('🏛️ AlphaVantage API Key Status:', {
-  hasKey: !!process.env.REACT_APP_ALPHA_VANTAGE_API_KEY,
-  keyLength: process.env.REACT_APP_ALPHA_VANTAGE_API_KEY ? process.env.REACT_APP_ALPHA_VANTAGE_API_KEY.length : 0,
-  firstChars: process.env.REACT_APP_ALPHA_VANTAGE_API_KEY ? process.env.REACT_APP_ALPHA_VANTAGE_API_KEY.substring(0, 8) + '...' : 'NOT_SET',
-  usingFallback: ALPHA_VANTAGE_API_KEY === 'YOUR_ALPHA_VANTAGE_API_KEY_HERE'
-});
+// Market data vendors (TwelveData, Financial Modeling Prep, AlphaVantage) - 2026-10-21: the API keys no longer ship
+// in this page. Create React App copies every REACT_APP_* value into the public JavaScript bundle, so reading
+// REACT_APP_*_API_KEY here put the three paid keys in every visitor's browser (and a debug block printed their first
+// 8 characters to the console). Every vendor call now goes through our own /api/market function (api/market.js via
+// src/marketApi.js), which answers only a signed-in Clearline account and adds the key on the server.
+// These markers only keep the "key not configured" checks below working; the real keys live on the server, and a key
+// that is really missing there comes back as a 503 'market data not configured' reply.
+const TWELVE_DATA_API_KEY = 'server-side';
+const FMP_API_KEY = 'server-side';
+const ALPHA_VANTAGE_API_KEY = 'server-side';
 
 // Helper function to calculate percentage change between price targets and current price
 const calculatePercentChange = (priceTarget, currentPrice) => {
@@ -225,10 +203,10 @@ const QuoteService = {
 
     for (const fmpSymbol of formats) {
       try {
-        const url = `${FMP_BASE_URL}/quote/${fmpSymbol}?apikey=${FMP_API_KEY}`;
+        const url = marketUrl('fmp', `/api/v3/quote/${fmpSymbol}`, {});
         console.log(`🌍 Fetching FMP quote for ${fmpSymbol} (original: ${symbol})...`);
         
-        const response = await fetch(url);
+        const response = await marketFetchUrl(url);
         const data = await response.json();
         
         if (Array.isArray(data) && data.length > 0 && data[0].price) {
@@ -278,10 +256,10 @@ const QuoteService = {
 
     try {
       // Use GLOBAL_QUOTE for current market prices
-      const url = `${TWELVE_DATA_BASE_URL}/quote?symbol=${convertedSymbol}&apikey=${TWELVE_DATA_API_KEY}`;
+      const url = marketUrl('td', '/quote', { symbol: convertedSymbol });
       console.log(`Fetching current quote for ${convertedSymbol} (original: ${symbol}) from:`, url);
       
-      const response = await fetch(url);
+      const response = await marketFetchUrl(url);
       const data = await response.json();
       
       console.log(`TwelveData global quote response for ${convertedSymbol}:`, data);
@@ -335,10 +313,10 @@ const QuoteService = {
     const convertedSymbol = this.convertBloombergToTwelveData(symbol);
 
     try {
-      const url = `${TWELVE_DATA_BASE_URL}/price?symbol=${convertedSymbol}&apikey=${TWELVE_DATA_API_KEY}`;
+      const url = marketUrl('td', '/price', { symbol: convertedSymbol });
       console.log(`Fetching price-only for ${convertedSymbol} (original: ${symbol}) from:`, url);
       
-      const response = await fetch(url);
+      const response = await marketFetchUrl(url);
       const data = await response.json();
       
       console.log(`TwelveData price response for ${convertedSymbol}:`, data);
@@ -384,10 +362,10 @@ const QuoteService = {
     const convertedSymbol = this.convertBloombergToTwelveData(symbol);
 
     try {
-      const url = `${TWELVE_DATA_BASE_URL}/quote?symbol=${convertedSymbol}&apikey=${TWELVE_DATA_API_KEY}`;
+      const url = marketUrl('td', '/quote', { symbol: convertedSymbol });
       console.log(`Fetching daily quote for ${convertedSymbol} (original: ${symbol}) from:`, url);
       
-      const response = await fetch(url);
+      const response = await marketFetchUrl(url);
       const data = await response.json();
       
       // Check for API errors first
@@ -433,10 +411,10 @@ const QuoteService = {
     const convertedSymbol = this.convertBloombergToTwelveData(symbol);
 
     try {
-      const url = `${TWELVE_DATA_BASE_URL}/profile?symbol=${encodeURIComponent(convertedSymbol)}&apikey=${TWELVE_DATA_API_KEY}`;
+      const url = marketUrl('td', '/profile', { symbol: convertedSymbol });
       console.log(`Getting company overview for ${convertedSymbol} from:`, url);
       
-      const response = await fetch(url);
+      const response = await marketFetchUrl(url);
       const data = await response.json();
       
       console.log(`TwelveData company overview response for ${convertedSymbol}:`, data);
@@ -521,10 +499,10 @@ const QuoteService = {
     const cleanSymbol = symbol.replace(/ US$/, '').trim().toUpperCase();
 
     try {
-      const url = `https://financialmodelingprep.com/stable/market-capitalization?symbol=${cleanSymbol}&apikey=${FMP_API_KEY}`;
+      const url = marketUrl('fmp', '/stable/market-capitalization', { symbol: cleanSymbol });
       console.log(`Getting market cap for ${cleanSymbol} from:`, url);
       
-      const response = await fetch(url);
+      const response = await marketFetchUrl(url);
       const data = await response.json();
       
       console.log(`FMP market cap response for ${cleanSymbol}:`, data);
@@ -560,10 +538,10 @@ const QuoteService = {
     const convertedSymbol = this.convertBloombergToTwelveData(symbol);
 
           try {
-        const url = `${TWELVE_DATA_BASE_URL}/time_series?symbol=${encodeURIComponent(convertedSymbol)}&interval=1day&outputsize=${days}&apikey=${TWELVE_DATA_API_KEY}`;
+        const url = marketUrl('td', '/time_series', { symbol: convertedSymbol, interval: '1day', outputsize: days });
         console.log(`Getting daily volume data for ${convertedSymbol} from:`, url);
         
-        const response = await fetch(url);
+        const response = await marketFetchUrl(url);
         const data = await response.json();
         
         console.log(`TwelveData daily volume response for ${convertedSymbol}:`, data);
@@ -668,9 +646,9 @@ const QuoteService = {
     for (let i = 0; i < convertedList.length; i += chunkSize) {
       const chunk = convertedList.slice(i, i + chunkSize);
       try {
-        const url = `${TWELVE_DATA_BASE_URL}/time_series?symbol=${encodeURIComponent(chunk.join(','))}&interval=1day&outputsize=${days}&apikey=${TWELVE_DATA_API_KEY}`;
+        const url = marketUrl('td', '/time_series', { symbol: chunk.join(','), interval: '1day', outputsize: days });
         console.log('Fetching batch daily volume from:', url);
-        const resp = await fetch(url);
+        const resp = await marketFetchUrl(url);
         const data = await resp.json();
 
         if (data && (data.error || data.code || data.status === 'error')) {
@@ -758,10 +736,10 @@ const QuoteService = {
 
     try {
       // FMP earnings endpoint for specific symbol
-      const url = `https://financialmodelingprep.com/stable/earnings?symbol=${cleanSymbol}&apikey=${FMP_API_KEY}`;
+      const url = marketUrl('fmp', '/stable/earnings', { symbol: cleanSymbol });
                     console.log(`Fetching recent earnings data for ${cleanSymbol} (original: ${symbol}) from FMP (last 12 months + future):`, url);
       
-      const response = await fetch(url);
+      const response = await marketFetchUrl(url);
       const data = await response.json();
       
       console.log(`FMP earnings response for ${cleanSymbol}:`, JSON.stringify(data).substring(0, 500) + '...');
@@ -884,10 +862,10 @@ const QuoteService = {
     const convertedSymbol = this.convertBloombergToTwelveData(symbol);
 
     try {
-      const url = `${TWELVE_DATA_BASE_URL}/earnings?symbol=${convertedSymbol}&apikey=${TWELVE_DATA_API_KEY}`;
+      const url = marketUrl('td', '/earnings', { symbol: convertedSymbol });
       console.log(`Fetching earnings data for ${convertedSymbol} (original: ${symbol}) from Twelve Data fallback:`, url);
       
-      const response = await fetch(url);
+      const response = await marketFetchUrl(url);
       const data = await response.json();
       
       console.log(`Twelve Data earnings response for ${convertedSymbol}:`, JSON.stringify(data).substring(0, 500) + '...');
@@ -982,9 +960,9 @@ const QuoteService = {
     for (let i = 0; i < convertedList.length; i += chunkSize) {
       const chunk = convertedList.slice(i, i + chunkSize);
       try {
-        const url = `${TWELVE_DATA_BASE_URL}/quote?symbol=${encodeURIComponent(chunk.join(','))}&apikey=${TWELVE_DATA_API_KEY}`;
+        const url = marketUrl('td', '/quote', { symbol: chunk.join(',') });
         console.log('Fetching batch quotes from:', url);
-        const resp = await fetch(url);
+        const resp = await marketFetchUrl(url);
         const data = await resp.json();
         console.log('Batch quote payload:', data);
 
@@ -1112,10 +1090,10 @@ const QuoteService = {
     }
 
     try {
-      const url = `${TWELVE_DATA_BASE_URL}/symbol_search?symbol=${encodeURIComponent(keywords)}&apikey=${TWELVE_DATA_API_KEY}`;
+      const url = marketUrl('td', '/symbol_search', { symbol: keywords });
       console.log(`Searching symbols for "${keywords}" from:`, url);
       
-      const response = await fetch(url);
+      const response = await marketFetchUrl(url);
       const data = await response.json();
       
       console.log(`TwelveData symbol search response for "${keywords}":`, data);
@@ -1384,10 +1362,10 @@ const QuoteService = {
     }
 
     try {
-      const url = `${ALPHA_VANTAGE_BASE_URL}?function=OVERVIEW&symbol=${cleanSymbol}&apikey=${ALPHA_VANTAGE_API_KEY}`;
+      const url = marketUrl('av', '/query', { function: 'OVERVIEW', symbol: cleanSymbol });
       console.log(`Getting company overview for ${cleanSymbol} from AlphaVantage:`, url);
       
-      const response = await fetch(url);
+      const response = await marketFetchUrl(url);
       const data = await response.json();
       
       console.log(`AlphaVantage overview response for ${cleanSymbol}:`, data);
@@ -2309,7 +2287,8 @@ const ClearlineFlow = () => {
     };
     
     // Initialize WebSocket service
-    twelveDataWS.init(TWELVE_DATA_API_KEY, handlePriceUpdate, handleConnectionChange, handleSubscriptionStatus);
+    // 2026-10-21: no key in the page. Live prices stream only through the relay (REACT_APP_WS_SERVER_URL), which holds it.
+    twelveDataWS.init(null, handlePriceUpdate, handleConnectionChange, handleSubscriptionStatus);
     twelveDataWS.connect();
     wsInitializedRef.current = true;
     
