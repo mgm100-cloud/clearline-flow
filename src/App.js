@@ -10,6 +10,8 @@ import { CRM } from './components/CRM';
 import SuperLLMTab from './components/SuperLLMTab';
 import { flowAuthHeaders } from './flowAuthHeaders';
 import { marketUrl, marketFetchUrl } from './marketApi';
+import { supabase } from './supabaseClient';
+import { useTodoLiveSync, useBusyHold, createBusyCounter, trackSave, isTypingIn, isModalOpen } from './todoLiveSync';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
@@ -3233,7 +3235,10 @@ const ClearlineFlow = () => {
     }
   };
 
-  const refreshTodos = useCallback(async (overrideDivision) => {
+  // { background: true } is the Todo List's live update (src/todoLiveSync.js): it leaves the list on screen as it is
+  // until the new rows arrive, then drops them (returns false) if the user switched division meanwhile or canApply()
+  // says no - the user saved, opened an edit or started a drag while they loaded, so they may be out of date.
+  const refreshTodos = useCallback(async (overrideDivision, { background = false, canApply } = {}) => {
     try {
       // Determine which division todos to fetch based on user division and active tab
       // overrideDivision allows callers to pass the target division directly,
@@ -3260,15 +3265,18 @@ const ClearlineFlow = () => {
       // fresh fetch below will overwrite once it arrives. If there's no
       // cache yet (first time on this division), clear stale state so
       // the user sees an empty list with a loading indicator instead of
-      // the previous division's data.
-      const cachedTodos = todosByDivisionRef.current[divisionToFetch];
-      const cachedDeleted = deletedTodosByDivisionRef.current[divisionToFetch];
-      if (cachedTodos) {
-        setTodos(cachedTodos);
-        setDeletedTodos(cachedDeleted || []);
-      } else {
-        setTodos([]);
-        setDeletedTodos([]);
+      // the previous division's data. A background reload skips this, so
+      // the list never blanks (which would also throw away the scroll position).
+      if (!background) {
+        const cachedTodos = todosByDivisionRef.current[divisionToFetch];
+        const cachedDeleted = deletedTodosByDivisionRef.current[divisionToFetch];
+        if (cachedTodos) {
+          setTodos(cachedTodos);
+          setDeletedTodos(cachedDeleted || []);
+        } else {
+          setTodos([]);
+          setDeletedTodos([]);
+        }
       }
 
       // Run the two queries in parallel.
@@ -3277,6 +3285,8 @@ const ClearlineFlow = () => {
         DatabaseService.getDeletedTodos(divisionToFetch),
       ]);
 
+      // Checked when the rows arrive, not when the reload started: old rows must reach neither the screen nor the cache.
+      if (background && (visibleTodoDivisionRef.current !== divisionToFetch || (canApply && !canApply()))) return false;
       todosByDivisionRef.current[divisionToFetch] = todosData;
       deletedTodosByDivisionRef.current[divisionToFetch] = deletedTodosData;
       setTodos(todosData);
@@ -3523,7 +3533,13 @@ const ClearlineFlow = () => {
     }
   };
 
-  // Global auto-refresh every 15 minutes - refreshes all data regardless of active tab
+  // The tab on screen, for the 15-minute refresh below (its timer is not restarted when the tab changes).
+  const activeTabRef = useRef(activeTab);
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
+
+  // Global auto-refresh every 15 minutes - refreshes all data regardless of active tab (todos excepted, see below)
   useEffect(() => {
     if (!isAuthenticated) return;
     
@@ -3546,33 +3562,36 @@ const ClearlineFlow = () => {
           console.warn('⚠️ Could not auto-refresh earnings data:', earningsError);
         }
         
-        // Refresh todos
-        try {
-          // Determine which division todos to fetch based on user division
-          let divisionToFetch;
-          if (userDivision === 'Super') {
-            divisionToFetch = activeTodoDivision;
-          } else if (activeTodoDivision === 'Engineering' || userDivision === 'Engineering') {
-            // All divisions can view Engineering todos
-            divisionToFetch = 'Engineering';
-          } else if (userDivision === 'Ops') {
-            divisionToFetch = 'Ops';
-          } else if (userDivision === 'Marketing') {
-            divisionToFetch = 'Marketing';
-          } else {
-            divisionToFetch = 'Investment';
+        // Refresh todos - but not while the Todo List tab is open. That tab reloads its own list within 5 s of any
+        // change and never in the middle of an edit (src/todoLiveSync.js); this reload would overwrite the edit.
+        if (activeTabRef.current !== 'todos') {
+          try {
+            // Determine which division todos to fetch based on user division
+            let divisionToFetch;
+            if (userDivision === 'Super') {
+              divisionToFetch = activeTodoDivision;
+            } else if (activeTodoDivision === 'Engineering' || userDivision === 'Engineering') {
+              // All divisions can view Engineering todos
+              divisionToFetch = 'Engineering';
+            } else if (userDivision === 'Ops') {
+              divisionToFetch = 'Ops';
+            } else if (userDivision === 'Marketing') {
+              divisionToFetch = 'Marketing';
+            } else {
+              divisionToFetch = 'Investment';
+            }
+
+            const [todosData, deletedTodosData] = await Promise.all([
+              DatabaseService.getTodos(divisionToFetch),
+              DatabaseService.getDeletedTodos(divisionToFetch),
+            ]);
+            todosByDivisionRef.current[divisionToFetch] = todosData;
+            deletedTodosByDivisionRef.current[divisionToFetch] = deletedTodosData;
+            setTodos(todosData);
+            setDeletedTodos(deletedTodosData);
+          } catch (todosError) {
+            console.warn('⚠️ Could not auto-refresh todos:', todosError);
           }
-          
-          const [todosData, deletedTodosData] = await Promise.all([
-            DatabaseService.getTodos(divisionToFetch),
-            DatabaseService.getDeletedTodos(divisionToFetch),
-          ]);
-          todosByDivisionRef.current[divisionToFetch] = todosData;
-          deletedTodosByDivisionRef.current[divisionToFetch] = deletedTodosData;
-          setTodos(todosData);
-          setDeletedTodos(deletedTodosData);
-        } catch (todosError) {
-          console.warn('⚠️ Could not auto-refresh todos:', todosError);
         }
         
         // Refresh analysts
@@ -9421,7 +9440,19 @@ This email and any files transmitted with it may contain privileged or confident
 };
 
 // Todo List Page Component
-const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectTodoAnalyst, onAddTodo, onUpdateTodo, onDeleteTodo, onRestoreTodo, onPermanentlyDeleteTodo, onAddTask, onUpdateTask, onDeleteTask, onReorderTasks, analysts, userRole, onRefreshTodos, currentUser, tickers, onNavigateToIdeaDetail, onNavigateToInputWithData, userDivision, activeTodoDivision, onSetActiveTodoDivision }) => {
+const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectTodoAnalyst, onAddTodo: saveNewTodo, onUpdateTodo: saveTodo, onDeleteTodo: saveDeleteTodo, onRestoreTodo: saveRestoreTodo, onPermanentlyDeleteTodo, onAddTask: saveNewTask, onUpdateTask: saveTask, onDeleteTask: saveDeleteTask, onReorderTasks: saveTaskOrder, analysts, userRole, onRefreshTodos, currentUser, tickers, onNavigateToIdeaDetail, onNavigateToInputWithData, userDivision, activeTodoDivision, onSetActiveTodoDivision }) => {
+  // Live updates (src/todoLiveSync.js) wait while this tally is above zero: an inline edit open in a row, a drag, or
+  // a save on its way. Every save handler below goes through trackSave for that reason.
+  const [liveBusy] = useState(createBusyCounter);
+  const onAddTodo = trackSave(liveBusy, saveNewTodo);
+  const onUpdateTodo = trackSave(liveBusy, saveTodo);
+  const onDeleteTodo = trackSave(liveBusy, saveDeleteTodo);
+  const onRestoreTodo = trackSave(liveBusy, saveRestoreTodo);
+  const onAddTask = trackSave(liveBusy, saveNewTask);
+  const onUpdateTask = trackSave(liveBusy, saveTask);
+  const onDeleteTask = trackSave(liveBusy, saveDeleteTask);
+  const onReorderTasks = trackSave(liveBusy, saveTaskOrder);
+  const pageRef = useRef(null);
   const [sortField, setSortField] = useState('dateEntered');
   const [sortDirection, setSortDirection] = useState('desc');
   const [closedSortField, setClosedSortField] = useState('dateClosed');
@@ -9561,15 +9592,8 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
     }
   }, [onRefreshTodos]);
 
-  // Auto-refresh every 90 seconds while the user is on the Todo tab.
-  // When the user navigates to another tab the component unmounts and
-  // the interval is cleaned up, so it never runs in the background.
-  useEffect(() => {
-    const interval = setInterval(() => {
-      onRefreshTodos().catch(err => console.error('Todo auto-refresh failed:', err));
-    }, 90 * 1000);
-    return () => clearInterval(interval);
-  }, [onRefreshTodos]);
+  // The old blind 90-second reload now lives inside the live update below (useTodoLiveSync): it still reloads
+  // every 90 s as a safety net, but never while the user is editing or dragging.
 
   // Track whether division change was handled explicitly by the click handler
   const divisionChangeHandledRef = useRef(false);
@@ -9657,6 +9681,21 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
   // Drag and drop state
   const [draggedTodoId, setDraggedTodoId] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
+
+  // Live updates: while this tab is open, check every 5 s whether anyone changed this division's todos (here or in
+  // Prism) and reload only then - never while the user is typing, editing, dragging, saving or has a pop-up open.
+  // A reload already loading when the user saves, opens an edit or starts a drag is thrown away when it arrives
+  // (canApply says no), and the next check loads again.
+  // Leaving the tab unmounts this page, which stops the checks; so do hiding the browser tab and signing out.
+  useBusyHold(liveBusy, draggedTodoId !== null); // a todo drag counts as "busy" from its first moment
+  useTodoLiveSync({
+    enabled: !!currentUser,
+    division: effectiveDivision,
+    client: supabase,
+    refresh: (division, canApply) => onRefreshTodos(division, { background: true, canApply }),
+    generation: liveBusy.generation,
+    isBusy: () => liveBusy.isBusy() || isRefreshing || isTypingIn(pageRef.current) || isModalOpen(),
+  });
 
   // Sort function - when analyst is selected, use sortOrder for custom ranking
   const sortTodos = (todosToSort) => {
@@ -9791,6 +9830,8 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
       sortOrder: index + 1
     }));
 
+    // The drag ends (dragend) before this save finishes, so hold the live update until it has.
+    const releaseLiveSync = liveBusy.hold();
     try {
       // Save to database
       await DatabaseService.updateTodoSortOrders(todoUpdates);
@@ -9802,6 +9843,8 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
     } catch (error) {
       console.error('Error reordering todos:', error);
       alert('Failed to save todo order');
+    } finally {
+      releaseLiveSync();
     }
 
     setDraggedTodoId(null);
@@ -9839,7 +9882,7 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
     </th>
   );
   return (
-    <div className="space-y-6">
+    <div ref={pageRef} className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Todo List</h1>
@@ -10410,6 +10453,7 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
           value={selectedTodoAnalyst}
           onChange={(e) => onSelectTodoAnalyst(e.target.value)}
           className="border border-gray-300 rounded-md px-3 py-2 text-sm"
+          data-live-sync-ignore // focus stays here after a pick; that must not pause live updates
         >
           <option value="">All</option>
           {effectiveDivision === 'Engineering' && (
@@ -10786,6 +10830,7 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                     currentUser={currentUser}
                     activeTodoDivision={activeTodoDivision}
                     filteredAnalysts={filteredAnalysts}
+                    liveBusy={liveBusy}
                     isDraggable={!!selectedTodoAnalyst}
                     isDragging={draggedTodoId === todo.id}
                     onDragStart={(e) => handleDragStart(e, todo.id)}
@@ -10901,6 +10946,7 @@ const TodoListPage = ({ todos, deletedTodos = [], selectedTodoAnalyst, onSelectT
                     currentUser={currentUser}
                     activeTodoDivision={activeTodoDivision}
                     filteredAnalysts={filteredAnalysts}
+                    liveBusy={liveBusy}
                   />
                 ))}
               </tbody>
@@ -11006,7 +11052,7 @@ const TRAFFIC_LIGHT_CLASSES = {
 };
 
 // Todo Row Component with double-click editing
-const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, onDeleteTask, onReorderTasks, calculateDaysSinceEntered, formatDate, userRole, hasWriteAccess, isClosed = false, tickers, onNavigateToIdeaDetail, onNavigateToInputWithData, analystEmails = [], currentUser, activeTodoDivision, filteredAnalysts = [], isDraggable = false, isDragging = false, onDragStart, onDragOver, onDrop, onDragEnd }) => {
+const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, onDeleteTask, onReorderTasks, calculateDaysSinceEntered, formatDate, userRole, hasWriteAccess, isClosed = false, tickers, onNavigateToIdeaDetail, onNavigateToInputWithData, analystEmails = [], currentUser, activeTodoDivision, filteredAnalysts = [], isDraggable = false, isDragging = false, onDragStart, onDragOver, onDrop, onDragEnd, liveBusy = null }) => {
   // Inline edit state for todo-level fields (ticker, priority)
   const [editingField, setEditingField] = useState(null);
   const [editValue, setEditValue] = useState('');
@@ -11019,6 +11065,15 @@ const TodoRow = ({ todo, onUpdateTodo, onDeleteTodo, onAddTask, onUpdateTask, on
   const [isEmailSending, setIsEmailSending] = useState(false);
   // Task being dragged for reordering within this todo
   const [draggedTaskId, setDraggedTaskId] = useState(null);
+  // Live updates wait while an edit box is open here, a task is being dragged, or the "+ Add task" box holds typed
+  // text: a reload can move or remove this row (closed, deleted or reassigned elsewhere), and the box and what was
+  // typed in it would be lost. An empty "+ Add task" box left open holds nothing. (A typed draft left open does pause
+  // live updates until it is added or cancelled.)
+  useBusyHold(
+    liveBusy,
+    editingField !== null || editingTask !== null || draggedTaskId !== null ||
+      (isAddingTask && newTaskInput.trim() !== '')
+  );
 
   const tasks = todo.tasks || [];
   // Open/closed tables have 7 columns total: ticker, who, entered, days, priority, item, status.
@@ -14598,4 +14653,6 @@ const IdeaScreeningPage = ({ tickers, quotes, onNavigateToIdeaDetail }) => {
 };
 
 export default ClearlineFlow;
+// Named export only so src/todoLiveSync.page.test.js can render the real Todo List page.
+export { TodoListPage };
 
